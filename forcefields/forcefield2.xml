@@ -1,0 +1,379 @@
+<Forcefield>
+    <AtomTypes>
+        <Type name="MAT-ZN1" class="Zn"   element="Zn" mass="65.38"/>
+        <Type name="MAT-ZN2" class="Zn"   element="Zn" mass="65.38"/>
+        <Type name="MAT-ZN3" class="Zn"   element="Zn" mass="65.38"/>
+        <Type name="MAT-ZN4" class="Zn"   element="Zn" mass="65.38"/>
+        <Type name="MAT-SE1" class="Se"   element="Se" mass="78.96"/>
+        <Type name="MAT-SE2" class="Se"   element="Se" mass="78.96"/>
+        <Type name="MAT-SE3" class="Se"   element="Se" mass="78.96"/>
+        <Type name="MAT-SE4" class="Se"   element="Se" mass="78.96"/>
+        <Type name="ETH-C1"  class="lig"  element="C"  mass="12.01078"/>
+        <Type name="ETH-C2"  class="lig"  element="C"  mass="12.01078"/>
+        <Type name="ETH-N"   class="lig"  element="N"  mass="14.00672"/>
+        <Type name="ETH-HC11" class="lig"  element="H"  mass="1.007947"/>
+        <Type name="ETH-HC12" class="lig"  element="H"  mass="1.007947"/>
+        <Type name="ETH-HC21" class="lig"  element="H"  mass="1.007947"/>
+        <Type name="ETH-HC22" class="lig"  element="H"  mass="1.007947"/>
+        <Type name="ETH-HC23" class="lig"  element="H"  mass="1.007947"/>
+        <Type name="ETH-HN1"  class="lig"  element="H"  mass="1.007947"/>
+        <Type name="ETH-HN2" class="lig"  element="H"  mass="1.007947"/>
+        <Type name="OTHER-H"  class="other"   element="H"  mass="1.007947"/>
+        <Type name="OTHER-O"  class="other"   element="O"  mass="1.007947"/>
+        <Type name="OTHER-Zn" class="other"   element="Zn" mass="15.999"/>
+    </AtomTypes>
+    <!---->
+    <NonbondedForce coulomb14scale="0.833333" lj14scale="0.5">
+    <!---->
+        <Atom type="MAT-ZN1"  charge="+0.5000" sigma="0.278" epsilon="0.389"/>
+        <Atom type="MAT-ZN2"  charge="+0.5000" sigma="0.278" epsilon="0.389"/>
+        <Atom type="MAT-ZN3"  charge="+0.5000" sigma="0.278" epsilon="0.389"/>
+        <Atom type="MAT-ZN4"  charge="+0.5000" sigma="0.278" epsilon="0.389"/>
+        <Atom type="MAT-SE1"  charge="-0.7500" sigma="0.380" epsilon="0.913"/>
+        <Atom type="MAT-SE2"  charge="-0.7500" sigma="0.380" epsilon="0.913"/>
+        <Atom type="MAT-SE3"  charge="-0.7500" sigma="0.380" epsilon="0.913"/>
+        <Atom type="MAT-SE4"  charge="-0.7500" sigma="0.380" epsilon="0.913"/>
+        <Atom type="ETH-C1"   charge="-0.2000" sigma="0.340" epsilon="0.288"/>
+        <Atom type="ETH-C2"   charge="-0.5500" sigma="0.340" epsilon="0.288"/>
+        <Atom type="ETH-N"    charge="-0.8000" sigma="0.308" epsilon="0.711"/>
+        <Atom type="ETH-HC11" charge="+0.2000" sigma="0.120" epsilon="0.0656"/>
+        <Atom type="ETH-HC12" charge="+0.2000" sigma="0.120" epsilon="0.0656"/>
+        <Atom type="ETH-HC21" charge="+0.2000" sigma="0.120" epsilon="0.0656"/>
+        <Atom type="ETH-HC22" charge="+0.2000" sigma="0.120" epsilon="0.0656"/>
+        <Atom type="ETH-HC23" charge="+0.2000" sigma="0.120" epsilon="0.0656"/>
+        <Atom type="ETH-HN1"  charge="+0.4000" sigma="0.120" epsilon="0.0656"/>
+        <Atom type="ETH-HN2"  charge="+0.4000" sigma="0.120" epsilon="0.0656"/>
+        <Atom type="OTHER-O"  charge="+0.0000" sigma="0.304" epsilon="0.0656"/>
+        <Atom type="OTHER-H"  charge="+0.0000" sigma="0.120" epsilon="0.0656"/>
+        <Atom type="OTHER-Zn" charge="+0.0000" sigma="0.278" epsilon="0.0656"/>
+    
+    <!--
+        <Atom type="MAT-ZN1"  charge="+0.5000" sigma="0.278" epsilon="0."/>
+        <Atom type="MAT-ZN2"  charge="+0.5000" sigma="0.278" epsilon="0."/>
+        <Atom type="MAT-ZN3"  charge="+0.5000" sigma="0.278" epsilon="0."/>
+        <Atom type="MAT-ZN4"  charge="+0.5000" sigma="0.278" epsilon="0."/>
+        <Atom type="MAT-SE1"  charge="-0.7500" sigma="0.380" epsilon="0."/>
+        <Atom type="MAT-SE2"  charge="-0.7500" sigma="0.380" epsilon="0."/>
+        <Atom type="MAT-SE3"  charge="-0.7500" sigma="0.380" epsilon="0."/>
+        <Atom type="MAT-SE4"  charge="-0.7500" sigma="0.380" epsilon="0."/>
+        <Atom type="ETH-C1"   charge="-0.2000" sigma="0.340" epsilon="0."/>
+        <Atom type="ETH-C2"   charge="-0.5500" sigma="0.340" epsilon="0."/>
+        <Atom type="ETH-N"    charge="-0.8000" sigma="0.308" epsilon="0."/>
+        <Atom type="ETH-HC11" charge="+0.2000" sigma="0.220" epsilon="0."/>
+        <Atom type="ETH-HC12" charge="+0.2000" sigma="0.220" epsilon="0."/>
+        <Atom type="ETH-HC21" charge="+0.2000" sigma="0.220" epsilon="0."/>
+        <Atom type="ETH-HC22" charge="+0.2000" sigma="0.220" epsilon="0."/>
+        <Atom type="ETH-HC23" charge="+0.2000" sigma="0.220" epsilon="0."/>
+        <Atom type="ETH-HN1"  charge="+0.4000" sigma="0.220" epsilon="0."/>
+        <Atom type="ETH-HN2"  charge="+0.4000" sigma="0.220" epsilon="0."/>
+    -->    
+    </NonbondedForce>
+    
+    <Residues>
+        <Residue name="MAT">
+            <Atom name="ZN1" type="MAT-ZN1" charge="+0.50"/>
+            <Atom name="ZN2" type="MAT-ZN2" charge="+0.50"/>
+            <Atom name="ZN3" type="MAT-ZN3" charge="+0.50"/>
+            <Atom name="ZN4" type="MAT-ZN4" charge="+0.50"/>
+            <Atom name="SE1" type="MAT-SE1" charge="-0.75"/>
+            <Atom name="SE2" type="MAT-SE2" charge="-0.75"/>
+            <Atom name="SE3" type="MAT-SE3" charge="-0.75"/>
+            <Atom name="SE4" type="MAT-SE4" charge="-0.75"/>
+            <Bond atomName1="SE1" atomName2="ZN1"/>
+            <Bond atomName1="SE1" atomName2="ZN2"/>
+            <Bond atomName1="SE2" atomName2="ZN1"/>
+            <Bond atomName1="SE2" atomName2="ZN3"/>
+            <Bond atomName1="SE3" atomName2="ZN3"/>
+            <Bond atomName1="SE4" atomName2="ZN3"/>
+            <Bond atomName1="SE4" atomName2="ZN2"/>
+            <Bond atomName1="SE4" atomName2="ZN4"/>
+            <ExternalBond atomName="SE1"/>
+            <ExternalBond atomName="ZN1"/>
+            <ExternalBond atomName="ZN2"/>
+        </Residue>
+        <Residue name="MAA">
+            <Atom name="ZN1" type="MAT-ZN1" charge="+0.50"/>
+            <Atom name="ZN2" type="MAT-ZN2" charge="+0.50"/>
+            <Atom name="ZN3" type="MAT-ZN3" charge="+0.50"/>
+            <Atom name="ZN4" type="MAT-ZN4" charge="+0.50"/>
+            <Atom name="SE1" type="MAT-SE1" charge="-0.75"/>
+            <Atom name="SE2" type="MAT-SE2" charge="-0.75"/>
+            <Atom name="SE3" type="MAT-SE3" charge="-0.75"/>
+            <Atom name="SE4" type="MAT-SE4" charge="-0.75"/>
+            <Bond atomName1="SE1" atomName2="ZN1"/>
+            <Bond atomName1="SE1" atomName2="ZN2"/>
+            <Bond atomName1="SE2" atomName2="ZN1"/>
+            <Bond atomName1="SE2" atomName2="ZN3"/>
+            <Bond atomName1="SE3" atomName2="ZN3"/>
+            <Bond atomName1="SE4" atomName2="ZN3"/>
+            <Bond atomName1="SE4" atomName2="ZN2"/>
+            <Bond atomName1="SE4" atomName2="ZN4"/>
+            <ExternalBond atomName="SE2"/>
+            <ExternalBond atomName="SE3"/>
+            <ExternalBond atomName="ZN4"/>
+            <ExternalBond atomName="ZN4"/>
+        </Residue>
+        <Residue name="ETH">
+            <Atom name="C1"   type="ETH-C1"/>
+            <Atom name="C2"   type="ETH-C2"/>
+            <Atom name="N"    type="ETH-N"/>
+            <Atom name="HC11" type="ETH-HC11"/>
+            <Atom name="HC12" type="ETH-HC12"/>
+            <Atom name="HC21" type="ETH-HC21"/>
+            <Atom name="HC22" type="ETH-HC22"/>
+            <Atom name="HC23" type="ETH-HC23"/>
+            <Atom name="HN1"  type="ETH-HN1" />
+            <Atom name="HN2"  type="ETH-HN2" />
+            <Bond atomName1="C2" atomName2="HC21"/>
+            <Bond atomName1="C2" atomName2="HC22"/>
+            <Bond atomName1="C2" atomName2="HC23"/>
+            <Bond atomName1="C2" atomName2="C1"/>
+            <Bond atomName1="C1" atomName2="HC11"/>
+            <Bond atomName1="C1" atomName2="HC12"/>
+            <Bond atomName1="C1" atomName2="N"/>
+            <Bond atomName1="N"  atomName2="HN1"/>
+            <Bond atomName1="N"  atomName2="HN2"/>
+            <ExternalBond atomName="N"/>
+        </Residue>
+    </Residues>
+    <HarmonicBondForce>
+        <Bond k="100000.00" length="0.11105" type1="ETH-N"    type2="ETH-HN1" />
+        <Bond k="100000.00" length="0.11099" type1="ETH-N"    type2="ETH-HN2" />
+        <Bond k="100000.00" length="0.11394" type1="ETH-C1"   type2="ETH-HC11"/>
+        <Bond k="100000.00" length="0.11397" type1="ETH-C1"   type2="ETH-HC12"/>
+        <Bond k="100000.00" length="0.10898" type1="ETH-C2"   type2="ETH-HC21"/>
+        <Bond k="100000.00" length="0.11395" type1="ETH-C2"   type2="ETH-HC22"/>
+        <Bond k="100000.00" length="0.11397" type1="ETH-C2"   type2="ETH-HC23"/>
+        <Bond k="100000.00" length="0.15782" type1="ETH-C1"   type2="ETH-N"   />
+        <Bond k="100000.00" length="0.15915" type1="ETH-C1"   type2="ETH-C2"  />
+        <Bond k="100000.00" length="0.23832" type1="MAT-SE1"  type2="MAT-ZN1" />
+        <Bond k="100000.00" length="0.24251" type1="MAT-SE1"  type2="MAT-ZN2" />
+        <Bond k="100000.00" length="0.24247" type1="MAT-SE2"  type2="MAT-ZN1" />
+        <Bond k="100000.00" length="0.24633" type1="MAT-SE2"  type2="MAT-ZN3" />
+        <Bond k="100000.00" length="0.24255" type1="MAT-SE3"  type2="MAT-ZN3" />
+        <Bond k="100000.00" length="0.24642" type1="MAT-SE3"  type2="MAT-ZN1" />
+        <Bond k="100000.00" length="0.24642" type1="MAT-SE4"  type2="MAT-ZN2" />
+        <Bond k="100000.00" length="0.23832" type1="MAT-SE4"  type2="MAT-ZN3" />
+        <Bond k="100000.00" length="0.24247" type1="MAT-SE4"  type2="MAT-ZN4" />
+        <Bond k="100000.00" length="0.23833" type1="MAT-SE2"  type2="MAT-ZN2" />
+        <Bond k="100000.00" length="0.23832" type1="MAT-SE3"  type2="MAT-ZN4" />
+        <Bond k="100000.00" length="0.24642" type1="MAT-SE1"  type2="MAT-ZN4" />
+        <Bond k="100000.00" length="0.21585" type1="MAT-ZN1"  type2="ETH-N"   />
+        <Bond k="100000.00" length="0.21576" type1="MAT-ZN2"  type2="ETH-N"   />
+        <Bond k="100000.00" length="0.21580" type1="MAT-ZN3"  type2="ETH-N"   />
+        <Bond k="100000.00" length="0.21585" type1="MAT-ZN4"  type2="ETH-N"   />
+
+
+    </HarmonicBondForce>
+    <HarmonicAngleForce>
+
+        <Angle k="1000.00" angle=" 1.93920" type1="MAT-SE1"  type2="MAT-ZN1"   type3="MAT-SE2" />
+        <Angle k="1000.00" angle=" 2.47819" type1="MAT-SE1"  type2="MAT-ZN1"   type3="ETH-N"   />
+        <Angle k="1000.00" angle=" 1.83715" type1="MAT-SE1"  type2="MAT-ZN2"   type3="MAT-SE4" />
+        <Angle k="1000.00" angle=" 1.60272" type1="MAT-SE1"  type2="MAT-ZN2"   type3="ETH-N"   />
+        <Angle k="1000.00" angle=" 1.93891" type1="MAT-SE1"  type2="MAT-ZN2"   type3="MAT-SE2" />
+        <Angle k="1000.00" angle=" 1.60253" type1="MAT-SE2"  type2="MAT-ZN1"   type3="ETH-N"   />
+        <Angle k="1000.00" angle=" 1.83743" type1="MAT-SE2"  type2="MAT-ZN3"   type3="MAT-SE3" />
+        <Angle k="1000.00" angle=" 1.87376" type1="MAT-SE2"  type2="MAT-ZN3"   type3="MAT-SE4" />
+        <Angle k="1000.00" angle=" 1.64784" type1="MAT-SE2"  type2="MAT-ZN3"   type3="ETH-N"   />
+        <Angle k="1000.00" angle=" 1.93868" type1="MAT-SE3"  type2="MAT-ZN3"   type3="MAT-SE4" />
+        <Angle k="1000.00" angle=" 1.60236" type1="MAT-SE3"  type2="MAT-ZN3"   type3="ETH-N"   />
+        <Angle k="1000.00" angle=" 1.87364" type1="MAT-SE3"  type2="MAT-ZN1"   type3="MAT-SE1" />
+        <Angle k="1000.00" angle=" 1.83795" type1="MAT-SE3"  type2="MAT-ZN1"   type3="MAT-SE2" />
+        <Angle k="1000.00" angle=" 1.64773" type1="MAT-SE3"  type2="MAT-ZN1"   type3="ETH-N"   />
+        <Angle k="1000.00" angle=" 1.64753" type1="MAT-SE4"  type2="MAT-ZN2"   type3="ETH-N"   />
+        <Angle k="1000.00" angle=" 1.87321" type1="MAT-SE4"  type2="MAT-ZN2"   type3="MAT-SE2" />
+        <Angle k="1000.00" angle=" 2.47886" type1="MAT-SE4"  type2="MAT-ZN3"   type3="ETH-N"   />
+        <Angle k="1000.00" angle=" 1.60253" type1="MAT-SE4"  type2="MAT-ZN4"   type3="ETH-N"   />
+        <Angle k="1000.00" angle=" 1.93920" type1="MAT-SE4"  type2="MAT-ZN4"   type3="MAT-SE3" />
+        <Angle k="1000.00" angle=" 1.83795" type1="MAT-SE4"  type2="MAT-ZN4"   type3="MAT-SE1" />
+        <Angle k="1000.00" angle=" 1.91948" type1="MAT-ZN1"  type2="MAT-SE1"   type3="MAT-ZN2" />
+        <Angle k="1000.00" angle=" 1.86222" type1="MAT-ZN1"  type2="MAT-SE2"   type3="MAT-ZN3" />
+        <Angle k="1000.00" angle=" 2.16390" type1="MAT-ZN1"  type2="ETH-N"     type3="ETH-C1"  />
+        <Angle k="1000.00" angle=" 2.40990" type1="MAT-ZN1"  type2="ETH-N"     type3="ETH-HN1" />
+        <Angle k="1000.00" angle=" 1.24243" type1="MAT-ZN1"  type2="ETH-N"     type3="ETH-HN2" />
+        <Angle k="1000.00" angle=" 1.97351" type1="MAT-ZN2"  type2="MAT-SE4"   type3="MAT-ZN3" />
+        <Angle k="1000.00" angle=" 1.86228" type1="MAT-ZN2"  type2="MAT-SE4"   type3="MAT-ZN4" />
+        <Angle k="1000.00" angle=" 2.16347" type1="MAT-ZN2"  type2="ETH-N"     type3="ETH-C1"  />
+        <Angle k="1000.00" angle=" 2.41024" type1="MAT-ZN2"  type2="ETH-N"     type3="ETH-HN1" />
+        <Angle k="1000.00" angle=" 1.24281" type1="MAT-ZN2"  type2="ETH-N"     type3="ETH-HN2" />
+        <Angle k="1000.00" angle=" 1.91969" type1="MAT-ZN2"  type2="MAT-SE2"   type3="MAT-ZN1" />
+        <Angle k="1000.00" angle=" 1.97407" type1="MAT-ZN2"  type2="MAT-SE2"   type3="MAT-ZN3" />
+        <Angle k="1000.00" angle=" 1.86183" type1="MAT-ZN3"  type2="MAT-SE3"   type3="MAT-ZN1" />
+        <Angle k="1000.00" angle=" 1.91989" type1="MAT-ZN3"  type2="MAT-SE4"   type3="MAT-ZN4" />
+        <Angle k="1000.00" angle=" 2.16355" type1="MAT-ZN3"  type2="ETH-N"     type3="ETH-C1"  />
+        <Angle k="1000.00" angle=" 2.41029" type1="MAT-ZN3"  type2="ETH-N"     type3="ETH-HN1" />
+        <Angle k="1000.00" angle=" 1.24266" type1="MAT-ZN3"  type2="ETH-N"     type3="ETH-HN2" />
+        <Angle k="1000.00" angle=" 2.16390" type1="MAT-ZN4"  type2="ETH-N"     type3="ETH-C1"  />
+        <Angle k="1000.00" angle=" 2.40990" type1="MAT-ZN4"  type2="ETH-N"     type3="ETH-HN1" />
+        <Angle k="1000.00" angle=" 1.24243" type1="MAT-ZN4"  type2="ETH-N"     type3="ETH-HN2" />
+        <Angle k="1000.00" angle=" 1.91940" type1="MAT-ZN4"  type2="MAT-SE3"   type3="MAT-ZN3" />
+        <Angle k="1000.00" angle=" 1.97353" type1="MAT-ZN4"  type2="MAT-SE3"   type3="MAT-ZN1" />
+        <Angle k="1000.00" angle=" 1.97353" type1="MAT-ZN4"  type2="MAT-SE1"   type3="MAT-ZN1" />
+        <Angle k="1000.00" angle=" 1.86148" type1="MAT-ZN4"  type2="MAT-SE1"   type3="MAT-ZN2" />
+        <Angle k="1000.00" angle=" 2.11582" type1="ETH-N"    type2="ETH-C1"    type3="ETH-C2"  />
+        <Angle k="1000.00" angle=" 1.87355" type1="ETH-N"    type2="ETH-C1"    type3="ETH-HC11"/>
+        <Angle k="1000.00" angle=" 1.90995" type1="ETH-N"    type2="ETH-C1"    type3="ETH-HC12"/>
+        <Angle k="1000.00" angle=" 1.68458" type1="ETH-C1"   type2="ETH-N"     type3="ETH-HN1" />
+        <Angle k="1000.00" angle=" 1.91085" type1="ETH-C1"   type2="ETH-N"     type3="ETH-HN2" />
+        <Angle k="1000.00" angle=" 1.91511" type1="ETH-C1"   type2="ETH-C2"    type3="ETH-HC21"/>
+        <Angle k="1000.00" angle=" 1.89845" type1="ETH-C1"   type2="ETH-C2"    type3="ETH-HC22"/>
+        <Angle k="1000.00" angle=" 1.91016" type1="ETH-C1"   type2="ETH-C2"    type3="ETH-HC23"/>
+        <Angle k="1000.00" angle=" 1.87459" type1="ETH-C2"   type2="ETH-C1"    type3="ETH-HC11"/>
+        <Angle k="1000.00" angle=" 1.80376" type1="ETH-C2"   type2="ETH-C1"    type3="ETH-HC12"/>
+        <Angle k="1000.00" angle=" 1.87390" type1="ETH-HC11" type2="ETH-C1"    type3="ETH-HC12"/>
+        <Angle k="1000.00" angle=" 1.92552" type1="ETH-HC21" type2="ETH-C2"    type3="ETH-HC22"/>
+        <Angle k="1000.00" angle=" 1.91461" type1="ETH-HC21" type2="ETH-C2"    type3="ETH-HC23"/>
+        <Angle k="1000.00" angle=" 1.89978" type1="ETH-HC22" type2="ETH-C2"    type3="ETH-HC23"/>
+        <Angle k="1000.00" angle=" 1.50990" type1="ETH-HN1"  type2="ETH-N"     type3="ETH-HN2" />
+        <Angle k="1000.00" angle=" 2.47925" type1="ETH-N"    type2="MAT-ZN2"   type3="MAT-SE2" />
+        <Angle k="1000.00" angle=" 2.47819" type1="ETH-N"    type2="MAT-ZN4"   type3="MAT-SE3" />
+        <Angle k="1000.00" angle=" 1.64773" type1="ETH-N"    type2="MAT-ZN4"   type3="MAT-SE1" />
+        <Angle k="1000.00" angle=" 1.87364" type1="MAT-SE3"  type2="MAT-ZN4"   type3="MAT-SE1" />
+
+
+
+
+    </HarmonicAngleForce>
+    <PeriodicTorsionForce>
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.24546" type1="MAT-SE1"  type2="MAT-ZN1"   type3="MAT-SE2"   type4="MAT-ZN3" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.36978" type1="MAT-SE1"  type2="MAT-ZN1"   type3="ETH-N"     type4="ETH-C1"  />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.52734" type1="MAT-SE1"  type2="MAT-ZN1"   type3="ETH-N"     type4="ETH-HN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.60243" type1="MAT-SE1"  type2="MAT-ZN1"   type3="ETH-N"     type4="ETH-HN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.21865" type1="MAT-SE1"  type2="MAT-ZN2"   type3="MAT-SE4"   type4="MAT-ZN3" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.10572" type1="MAT-SE1"  type2="MAT-ZN2"   type3="MAT-SE4"   type4="MAT-ZN4" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.61689" type1="MAT-SE1"  type2="MAT-ZN2"   type3="ETH-N"     type4="ETH-C1"  />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.77504" type1="MAT-SE1"  type2="MAT-ZN2"   type3="ETH-N"     type4="ETH-HN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.84988" type1="MAT-SE1"  type2="MAT-ZN2"   type3="ETH-N"     type4="ETH-HN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.10231" type1="MAT-SE1"  type2="MAT-ZN2"   type3="MAT-SE2"   type4="MAT-ZN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.18245" type1="MAT-SE1"  type2="MAT-ZN2"   type3="MAT-SE2"   type4="MAT-ZN3" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.10391" type1="MAT-SE2"  type2="MAT-ZN1"   type3="MAT-SE1"   type4="MAT-ZN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.61663" type1="MAT-SE2"  type2="MAT-ZN1"   type3="ETH-N"     type4="ETH-C1"  />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.77418" type1="MAT-SE2"  type2="MAT-ZN1"   type3="ETH-N"     type4="ETH-HN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.84928" type1="MAT-SE2"  type2="MAT-ZN1"   type3="ETH-N"     type4="ETH-HN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.01429" type1="MAT-SE2"  type2="MAT-ZN3"   type3="MAT-SE3"   type4="MAT-ZN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.10041" type1="MAT-SE2"  type2="MAT-ZN3"   type3="MAT-SE4"   type4="MAT-ZN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.18041" type1="MAT-SE2"  type2="MAT-ZN3"   type3="MAT-SE4"   type4="MAT-ZN4" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.10864" type1="MAT-SE2"  type2="MAT-ZN3"   type3="ETH-N"     type4="ETH-C1"  />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.66807" type1="MAT-SE2"  type2="MAT-ZN3"   type3="ETH-N"     type4="ETH-HN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.59303" type1="MAT-SE2"  type2="MAT-ZN3"   type3="ETH-N"     type4="ETH-HN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.17766" type1="MAT-SE3"  type2="MAT-ZN3"   type3="MAT-SE2"   type4="MAT-ZN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.10021" type1="MAT-SE3"  type2="MAT-ZN3"   type3="MAT-SE4"   type4="MAT-ZN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.18020" type1="MAT-SE3"  type2="MAT-ZN3"   type3="MAT-SE4"   type4="MAT-ZN4" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.66636" type1="MAT-SE3"  type2="MAT-ZN3"   type3="ETH-N"     type4="ETH-C1"  />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.50898" type1="MAT-SE3"  type2="MAT-ZN3"   type3="ETH-N"     type4="ETH-HN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.43393" type1="MAT-SE3"  type2="MAT-ZN3"   type3="ETH-N"     type4="ETH-HN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.18159" type1="MAT-SE3"  type2="MAT-ZN1"   type3="MAT-SE1"   type4="MAT-ZN4" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.10288" type1="MAT-SE3"  type2="MAT-ZN1"   type3="MAT-SE1"   type4="MAT-ZN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -6.26863" type1="MAT-SE3"  type2="MAT-ZN1"   type3="MAT-SE2"   type4="MAT-ZN3" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.17489" type1="MAT-SE3"  type2="MAT-ZN1"   type3="ETH-N"     type4="ETH-C1"  />
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.61562" type1="MAT-SE3"  type2="MAT-ZN1"   type3="ETH-N"     type4="ETH-HN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.69072" type1="MAT-SE3"  type2="MAT-ZN1"   type3="ETH-N"     type4="ETH-HN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.13163" type1="MAT-SE4"  type2="MAT-ZN2"   type3="MAT-SE1"   type4="MAT-ZN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.17434" type1="MAT-SE4"  type2="MAT-ZN2"   type3="ETH-N"     type4="ETH-C1"  />
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.61568" type1="MAT-SE4"  type2="MAT-ZN2"   type3="ETH-N"     type4="ETH-HN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.69052" type1="MAT-SE4"  type2="MAT-ZN2"   type3="ETH-N"     type4="ETH-HN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.10263" type1="MAT-SE4"  type2="MAT-ZN2"   type3="MAT-SE2"   type4="MAT-ZN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.18277" type1="MAT-SE4"  type2="MAT-ZN2"   type3="MAT-SE2"   type4="MAT-ZN3" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.11079" type1="MAT-SE4"  type2="MAT-ZN3"   type3="MAT-SE2"   type4="MAT-ZN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.03706" type1="MAT-SE4"  type2="MAT-ZN3"   type3="MAT-SE3"   type4="MAT-ZN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.91264" type1="MAT-SE4"  type2="MAT-ZN3"   type3="ETH-N"     type4="ETH-C1"  />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.75525" type1="MAT-SE4"  type2="MAT-ZN3"   type3="ETH-N"     type4="ETH-HN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.68021" type1="MAT-SE4"  type2="MAT-ZN3"   type3="ETH-N"     type4="ETH-HN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.66656" type1="MAT-SE4"  type2="MAT-ZN4"   type3="ETH-N"     type4="ETH-C1"  />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.50900" type1="MAT-SE4"  type2="MAT-ZN4"   type3="ETH-N"     type4="ETH-HN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.43391" type1="MAT-SE4"  type2="MAT-ZN4"   type3="ETH-N"     type4="ETH-HN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.17966" type1="MAT-SE4"  type2="MAT-ZN4"   type3="MAT-SE3"   type4="MAT-ZN3" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.10057" type1="MAT-SE4"  type2="MAT-ZN4"   type3="MAT-SE3"   type4="MAT-ZN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.06555" type1="MAT-SE4"  type2="MAT-ZN4"   type3="MAT-SE1"   type4="MAT-ZN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.17745" type1="MAT-SE4"  type2="MAT-ZN4"   type3="MAT-SE1"   type4="MAT-ZN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.79076" type1="MAT-ZN1"  type2="MAT-SE1"   type3="MAT-ZN2"   type4="ETH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.10958" type1="MAT-ZN1"  type2="MAT-SE1"   type3="MAT-ZN2"   type4="MAT-SE2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.80239" type1="MAT-ZN1"  type2="MAT-SE2"   type3="MAT-ZN3"   type4="ETH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.29043" type1="MAT-ZN1"  type2="ETH-N"     type3="ETH-C1"    type4="ETH-C2"  />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.16745" type1="MAT-ZN1"  type2="ETH-N"     type3="ETH-C1"    type4="ETH-HC11"/>
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.19584" type1="MAT-ZN1"  type2="ETH-N"     type3="ETH-C1"    type4="ETH-HC12"/>
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.25604" type1="MAT-ZN2"  type2="MAT-SE1"   type3="MAT-ZN1"   type4="ETH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.23167" type1="MAT-ZN2"  type2="MAT-SE4"   type3="MAT-ZN3"   type4="ETH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.63829" type1="MAT-ZN2"  type2="MAT-SE4"   type3="MAT-ZN4"   type4="ETH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.03759" type1="MAT-ZN2"  type2="MAT-SE4"   type3="MAT-ZN4"   type4="MAT-SE3" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.01443" type1="MAT-ZN2"  type2="MAT-SE4"   type3="MAT-ZN4"   type4="MAT-SE1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.29071" type1="MAT-ZN2"  type2="ETH-N"     type3="ETH-C1"    type4="ETH-C2"  />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.16793" type1="MAT-ZN2"  type2="ETH-N"     type3="ETH-C1"    type4="ETH-HC11"/>
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.19616" type1="MAT-ZN2"  type2="ETH-N"     type3="ETH-C1"    type4="ETH-HC12"/>
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.10957" type1="MAT-ZN2"  type2="MAT-SE2"   type3="MAT-ZN1"   type4="MAT-SE1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.79206" type1="MAT-ZN2"  type2="MAT-SE2"   type3="MAT-ZN1"   type4="ETH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.06468" type1="MAT-ZN2"  type2="MAT-SE2"   type3="MAT-ZN3"   type4="MAT-SE3" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -6.28098" type1="MAT-ZN2"  type2="MAT-SE2"   type3="MAT-ZN3"   type4="MAT-SE4" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.68940" type1="MAT-ZN2"  type2="MAT-SE2"   type3="MAT-ZN3"   type4="ETH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.64476" type1="MAT-ZN3"  type2="MAT-SE2"   type3="MAT-ZN1"   type4="ETH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.17328" type1="MAT-ZN3"  type2="MAT-SE3"   type3="MAT-ZN1"   type4="MAT-SE1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.10560" type1="MAT-ZN3"  type2="MAT-SE3"   type3="MAT-ZN1"   type4="MAT-SE2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.48069" type1="MAT-ZN3"  type2="MAT-SE3"   type3="MAT-ZN1"   type4="ETH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.59367" type1="MAT-ZN3"  type2="MAT-SE4"   type3="MAT-ZN2"   type4="ETH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.00220" type1="MAT-ZN3"  type2="MAT-SE4"   type3="MAT-ZN2"   type4="MAT-SE2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.49152" type1="MAT-ZN3"  type2="MAT-SE4"   type3="MAT-ZN4"   type4="ETH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -6.17401" type1="MAT-ZN3"  type2="MAT-SE4"   type3="MAT-ZN4"   type4="MAT-SE3" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.15084" type1="MAT-ZN3"  type2="MAT-SE4"   type3="MAT-ZN4"   type4="MAT-SE1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.99295" type1="MAT-ZN3"  type2="ETH-N"     type3="ETH-C1"    type4="ETH-C2"  />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.08754" type1="MAT-ZN3"  type2="ETH-N"     type3="ETH-C1"    type4="ETH-HC11"/>
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.11577" type1="MAT-ZN3"  type2="ETH-N"     type3="ETH-C1"    type4="ETH-HC12"/>
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.48074" type1="MAT-ZN4"  type2="MAT-SE4"   type3="MAT-ZN2"   type4="ETH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.17245" type1="MAT-ZN4"  type2="MAT-SE4"   type3="MAT-ZN2"   type4="MAT-SE2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.02847" type1="MAT-ZN4"  type2="MAT-SE4"   type3="MAT-ZN3"   type4="ETH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.99329" type1="MAT-ZN4"  type2="ETH-N"     type3="ETH-C1"    type4="ETH-C2"  />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.08734" type1="MAT-ZN4"  type2="ETH-N"     type3="ETH-C1"    type4="ETH-HC11"/>
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.11557" type1="MAT-ZN4"  type2="ETH-N"     type3="ETH-C1"    type4="ETH-HC12"/>
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.15126" type1="MAT-ZN4"  type2="MAT-SE3"   type3="MAT-ZN3"   type4="MAT-SE2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -6.17403" type1="MAT-ZN4"  type2="MAT-SE3"   type3="MAT-ZN3"   type4="MAT-SE4" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.49190" type1="MAT-ZN4"  type2="MAT-SE3"   type3="MAT-ZN3"   type4="ETH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.00213" type1="MAT-ZN4"  type2="MAT-SE3"   type3="MAT-ZN1"   type4="MAT-SE1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.21763" type1="MAT-ZN4"  type2="MAT-SE3"   type3="MAT-ZN1"   type4="MAT-SE2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.59272" type1="MAT-ZN4"  type2="MAT-SE3"   type3="MAT-ZN1"   type4="ETH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.18262" type1="MAT-ZN4"  type2="MAT-SE1"   type3="MAT-ZN1"   type4="MAT-SE2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.05156" type1="MAT-ZN4"  type2="MAT-SE1"   type3="MAT-ZN1"   type4="ETH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -6.26877" type1="MAT-ZN4"  type2="MAT-SE1"   type3="MAT-ZN2"   type4="MAT-SE4" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.64471" type1="MAT-ZN4"  type2="MAT-SE1"   type3="MAT-ZN2"   type4="ETH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.24671" type1="MAT-ZN4"  type2="MAT-SE1"   type3="MAT-ZN2"   type4="MAT-SE2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.81135" type1="ETH-N"    type2="ETH-C1"    type3="ETH-C2"    type4="ETH-HC21"/>
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.91921" type1="ETH-N"    type2="ETH-C1"    type3="ETH-C2"    type4="ETH-HC22"/>
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.99279" type1="ETH-N"    type2="ETH-C1"    type3="ETH-C2"    type4="ETH-HC23"/>
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.94934" type1="ETH-C2"   type2="ETH-C1"    type3="ETH-N"     type4="ETH-HN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.40309" type1="ETH-C2"   type2="ETH-C1"    type3="ETH-N"     type4="ETH-HN2" />
+        <Proper k1="1.00" periodicity1="1" phase1=" -4.10954" type1="ETH-HC11" type2="ETH-C1"    type3="ETH-N"     type4="ETH-HN1" />
+        <Proper k1="1.00" periodicity1="1" phase1=" -2.56329" type1="ETH-HC11" type2="ETH-C1"    type3="ETH-N"     type4="ETH-HN2" />
+        <Proper k1="1.00" periodicity1="1" phase1=" -4.93482" type1="ETH-HC11" type2="ETH-C1"    type3="ETH-C2"    type4="ETH-HC21"/>
+        <Proper k1="1.00" periodicity1="1" phase1=" -0.75949" type1="ETH-HC11" type2="ETH-C1"    type3="ETH-C2"    type4="ETH-HC22"/>
+        <Proper k1="1.00" periodicity1="1" phase1=" -2.83308" type1="ETH-HC11" type2="ETH-C1"    type3="ETH-C2"    type4="ETH-HC23"/>
+        <Proper k1="1.00" periodicity1="1" phase1=" -6.13793" type1="ETH-HC12" type2="ETH-C1"    type3="ETH-N"     type4="ETH-HN1" />
+        <Proper k1="1.00" periodicity1="1" phase1=" -4.59168" type1="ETH-HC12" type2="ETH-C1"    type3="ETH-N"     type4="ETH-HN2" />
+        <Proper k1="1.00" periodicity1="1" phase1=" -2.95700" type1="ETH-HC12" type2="ETH-C1"    type3="ETH-C2"    type4="ETH-HC21"/>
+        <Proper k1="1.00" periodicity1="1" phase1=" -5.06486" type1="ETH-HC12" type2="ETH-C1"    type3="ETH-C2"    type4="ETH-HC22"/>
+        <Proper k1="1.00" periodicity1="1" phase1=" -0.85526" type1="ETH-HC12" type2="ETH-C1"    type3="ETH-C2"    type4="ETH-HC23"/>
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.25568" type1="ETH-N"    type2="MAT-ZN2"   type3="MAT-SE2"   type4="MAT-ZN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.05264" type1="ETH-N"    type2="MAT-ZN2"   type3="MAT-SE2"   type4="MAT-ZN3" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.36917" type1="ETH-C1"   type2="ETH-N"     type3="MAT-ZN2"   type4="MAT-SE2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.52732" type1="ETH-HN1"  type2="ETH-N"     type3="MAT-ZN2"   type4="MAT-SE2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.60216" type1="ETH-HN2"  type2="ETH-N"     type3="MAT-ZN2"   type4="MAT-SE2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.63811" type1="ETH-N"    type2="MAT-ZN3"   type3="MAT-SE3"   type4="MAT-ZN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.02753" type1="ETH-N"    type2="MAT-ZN4"   type3="MAT-SE3"   type4="MAT-ZN3" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.23162" type1="ETH-N"    type2="MAT-ZN4"   type3="MAT-SE3"   type4="MAT-ZN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.69047" type1="ETH-N"    type2="MAT-ZN4"   type3="MAT-SE1"   type4="MAT-ZN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.80237" type1="ETH-N"    type2="MAT-ZN4"   type3="MAT-SE1"   type4="MAT-ZN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.91340" type1="ETH-C1"   type2="ETH-N"     type3="MAT-ZN4"   type4="MAT-SE3" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.10830" type1="ETH-C1"   type2="ETH-N"     type3="MAT-ZN4"   type4="MAT-SE1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.75585" type1="ETH-HN1"  type2="ETH-N"     type3="MAT-ZN4"   type4="MAT-SE3" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.66756" type1="ETH-HN1"  type2="ETH-N"     type3="MAT-ZN4"   type4="MAT-SE1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.68075" type1="ETH-HN2"  type2="ETH-N"     type3="MAT-ZN4"   type4="MAT-SE3" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.59246" type1="ETH-HN2"  type2="ETH-N"     type3="MAT-ZN4"   type4="MAT-SE1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -6.28106" type1="MAT-SE3"  type2="MAT-ZN4"   type3="MAT-SE1"   type4="MAT-ZN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.10977" type1="MAT-SE3"  type2="MAT-ZN4"   type3="MAT-SE1"   type4="MAT-ZN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.13274" type1="MAT-SE3"  type2="MAT-ZN1"   type3="MAT-SE2"   type4="MAT-ZN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.18069" type1="MAT-ZN3"  type2="MAT-SE3"   type3="MAT-ZN4"   type4="MAT-SE1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.10160" type1="MAT-SE1"  type2="MAT-ZN4"   type3="MAT-SE3"   type4="MAT-ZN1" />
+
+
+    </PeriodicTorsionForce>
+
+
+</Forcefield>
