@@ -33,7 +33,6 @@ job_name = ''
 n_procs = cpu_count()
 
 
-
 def parse_args():
     parser = argparse.ArgumentParser('')
     parser.add_argument('-pdb', help='pdb molecule file to use')
@@ -517,43 +516,6 @@ def get_integrator(opts):
 
         return integrator
    
-def bfgs_optimize(options, simulation, charges, elements, qm_atoms, outfile, rem_lines, ext_force):
-    global count
-    count = 0
-    def optimize_func(coord_list, options, simulation, charges, elements, qm_atoms, outfile, rem_lines, ext_force):
-        global count
-        print(count)
-        dim = int(len(coord_list)/3)
-        coords = np.array(coord_list).reshape((dim, 3))
-
-        simulation.context.setPositions(coords * nanometers)
-        #   function requires angstroms, but nanometers are passed in to optimize_func
-        qm_energy, qm_gradient = calc_qm_force(coords * 10, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=count)
-        count += 1
-        update_qm_force(simulation.context, qm_gradient, ext_force, coords[qm_atoms], qm_energy=qm_energy)
-        state = simulation.context.getState(getPositions=True, getEnergy=True, getForces=True)
-
-        forces = state.getForces()
-        forces = np.array(forces / forces.unit)
-        pot_energy = state.getPotentialEnergy()
-        print(" ENERGY: ", pot_energy, count, file=outfile)
-        print(pot_energy / kilojoules_per_mole)
-        print(np.array(forces).flatten())
-
-        return pot_energy / kilojoules_per_mole, np.array(forces).flatten()
-
-    state = simulation.context.getState(getPositions=True, getEnergy=True)
-    guess = state.getPositions(True) / nanometers
-    guess = guess.flatten()
-    func_args = (options, simulation, charges, elements, qm_atoms, outfile, rem_lines, ext_force)
-    print("Running optimization")
-    res = optimize.minimize(optimize_func, guess, 
-        args=func_args, 
-        method='BFGS',
-        jac=True,
-        options = {'maxiter': 200, 'disp': True}
-        )
-
 def gen_qchem_opt(options, simulation, charges, elements, qm_atoms, qm_bonds, qm_angles, outfile):
     global scratch, qc_scratch
     #   all MM atoms involved with bonds and angles
