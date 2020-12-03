@@ -5,13 +5,16 @@ from simtk.openmm.openmm import *
 from simtk.unit import *
 import argparse
 import numpy as np
+from numpy.random import random
 import sys
+
+from scipy.spatial.transform import Rotation as rot
 
 # pylint: disable=no-member
 import simtk
 picoseconds = simtk.unit.picoseconds
 picosecond = picoseconds
-nanometer = simtk.unit.nanometer
+nanometer = nanometers = simtk.unit.nanometer
 femtoseconds = simtk.unit.femtoseconds
 # pylint: enable=no-member
 
@@ -42,10 +45,91 @@ def print_pressure(simulation, masses_in_kg):
     print(state.getKineticEnergy())
     exit()
 
+def add_sphere_water(solute_coords, topology, forcefield, radius=1.5*nanometers):
+
+    solvent = Modeller(Topology(), [])
+    solvent.addSolvent(ForceField('amber14/tip3pfb.xml'), neutralize=False, 
+    boxSize=Vec3(radius*2, radius*2, radius*2)/nanometers )
+
+    #   import pre-computed water box
+    #solvent = PDBFile('tip3p.pdb')
+    pos = numpy.array(solvent.getPositions()/nanometers)*nanometers
+    atoms = list(solvent.topology.atoms())
+
+        #   center the box
+    center = np.mean(pos, axis=0)
+    pos -= center
+
+    #   translate box by random vector
+    box_len = 2*radius
+    trans_vec = random(3)*box_len - box_len/2
+    for n, val in enumerate(trans_vec):
+        for res in solvent.topology.residues():
+            shift = 0.0*nanometers
+            for atom in res.atoms():
+                if atom.element.symbol == 'O':
+                    if val/nanometers > 0:
+                        if pos[atom.index][n] < val - box_len/2:
+                            shift = box_len
+                    else:
+                        if pos[atom.index][n] > val + box_len/2:
+                            shift + -box_len
+                    break
+            for atom in res.atoms():
+                pos[atom.index][n] += shift
+
+    #   re-center positions
+    center = np.mean(pos, axis=0)
+    pos -= center
+
+    #   delete solvent not in sphere
+    modeller = Modeller(solvent.topology, pos)
+    to_delete = []
+    for res in modeller.topology.residues():
+        for atom in res.atoms():
+            if atom.element.symbol == 'O':
+                oxy_pos = pos[atom.index]
+                if np.linalg.norm(oxy_pos)*nanometers > radius:
+                    to_delete.append(res)
+    modeller.delete(to_delete)
+
+    #   rotate to new random orientation
+    mat = rot.random().as_matrix()
+    new_pos = (np.array(modeller.positions) @ mat)*nanometers
+    
+    solvent.topology = modeller.topology
+    solvent.positions = new_pos
+    
+
+    #   get vdw radii of solute from forcefield
+    system = forcefield.createSystem(topology)
+    nonbonded = None
+    for i in range(system.getNumForces()):
+        if isinstance(system.getForce(i), NonbondedForce):
+            nonbonded = system.getForce(i)
+    if nonbonded is None:
+        raise ValueError('The ForceField does not specify a NonbondedForce')
+    vdw_radii = []
+    for i in range(system.getNumParticles()):
+        params = nonbonded.getParticleParameters(i)
+        vdw_radii.append(params[1]/angstrom)
+
+
+
+
+    return solvent
+
 
 if __name__ == "__main__":
 
-    pdb = PDBFile(sys.argv[1])
+
+    #modeller = Modeller(Topology(), [])
+    #modeller.addSolvent(ForceField('amber14/tip3pfb.xml'), neutralize=False, boxSize=Vec3(5, 5, 5)*nanometers )
+    #exit()
+
+    #pdb = PDBFile(sys.argv[1])
+    print(" Adding Solvent")
+    pdb = add_sphere_water()
     forcefield = ForceField('amber14-all.xml', 'amber14/tip3pfb.xml')
     system = forcefield.createSystem(pdb.topology, nonbondedMethod=NoCutoff,
             nonbondedCutoff=1*nanometer, constraints=HBonds)
@@ -55,14 +139,14 @@ if __name__ == "__main__":
     simulation.context.setVelocitiesToTemperature(300*kelvin)
     print(" Minimizing")
     simulation.minimizeEnergy()
-    simulation.reporters.append(PDBReporter('output.pdb', 4))
+    simulation.reporters.append(PDBReporter('output.pdb', 5))
     simulation.reporters.append(StateDataReporter('stats.txt', 1, step=True,
         potentialEnergy=True, temperature=True, separator=' ', ))
 
     masses_in_kg = np.array([system.getParticleMass(n)/dalton for n in range(simulation.topology.getNumAtoms())])*(1.67377E-27)
     
     print(" Running")
-    for n in range(1000):
+    for n in range(5000):
         simulation.step(1)
         simulation.topology.getNumAtoms
-        print_pressure(simulation, masses_in_kg)
+        #print_pressure(simulation, masses_in_kg)
