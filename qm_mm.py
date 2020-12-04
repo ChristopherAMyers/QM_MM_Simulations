@@ -48,18 +48,19 @@ def parse_idx(idx_file_loc, topology):
             sp = line.split()
             #   assume that just a column of numbers is used
             if len(sp) == 1:
-                id_list.append(int(sp[0]) - 1)
+                id_list.append(int(sp[0]))
             #   assume that the output from pymol is used
-            elif len(sp) == 2:
+            elif len(sp) == 3 and "cmd.identify" in line:
                 idx = sp[-1].split('`')[-1].split(')')[0]
-                id_list.append(int(idx) - 1)
+                id_list.append(int(idx))
             else:
                 print("ERROR: Can't determin index format")
     id_list = sorted(id_list)
 
+
     idx_list = []
     for atom in topology.atoms():
-        if atom.id in id_list:
+        if int(atom.id) in id_list:
             idx_list.append(atom.index)
     idx_list = sorted(idx_list)
 
@@ -645,7 +646,7 @@ if __name__ == "__main__":
         #   "external" force is for updating QM forces
         ext_force = add_ext_force(qm_atoms, system)
         #   add pulling force
-        if True:
+        if False:
             pull_force = apply_pull_force(pdb.positions, system)
 
         simulation = Simulation(pdb.topology, system, integrator)

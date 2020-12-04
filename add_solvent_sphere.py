@@ -161,6 +161,8 @@ def determine_id_list(positions, topology, center, radius):
 
 if __name__ == "__main__":
 
+    
+
     print(" Importing Solute")
     pdb = PDBFile(sys.argv[1])
     pdb_to_qc.add_bonds(pdb, remove_orig=True)
@@ -212,7 +214,7 @@ if __name__ == "__main__":
     
    
     #   change to True for test simulation stuff
-    if True:
+    if False:
         #   freeze everything not solvent
         for res in mols.topology.residues():
             if res.name != 'HOH':

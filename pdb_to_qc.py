@@ -121,6 +121,7 @@ def add_bonds(pdb, remove_orig=False):
     bond_list += get_bonds_from_coords('c', 'c', coords, elements, 1.8)
     bond_list += get_bonds_from_coords('se', 'zn', coords, elements, 2.7)
     bond_list += get_bonds_from_coords('zn', 'n', coords, elements, 2.4)
+    bond_list += get_bonds_from_coords('o', 'h', coords, elements, 1.3)
     
 
     atoms = list(pdb.topology.atoms())

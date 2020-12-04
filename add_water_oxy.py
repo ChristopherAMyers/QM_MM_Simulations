@@ -25,7 +25,7 @@ class SolventAdder(object):
                                        [ -0.8012202255,    0.0000000000,   -0.4278321020],  # H
                                        [  0.8012202255,    0.0000000000,   -0.4278321020]]) # H
         self._o2_coords = np.array([[  0.0000000000,    0.0000000000,    0.0000000000],  # O
-                                       [  1.5000000000,    0.0000000000,    0.0000000000]]) # O
+                                       [  1.2590000000,    0.0000000000,    0.0000000000]]) # O
         self._water_vdw_radii = np.array([3.1507, 0.4000, 0.4000])
         self._o2_vdw_radii = np.array([3.1507, 3.1507])*0.5
 
@@ -162,15 +162,6 @@ class SolventAdder(object):
 
 if __name__ == "__main__":
 
-    #parser = argparse.ArgumentParser()
-    #parser.add_argument('-n_water', required=True, type=int,   help='number of waters to add')
-    #parser.add_argument('-n_o2',    required=True, type=int,   help='number of O2 molecules to add')
-    #parser.add_argument('-pdb',     required=True, type=str,   help='pdb file to add solvent to')
-    #parser.add_argument('-out',     required=True, type=str,   help='output pdb file')
-    #parser.add_argument('-radius',  required=True, type=float, help='radius of sphere')
-    #args = parser.parse_args()
-
-
     pdb = PDBFile(sys.argv[1])
     pdb_to_qc.add_bonds(pdb)
     data, bondedToAtom = pdb_to_qc.determine_connectivity(pdb.topology)
@@ -202,9 +193,3 @@ if __name__ == "__main__":
         with open('init.{:d}.pdb'.format(n + 1), 'w') as file:
             pdb.writeFile(new_top, new_pos, file)
 
-
-
-                
-
-
-            
