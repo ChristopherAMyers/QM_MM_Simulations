@@ -48,6 +48,17 @@ def print_pressure(simulation, masses_in_kg):
     print(state.getKineticEnergy())
     exit()
 
+def get_density(simulation, masses_in_kg, center, radius):
+    state = simulation.context.getState(getPositions=True)
+    shift_pos = state.getPositions(True)/nanometers - center/nanometers
+    norms = np.linalg.norm(shift_pos, axis=1)
+    inside_sphere = np.where(norms <= radius/nanometers)[0]
+    total_mass = np.sum(masses_in_kg[inside_sphere])
+    volume = (4.0/3.0)*np.pi*(radius/meters)**3
+    density = total_mass/volume
+    return density * kilograms/meters**3
+
+
 def add_sphere_water(solute_coords, topology, forcefield, radius=1.5*nanometers, origin=np.array([0, 0, 0])*nanometers):
 
     #   get vdw radii of solute from forcefield
@@ -127,6 +138,26 @@ def add_sphere_water(solute_coords, topology, forcefield, radius=1.5*nanometers,
     solvent.positions = modeller.positions
     return solvent
 
+def determine_idx_list(positions, topology, center, radius):
+    #   determins the indicies of solvent atoms inside a sphere
+    #   of specified radius and at specified center
+    idx_list = []
+    for res in topology.residues():
+        include_res = False
+        for atom in res.atoms():
+            if atom.element.symbol == 'O' and res.name == 'HOH':
+                solvent_pos = positions[atom.index]
+                rad_norm = np.linalg.norm(solvent_pos - center)
+                print(radius/nanometers, rad_norm)
+                if rad_norm <= radius/nanometers:
+                    include_res = True
+                    break
+        
+        if include_res:
+            for atom in res.atoms():
+                idx_list.append(atom.index + 1)
+    return idx_list
+
 
 if __name__ == "__main__":
 
@@ -151,6 +182,7 @@ if __name__ == "__main__":
         forcefield.registerResidueTemplate(template)
 
     origin = np.mean(pdb.getPositions(True)[[94]], axis=0)
+    origin = np.array([5, 5, 4])*nanometers
     print(" Center : ", origin)
 
     n_atoms_init = pdb.topology.getNumAtoms()
@@ -166,25 +198,43 @@ if __name__ == "__main__":
     out_file_loc = 'solvated.pdb'
     print(" Writing %s" % out_file_loc)
     PDBFile.writeModel(mols.topology, mols.positions, open(out_file_loc, 'w'))
+
+    idx_list = determine_idx_list(mols.positions, mols.topology, origin, 5.0*angstroms)
+    print(" There are %d solvent atoms inside of the QM sphere" % len(idx_list))
+    out_file_loc = 'solvent_idx.txt'
+    print(" Writing %s" % out_file_loc)
+    np.savetxt(out_file_loc, np.array(idx_list, dtype=int), fmt='%5d')
+
+    
    
     #   change to True for test simulation stuff
-    if False:        
+    if True:
+        #   freeze everything not solvent
+        for res in mols.topology.residues():
+            if res.name != 'HOH':
+                for atom in res.atoms():
+                    system.setParticleMass(atom.index, 0*dalton)
+
         integrator = LangevinIntegrator(300*kelvin, 1/(100*femtoseconds), 0.001*picoseconds)
         simulation = Simulation(mols.topology, system, integrator)
         simulation.context.setPositions(mols.positions)
         simulation.context.setVelocitiesToTemperature(300*kelvin)
-        print(" Minimizing")
-        simulation.minimizeEnergy()
+        #print(" Minimizing")
+        #simulation.minimizeEnergy()
         simulation.reporters.append(PDBReporter('output.pdb', 5))
         simulation.reporters.append(StateDataReporter('stats.txt', 1, step=True,
             potentialEnergy=True, temperature=True, separator=' ', ))
 
         masses_in_kg = np.array([system.getParticleMass(n)/dalton for n in range(simulation.topology.getNumAtoms())])*(1.67377E-27)
         
-        print(" Running")
-        for n in range(10):
-            simulation.step(1)
-            simulation.topology.getNumAtoms
-            #print_pressure(simulation, masses_in_kg)
+        with open('density.txt', 'w') as dens_file:
+            print(" Running")
+            for n in range(10000):
+                simulation.step(1)
+                simulation.topology.getNumAtoms
+                density = get_density(simulation, masses_in_kg, origin, 1.5*nanometers)
+                if n % 5 == 0:
+                    dens_file.write('{:10.4f} \n'.format(density/density.unit))
+
     
     print(" Done")
