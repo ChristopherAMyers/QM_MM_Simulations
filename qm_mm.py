@@ -41,21 +41,28 @@ def parse_args():
     parser.add_argument('-out', help='output file', default='output.txt')
     return parser.parse_args()
 
-def parse_idx(idx_file_loc):
-    idx_list = []
+def parse_idx(idx_file_loc, topology):
+    id_list = []
     with open(idx_file_loc, 'r') as file:
         for line in file.readlines():
             sp = line.split()
             #   assume that just a column of numbers is used
             if len(sp) == 1:
-                idx_list.append(int(sp[0]) - 1)
+                id_list.append(int(sp[0]) - 1)
             #   assume that the output from pymol is used
             elif len(sp) == 2:
                 idx = sp[-1].split('`')[-1].split(')')[0]
-                idx_list.append(int(idx) - 1)
+                id_list.append(int(idx) - 1)
             else:
                 print("ERROR: Can't determin index format")
+    id_list = sorted(id_list)
+
+    idx_list = []
+    for atom in topology.atoms():
+        if atom.id in id_list:
+            idx_list.append(atom.index)
     idx_list = sorted(idx_list)
+
     return idx_list
 
 def find_all_qm_atoms(mat_idx_list, bondedToAtom, topology):
@@ -631,7 +638,7 @@ if __name__ == "__main__":
             forcefield.registerResidueTemplate(template)
 
         integrator = get_integrator(options)
-        qm_atoms = parse_idx(args.idx)
+        qm_atoms = parse_idx(args.idx, pdb.topology)
         system = forcefield.createSystem(pdb.topology)
         #   re-map nonbonded forces so QM only interacts with MM through vdW
         charges = add_nonbonded_force(qm_atoms, system, pdb.topology.bonds(), outfile=outfile)

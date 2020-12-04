@@ -56,13 +56,13 @@ def get_density(simulation, masses_in_kg, center, radius):
     total_mass = np.sum(masses_in_kg[inside_sphere])
     volume = (4.0/3.0)*np.pi*(radius/meters)**3
     density = total_mass/volume
-    return density * kilograms/meters**3
+    return density * kilograms/meters**3 # pylint: disable=undefined-variable
 
 
 def add_sphere_water(solute_coords, topology, forcefield, radius=1.5*nanometers, origin=np.array([0, 0, 0])*nanometers):
 
     #   get vdw radii of solute from forcefield
-    vdw_padding= 1.1
+    vdw_padding= 0.8
     system = forcefield.createSystem(topology)
     nonbonded = None
     for i in range(system.getNumForces()):
@@ -117,13 +117,14 @@ def add_sphere_water(solute_coords, topology, forcefield, radius=1.5*nanometers,
     rot_pos = rot_pos + origin
 
     #   delete solvent not in sphere or that intersects solute vdw radius
-    modeller = Modeller(solvent.topology, rot_pos)
-    modeller.add(topology, solute_coords)
+    modeller = Modeller(topology, solute_coords)
+    modeller.add(solvent.topology, rot_pos)
     to_delete = []
+    model_pos = modeller.positions
     for res in modeller.topology.residues():
         for atom in res.atoms():
             if atom.element.symbol == 'O' and res.name == 'HOH':
-                oxy_pos = rot_pos[atom.index]
+                oxy_pos = model_pos[atom.index]
                 oxy_sigma = 0.312
                 rad_norm = np.linalg.norm(oxy_pos - origin)*nanometers
 
@@ -138,7 +139,7 @@ def add_sphere_water(solute_coords, topology, forcefield, radius=1.5*nanometers,
     solvent.positions = modeller.positions
     return solvent
 
-def determine_idx_list(positions, topology, center, radius):
+def determine_id_list(positions, topology, center, radius):
     #   determins the indicies of solvent atoms inside a sphere
     #   of specified radius and at specified center
     idx_list = []
@@ -148,14 +149,13 @@ def determine_idx_list(positions, topology, center, radius):
             if atom.element.symbol == 'O' and res.name == 'HOH':
                 solvent_pos = positions[atom.index]
                 rad_norm = np.linalg.norm(solvent_pos - center)
-                print(radius/nanometers, rad_norm)
                 if rad_norm <= radius/nanometers:
                     include_res = True
                     break
         
         if include_res:
             for atom in res.atoms():
-                idx_list.append(atom.index + 1)
+                idx_list.append(atom.id)
     return idx_list
 
 
@@ -182,28 +182,32 @@ if __name__ == "__main__":
         forcefield.registerResidueTemplate(template)
 
     origin = np.mean(pdb.getPositions(True)[[94]], axis=0)
-    origin = np.array([5, 5, 4])*nanometers
+    #origin = np.array([8, 8, 8])*nanometers
     print(" Center : ", origin)
 
     n_atoms_init = pdb.topology.getNumAtoms()
     print(" Initial number of atoms: {:d}".format(n_atoms_init))
     print(" Adding Solvent")
-    mols = add_sphere_water(pdb.positions, pdb.topology, forcefield, origin=origin)
+    mols = add_sphere_water(pdb.positions, pdb.topology, forcefield, origin=origin, radius=1.5*nanometers)
     system = forcefield.createSystem(mols.topology, nonbondedMethod=NoCutoff,
             nonbondedCutoff=1*nanometer, constraints=HBonds)
     n_atoms_final = mols.topology.getNumAtoms()
     print(" Final number of atoms:   {:d}".format(n_atoms_final))
     print(" Number of solvent atoms: {:d}".format(n_atoms_final - n_atoms_init))
 
-    out_file_loc = 'solvated.pdb'
-    print(" Writing %s" % out_file_loc)
-    PDBFile.writeModel(mols.topology, mols.positions, open(out_file_loc, 'w'))
+    pdb_file_loc = 'solvated.pdb'
+    print(" Writing %s" % pdb_file_loc)
+    PDBFile.writeModel(mols.topology, mols.positions, open(pdb_file_loc, 'w'))
 
-    idx_list = determine_idx_list(mols.positions, mols.topology, origin, 5.0*angstroms)
-    print(" There are %d solvent atoms inside of the QM sphere" % len(idx_list))
-    out_file_loc = 'solvent_idx.txt'
+    #   reload printed pdb and get index list of solvent inside sphere
+    #   this is because outputed pdb file is out guarenteed to have same atom
+    #   and residue id's as the modeller
+    pdb = PDBFile(pdb_file_loc)
+    id_list = determine_id_list(pdb.getPositions(True), pdb.topology, origin, 5.5*angstroms)
+    print(" There are %d solvent atoms inside of the QM sphere" % len(id_list))
+    out_file_loc = 'solvent_id.txt'
     print(" Writing %s" % out_file_loc)
-    np.savetxt(out_file_loc, np.array(idx_list, dtype=int), fmt='%5d')
+    np.savetxt(out_file_loc, np.array(id_list, dtype=int), fmt='%5d')
 
     
    
@@ -221,7 +225,7 @@ if __name__ == "__main__":
         simulation.context.setVelocitiesToTemperature(300*kelvin)
         #print(" Minimizing")
         #simulation.minimizeEnergy()
-        simulation.reporters.append(PDBReporter('output.pdb', 5))
+        simulation.reporters.append(PDBReporter('output.pdb', 2))
         simulation.reporters.append(StateDataReporter('stats.txt', 1, step=True,
             potentialEnergy=True, temperature=True, separator=' ', ))
 
@@ -229,7 +233,7 @@ if __name__ == "__main__":
         
         with open('density.txt', 'w') as dens_file:
             print(" Running")
-            for n in range(10000):
+            for n in range(500):
                 simulation.step(1)
                 simulation.topology.getNumAtoms
                 density = get_density(simulation, masses_in_kg, origin, 1.5*nanometers)
