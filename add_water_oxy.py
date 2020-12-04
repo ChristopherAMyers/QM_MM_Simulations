@@ -27,7 +27,7 @@ class SolventAdder(object):
         self._o2_coords = np.array([[  0.0000000000,    0.0000000000,    0.0000000000],  # O
                                        [  1.5000000000,    0.0000000000,    0.0000000000]]) # O
         self._water_vdw_radii = np.array([3.1507, 0.4000, 0.4000])
-        self._o2_vdw_radii = np.array([3.1507, 3.1507])
+        self._o2_vdw_radii = np.array([3.1507, 3.1507])*0.5
 
     def copy_topology(self, topology):
         newTopology = Topology()
@@ -196,9 +196,9 @@ if __name__ == "__main__":
     adder = SolventAdder()
     positions = pdb.getPositions(True)
     center = np.mean(positions[[94]], axis=0)
-    print(center)
+    print(" Center : ", center)
     for n in range(3):
-        new_top, new_pos = adder.add_solvent(positions, pdb.topology, forcefield, 5.5, center, n_waters=6, n_o2=2)
+        new_top, new_pos = adder.add_solvent(positions, pdb.topology, forcefield, 3, center, n_waters=0, n_o2=3)
         with open('init.{:d}.pdb'.format(n + 1), 'w') as file:
             pdb.writeFile(new_top, new_pos, file)
 

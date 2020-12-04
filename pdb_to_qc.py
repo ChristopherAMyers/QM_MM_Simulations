@@ -111,7 +111,7 @@ def get_bonds_from_coords(elm1, elm2, coords, elms, cutoff):
                 bonds.append([idx_list_1[n], idx])
     return bonds
 
-def add_bonds(pdb):
+def add_bonds(pdb, remove_orig=False):
 
     coords = pdb.getPositions(asNumpy=True).in_units_of(angstroms)
     elements = np.array([x.element.symbol.lower() for x in pdb.topology.atoms()])
@@ -124,6 +124,8 @@ def add_bonds(pdb):
     
 
     atoms = list(pdb.topology.atoms())
+    if remove_orig:
+        pdb.topology._bonds = []
     for bond in bond_list:
         pdb.topology.addBond(atoms[bond[0]], atoms[bond[1]])
 

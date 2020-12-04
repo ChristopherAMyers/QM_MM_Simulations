@@ -610,7 +610,7 @@ if __name__ == "__main__":
     with open(args.out, 'w') as outfile:
         rem_lines, options = get_rem_lines(args.rem, outfile)
         pdb = PDBFile(args.pdb)
-        pdb_to_qc.add_bonds(pdb)
+        pdb_to_qc.add_bonds(pdb, remove_orig=True)
         data, bondedToAtom = pdb_to_qc.determine_connectivity(pdb.topology)
         ff_loc = '/network/rit/lab/ChenRNALab/awesomeSauce/2d_materials/ZnSe/quant_espres/znse_2x2/qm_mm/forcefield'
         forcefield = ForceField(os.path.join(ff_loc, 'forcefields/forcefield2.xml'), 'tip3p.xml')
@@ -687,6 +687,7 @@ if __name__ == "__main__":
         if options.jobtype != 'opt':
             simulation.context.setVelocitiesToTemperature(options.aimd_temp)
 
+        #   for sanity checking
         print(' Integrator: ', integrator)
         sys.stdout.flush()
 
@@ -698,29 +699,9 @@ if __name__ == "__main__":
             if len(qm_atoms) > 0:
                 qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n)
                 update_qm_force(simulation.context, qm_gradient, ext_force, pos[qm_atoms]/nanometer, qm_energy=qm_energy)
-            
-            
-            if False:
-                state = simulation.context.getState(getEnergy=True, getForces=True)   
-                print("Forces Before Step:", file=outfile)
-                forces = state.getForces()
-                for n in qm_atoms:
-                    f = forces[n]/forces[n].unit
-                    print(" Force         {:3s}: {:13.2f}  {:13.2f}  {:13.2f} kJ/mol/nm"
-                    .format(elements[n], f[0], f[1], f[2]), file=outfile)
-
             simulation.step(1)
             if options.jobtype == 'opt':
                 opt.step(simulation, outfile=outfile)
-
-            if False:
-                state = simulation.context.getState(getPositions=True)
-                print("Positions After Step:", file=outfile)
-                new_pos = state.getPositions(True)
-                for n in qm_atoms:
-                    f = new_pos[n]/angstroms
-                    print(" Position      {:3s}: {:15.8f}  {:15.8f}  {:15.8f} Ang."
-                    .format(elements[n], f[0], f[1], f[2]), file=outfile)
 
 
 
