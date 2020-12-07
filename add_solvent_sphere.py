@@ -73,7 +73,10 @@ def add_sphere_water(solute_coords, topology, forcefield, radius=1.5*nanometers,
     vdw_radii = []
     for i in range(system.getNumParticles()):
         params = nonbonded.getParticleParameters(i)
-        vdw_radii.append(params[1]/nanometers)
+        if params[2] != 0*kilojoules_per_mole:
+            vdw_radii.append(params[1]/nanometers)
+        else:
+            vdw_radii.append(0)
     vdw_radii = np.array(vdw_radii)
 
     solvent = Modeller(Topology(), [])
@@ -120,18 +123,27 @@ def add_sphere_water(solute_coords, topology, forcefield, radius=1.5*nanometers,
     modeller = Modeller(topology, solute_coords)
     modeller.add(solvent.topology, rot_pos)
     to_delete = []
-    model_pos = modeller.positions
+    model_pos = np.array(modeller.positions/nanometers)*nanometers
     for res in modeller.topology.residues():
         for atom in res.atoms():
             if atom.element.symbol == 'O' and res.name == 'HOH':
                 oxy_pos = model_pos[atom.index]
                 oxy_sigma = 0.312
-                rad_norm = np.linalg.norm(oxy_pos - origin)*nanometers
+                diff = oxy_pos - origin
+                rad_norm = np.linalg.norm(diff/diff.unit)*nanometers
 
-                dists = np.linalg.norm(solute_coords - oxy_pos, axis=1)
+
+                diffs = solute_coords - oxy_pos                
+                dists = np.linalg.norm(diffs/diffs.unit, axis=1)
                 n_intersects = np.sum(dists < (vdw_radii + oxy_sigma)*vdw_padding/2)
 
-                if rad_norm> radius or n_intersects != 0:
+                #if n_intersects != 0:
+                #    print(n_intersects)
+                #    print(vdw_radii)
+                #    print((vdw_radii + oxy_sigma)*vdw_padding/2)
+                #    input()
+
+                if rad_norm > radius or n_intersects != 0:
                     to_delete.append(res)
     modeller.delete(to_delete)
 
@@ -183,8 +195,8 @@ if __name__ == "__main__":
         template.name += str(n)
         forcefield.registerResidueTemplate(template)
 
-    origin = np.mean(pdb.getPositions(True)[[94]], axis=0)
-    #origin = np.array([8, 8, 8])*nanometers
+    ####   change the center of the water cluster here   ####
+    origin = np.mean(pdb.getPositions(True)[[10]], axis=0)
     print(" Center : ", origin)
 
     n_atoms_init = pdb.topology.getNumAtoms()
