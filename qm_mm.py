@@ -158,7 +158,7 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
 
     return qm_bonds, qm_angles
 
-def add_ext_force(qm_atoms, system):
+def add_ext_qm_force(qm_atoms, system):
     ext_force = CustomExternalForce('a*x + b*y + c*z - k + qm_energy')
     ext_force.addGlobalParameter('k', 0.0)
     ext_force.addGlobalParameter('qm_energy', 0.0)
@@ -167,6 +167,23 @@ def add_ext_force(qm_atoms, system):
     ext_force.addPerParticleParameter('c')
     for n in qm_atoms:
         ext_force.addParticle(n, [0, 0, 0])
+
+    system.addForce(ext_force)
+
+    return ext_force
+
+def add_ext_mm_force(qm_atoms, system, charges):
+    ext_force = CustomExternalForce('-q*(Ex*x + Ey*y + Ez*z - sum)')
+    ext_force.addPerParticleParameter('Ex')
+    ext_force.addPerParticleParameter('Ey')
+    ext_force.addPerParticleParameter('Ez')
+    ext_force.addPerParticleParameter('q')
+    ext_force.addPerParticleParameter('sum')
+    
+    n_atoms = system.getNumParticles()
+    for n in range(n_atoms):
+        if n not in qm_atoms:
+            ext_force.addParticle(n, [0, 0, 0, charges[n], 0])
 
     system.addForce(ext_force)
 
@@ -305,22 +322,42 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
         outfile.write(' -----------------------------------------------------------\n')
         exit()
 
+
+
     #   convert gradient to kJ/mol/nm and energy to kJ/mol
     gradient = (gradient * 2625.5009 * kilojoules_per_mole / nanometer / bohrs.conversion_factor_to(nanometer))
     energy = energy * 2625.5009 * kilojoules_per_mole
     return (energy, gradient)
 
 def update_qm_force(context, gradient, ext_force, qm_coords_in_nm, qm_energy=0.0):
+    
+    dim = len(qm_coords_in_nm)
     total = np.sum(qm_coords_in_nm * gradient)
-    context.setParameter('k', total / len(qm_atoms))
-    context.setParameter('qm_energy', qm_energy/len(qm_atoms))
-    print("K: ", total / len(qm_atoms))
+    context.setParameter('k', total / dim)
+    context.setParameter('qm_energy', qm_energy/dim)
+    print("K: ", total / dim)
     print("QM_ENERGY: ", qm_energy)
     for n in range(ext_force.getNumParticles()):
         idx = ext_force.getParticleParameters(n)[0]
         atom_idx = qm_atoms
         ext_force.setParticleParameters(n, idx, gradient[n])
     ext_force.updateParametersInContext(context)
+
+def update_mm_force(context, ext_force, coords_in_nm, outfile=sys.stdout):
+    if os.path.isfile('efield.dat'):
+        print(' efield.dat found', file=outfile)
+        efield = np.loadtxt('efield.dat') * 2625.5009 / bohrs.conversion_factor_to(nanometer)
+        os.remove('efield.dat')
+        for n in range(ext_force.getNumParticles()):
+            idx, params = ext_force.getParticleParameters(n)
+            params = list(params)
+            for i in range(3):
+                params[i] = efield[idx][i]
+            params[4] = np.dot(efield[idx], coords_in_nm[idx])
+            ext_force.setParticleParameters(n, idx, params)
+        ext_force.updateParametersInContext(context)
+    else:
+        print(' efield.dat NOT found', file=outfile)
 
 def get_rem_lines(rem_file_loc, outfile):
     rem_lines = []
@@ -640,11 +677,13 @@ if __name__ == "__main__":
 
         integrator = get_integrator(options)
         qm_atoms = parse_idx(args.idx, pdb.topology)
-        system = forcefield.createSystem(pdb.topology)
+        system = forcefield.createSystem(pdb.topology, rigidWater=False)
         #   re-map nonbonded forces so QM only interacts with MM through vdW
         charges = add_nonbonded_force(qm_atoms, system, pdb.topology.bonds(), outfile=outfile)
-        #   "external" force is for updating QM forces
-        ext_force = add_ext_force(qm_atoms, system)
+        #   "external" force for updating QM forces
+        ext_qm_force = add_ext_qm_force(qm_atoms, system)
+        #   "external" force for updating MM forces form QM electrostatics
+        ext_mm_force = add_ext_mm_force(qm_atoms, system, charges)
         #   add pulling force
         if False:
             pull_force = apply_pull_force(pdb.positions, system)
@@ -706,11 +745,12 @@ if __name__ == "__main__":
             pos = state.getPositions(True)
             if len(qm_atoms) > 0:
                 qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n)
-                update_qm_force(simulation.context, qm_gradient, ext_force, pos[qm_atoms]/nanometer, qm_energy=qm_energy)
+                update_qm_force(simulation.context, qm_gradient, ext_qm_force, pos[qm_atoms]/nanometer, qm_energy=qm_energy)
+                update_mm_force(simulation.context, ext_mm_force, pos/nanometers, outfile=outfile)
             simulation.step(1)
+
             if options.jobtype == 'opt':
                 opt.step(simulation, outfile=outfile)
-
 
 
 
