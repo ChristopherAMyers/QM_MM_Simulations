@@ -272,7 +272,7 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
         #   forward Q-Chem output to output file and search for completion
         found_thank_you = False
         found_scf_failure = False
-        with open(output_file_loc, 'r') as file:
+        with open(output_file_loc, 'r', errors='ignore') as file:
             for line in file.readlines():
                 if "Thank you" in line:
                     found_thank_you = True
@@ -643,9 +643,10 @@ def apply_pull_force(coords, system):
     pull_force.addPerParticleParameter('py')
     pull_force.addPerParticleParameter('pz')
     
-    direction = coords[98] - coords[226]
+    direction = coords[98] - coords[95]
     norm = direction / np.linalg.norm(direction)
-    force_mag = 5000
+    force_mag = 2000
+    pull_force.addParticle(94, -norm*force_mag)
     pull_force.addParticle(98, -norm*force_mag)
     system.addForce(pull_force)
     return pull_force
@@ -684,13 +685,15 @@ if __name__ == "__main__":
         ext_qm_force = add_ext_qm_force(qm_atoms, system)
         #   "external" force for updating MM forces form QM electrostatics
         ext_mm_force = add_ext_mm_force(qm_atoms, system, charges)
+        
         #   add pulling force
-        if False:
+        if True:
             pull_force = apply_pull_force(pdb.positions, system)
 
         simulation = Simulation(pdb.topology, system, integrator)
         simulation.context.setPositions(pdb.positions)
 
+        #   turn on to freeze mm atoms in place
         if False:
             for n in range(system.getNumParticles()):
                 if n not in qm_atoms:
@@ -726,8 +729,6 @@ if __name__ == "__main__":
         print(" Check to make sure that all forces are ~10^3 or less.", file=outfile)
         print(" Larger forces may indicate an inproper force field parameterization.", file=outfile)
 
-        #if options.jobtype == 'opt':
-        #    gen_qchem_opt(options, simulation, charges, elements, qm_atoms, qm_bonds, qm_angles, outfile)
         if options.jobtype == 'opt':
             opt = GradientMethod(options.time_step*0.001)
 

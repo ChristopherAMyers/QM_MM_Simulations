@@ -196,7 +196,7 @@ if __name__ == "__main__":
         forcefield.registerResidueTemplate(template)
 
     ####   change the center of the water cluster here   ####
-    origin = np.mean(pdb.getPositions(True)[[10]], axis=0)
+    origin = np.mean(pdb.getPositions(True)[[98]], axis=0)
     print(" Center : ", origin)
 
     n_atoms_init = pdb.topology.getNumAtoms()
@@ -217,7 +217,7 @@ if __name__ == "__main__":
     #   this is because outputed pdb file is out guarenteed to have same atom
     #   and residue id's as the modeller
     pdb = PDBFile(pdb_file_loc)
-    id_list = determine_id_list(pdb.getPositions(True), pdb.topology, origin, 5.5*angstroms)
+    id_list = determine_id_list(pdb.getPositions(True), pdb.topology, origin, 5.8*angstroms)
     print(" There are %d solvent atoms inside of the QM sphere" % len(id_list))
     out_file_loc = 'solvent_id.txt'
     print(" Writing %s" % out_file_loc)
