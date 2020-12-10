@@ -58,8 +58,8 @@ def get_density(simulation, masses_in_kg, center, radius):
     density = total_mass/volume
     return density * kilograms/meters**3 # pylint: disable=undefined-variable
 
-#function to add solvent to material
-def add_sphere_water(solute_coords, topology, forcefield, radius=1.5*nanometers, origin=np.array([0, 0, 0])*nanometers, solventBox="None"):
+#function to add solvent shell to material
+def add_solvent_shell(solute_coords, topology, forcefield, radius=1.5*nanometers, origin=np.array([0, 0, 0])*nanometers, solventBox="None"):
 
     #   get vdw radii of solute from forcefield
     vdw_padding= 0.8
@@ -181,6 +181,11 @@ if __name__ == "__main__":
 
     print(" Importing Solute")
     pdb = PDBFile(sys.argv[1])
+    userSpecSolv = None
+    userSolvBox = "None"
+    if( (len(sys.argv) - 1) == 2):
+        userSpecSolv = True
+        userSolvBox = sys.argv[2]
     pdb_to_qc.add_bonds(pdb, remove_orig=True)
     forcefield = ForceField('/network/rit/lab/ChenRNALab/awesomeSauce/2d_materials/ZnSe/quant_espres/znse_2x2/qm_mm/forcefield/forcefields/forcefield2.xml', 'amber14/tip3pfb.xml')
     unmatched_residues = forcefield.getUnmatchedResidues(pdb.topology)
@@ -206,7 +211,7 @@ if __name__ == "__main__":
     n_atoms_init = pdb.topology.getNumAtoms()
     print(" Initial number of atoms: {:d}".format(n_atoms_init))
     print(" Adding Solvent")
-    mols = add_sphere_water(pdb.positions, pdb.topology, forcefield, origin=origin, radius=1.5*nanometers)
+    mols = add_solvent_shell(pdb.positions, pdb.topology, forcefield, origin=origin, radius=1.5*nanometers, solventBox=userSolvBox)
     system = forcefield.createSystem(mols.topology, nonbondedMethod=NoCutoff,
             nonbondedCutoff=1*nanometer, constraints=HBonds)
     n_atoms_final = mols.topology.getNumAtoms()
