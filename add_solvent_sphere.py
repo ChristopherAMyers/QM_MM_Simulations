@@ -58,8 +58,8 @@ def get_density(simulation, masses_in_kg, center, radius):
     density = total_mass/volume
     return density * kilograms/meters**3 # pylint: disable=undefined-variable
 
-
-def add_sphere_water(solute_coords, topology, forcefield, radius=1.5*nanometers, origin=np.array([0, 0, 0])*nanometers):
+#function to add solvent to material
+def add_sphere_water(solute_coords, topology, forcefield, radius=1.5*nanometers, origin=np.array([0, 0, 0])*nanometers, solventBox="None"):
 
     #   get vdw radii of solute from forcefield
     vdw_padding= 0.8
@@ -78,10 +78,14 @@ def add_sphere_water(solute_coords, topology, forcefield, radius=1.5*nanometers,
         else:
             vdw_radii.append(0)
     vdw_radii = np.array(vdw_radii)
-
-    solvent = Modeller(Topology(), [])
-    solvent.addSolvent(ForceField('amber14/tip3pfb.xml'), neutralize=False, 
-    boxSize=Vec3(radius*2, radius*2, radius*2)/nanometers )
+    
+    if(solventBox == "None"):
+        solvent = Modeller(Topology(), [])
+        solvent.addSolvent(ForceField('amber14/tip3pfb.xml'), neutralize=False, 
+        boxSize=Vec3(radius*2, radius*2, radius*2)/nanometers )
+    else:
+        solvCoords = PDBFile(solventBox) 
+        solvent = Modeller(solvCoords.getTopology(), solvCoords.getPositions())
 
     #   import pre-computed water box
     pos = numpy.array(solvent.getPositions()/nanometers)*nanometers
