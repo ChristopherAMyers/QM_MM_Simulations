@@ -33,13 +33,13 @@ job_name = ''
 n_procs = cpu_count()
 
 
-def parse_args():
+def parse_args(args_in):
     parser = argparse.ArgumentParser('')
     parser.add_argument('-pdb', help='pdb molecule file to use')
     parser.add_argument('-rem', help='rem arguments to use with Q-Chem')
     parser.add_argument('-idx', help='list of atoms to treat as QM')
     parser.add_argument('-out', help='output file', default='output.txt')
-    return parser.parse_args()
+    return parser.parse_args(args_in)
 
 def parse_idx(idx_file_loc, topology):
     id_list = []
@@ -259,7 +259,7 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, rem_lines=
 
         return input_file_loc
 
-def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False):
+def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False, outfile=sys.stdout):
     global scratch, qc_scratch
     redo = True
     failures = 0
@@ -347,7 +347,7 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
     energy = energy * 2625.5009 * kilojoules_per_mole
     return (energy, gradient)
 
-def update_qm_force(context, gradient, ext_force, qm_coords_in_nm, qm_energy=0.0):
+def update_qm_force(context, gradient, ext_force, qm_coords_in_nm, qm_atoms, qm_energy=0.0):
     
     dim = len(qm_coords_in_nm)
     total = np.sum(qm_coords_in_nm * gradient)
@@ -377,7 +377,7 @@ def update_mm_force(context, ext_force, coords_in_nm, outfile=sys.stdout):
     else:
         print(' efield.dat NOT found', file=outfile)
 
-def update_ext_force(context, qm_atoms, qm_grdaient, ext_force, coords_in_nm, qm_energy=0.0, outfile=sys.stdout):
+def update_ext_force(context, qm_atoms, qm_gradient, ext_force, coords_in_nm, qm_energy=0.0, outfile=sys.stdout):
     ''' Updates external force for ALL atoms
         See add_ext_force_all for parameter listings
     '''
@@ -619,7 +619,7 @@ def get_integrator(opts):
 
         return integrator
    
-def gen_qchem_opt(options, simulation, charges, elements, qm_atoms, qm_bonds, qm_angles, outfile):
+def gen_qchem_opt(options, simulation, charges, elements, qm_atoms, qm_bonds, qm_angles, rem_lines, outfile):
     global scratch, qc_scratch
     #   all MM atoms involved with bonds and angles
     #   with a QM atoms will be treated as a 'ghost' atom
@@ -709,8 +709,8 @@ def apply_pull_force(coords, system):
     system.addForce(pull_force)
     return pull_force
 
-if __name__ == "__main__":
-    args = parse_args()
+def main(args_in):
+    args = parse_args(args_in)
     with open(args.out, 'w') as outfile:
         rem_lines, options = get_rem_lines(args.rem, outfile)
         pdb = PDBFile(args.pdb)
@@ -803,15 +803,13 @@ if __name__ == "__main__":
             state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True)  
             pos = state.getPositions(True)
             if len(qm_atoms) > 0:
-                qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n)
-                update_qm_force(simulation.context, qm_gradient, ext_qm_force, pos[qm_atoms]/nanometer, qm_energy=qm_energy)
+                qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile)
+                update_qm_force(simulation.context, qm_gradient, ext_qm_force, pos[qm_atoms]/nanometer, qm_atoms, qm_energy=qm_energy)
                 update_mm_force(simulation.context, ext_mm_force, pos/nanometers, outfile=outfile)
             simulation.step(1)
 
             if options.jobtype == 'opt':
                 opt.step(simulation, outfile=outfile)
 
-
-
-            
-
+if __name__ == "__main__":
+    main(sys.argv[1:])
