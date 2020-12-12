@@ -189,6 +189,24 @@ def add_ext_mm_force(qm_atoms, system, charges):
 
     return ext_force
 
+def add_ext_force_all(system, charges):
+    #   adds external force to all atoms
+    #   Gx is the gradient of the energy in the x-direction, etc.
+    #   sum is used as a constant to set the energy to zero at each step
+    ext_force = CustomExternalForce('Gx*x + Gy*y + Gz*z - sum + qm_energy')
+    ext_force.addPerParticleParameter('Gx')
+    ext_force.addPerParticleParameter('Gy')
+    ext_force.addPerParticleParameter('Gz')
+    ext_force.addPerParticleParameter('sum')
+    ext_force.addGlobalParameter('qm_energy', 0.0)
+    n_atoms = system.getNumParticles()
+    for n in range(n_atoms):
+        ext_force.addParticle(n, [0, 0, 0, charges[n], 0])
+    
+    system.addForce(ext_force)
+    return ext_force
+
+
 def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, rem_lines=[], step_number=0, ghost_atoms=[], jobtype=None):
     global scratch
     input_file_loc = os.path.join(scratch, 'input')
@@ -359,6 +377,48 @@ def update_mm_force(context, ext_force, coords_in_nm, outfile=sys.stdout):
     else:
         print(' efield.dat NOT found', file=outfile)
 
+def update_ext_force(context, qm_atoms, qm_grdaient, ext_force, coords_in_nm, qm_energy=0.0, outfile=sys.stdout):
+    ''' Updates external force for ALL atoms
+        See add_ext_force_all for parameter listings
+    '''
+    
+    #   import electric field components if file is available
+    n_atoms = ext_force.getNumParticles()
+    n_qm_atoms = len(qm_atoms)
+    e_field_file_loc = 'efield.dat'
+    if os.path.isfile(e_field_file_loc):
+        print(' efield.dat found', file=outfile)
+        efield = np.loadtxt(e_field_file_loc) * 2625.5009 / bohrs.conversion_factor_to(nanometer)
+        os.remove('efield.dat')
+    else:
+        print(' efield.dat NOT found', file=outfile)
+        efield = np.zeros((n_atoms - n_qm_atoms, 3))
+
+    #   QM and MM atoms use separate counters as their order 
+    #   is (most likely) not contiguous
+    qm_idx = 0
+    mm_idx = 0
+    for n in range(n_atoms):
+        idx, params = ext_force.getParticleParameters(n)
+        params = list(params)
+
+        if n in qm_atoms:
+            gradient = qm_gradient[qm_idx]
+            qm_idx += 1
+            params[4] = qm_energy / n_qm_atoms
+        else:
+            gradient = -efield[mm_idx]
+            mm_idx += 1
+            params[4] = 0.0
+
+        for i in range(3):
+                params[i] = [i]
+        params[3] = np.dot(gradient, coords_in_nm[idx])
+
+        ext_force.setParticleParameters(n, idx, params)
+    ext_force.updateParametersInContext(context)
+    
+
 def get_rem_lines(rem_file_loc, outfile):
     rem_lines = []
     rem_lines_in = []
@@ -435,8 +495,6 @@ def add_nonbonded_force(qm_atoms, system, bonds, outfile=sys.stdout):
     #   get list of bonds for exclusions
     bond_idx_list = []
     for bond in bonds:
-        #if bond.atom1.index == 51 or bond.atom2.index == 51:
-        #    print(bond)
         bond_idx_list.append([bond.atom1.index, bond.atom2.index])
     
     #   add the same parameters as in the original force
@@ -687,7 +745,7 @@ if __name__ == "__main__":
         ext_mm_force = add_ext_mm_force(qm_atoms, system, charges)
         
         #   add pulling force
-        if True:
+        if False:
             pull_force = apply_pull_force(pdb.positions, system)
 
         simulation = Simulation(pdb.topology, system, integrator)

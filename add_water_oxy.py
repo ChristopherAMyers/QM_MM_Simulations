@@ -111,7 +111,7 @@ class SolventAdder(object):
                         break
                 if accept:
                     all_coords = np.append(all_coords, mol, axis=0)
-                    all_vdw_radii = np.append(all_vdw_radii, mol_vdw_radii)
+                    all_vdw_radii = np.append(all_vdw_radii, mol_vdw_radii*1.4)
                     if mol_type == 'water':
                         new_waters.append(mol)
                     else:
@@ -186,10 +186,10 @@ if __name__ == "__main__":
 
     adder = SolventAdder()
     positions = pdb.getPositions(True)
-    center = np.mean(positions[[94]], axis=0)
+    center = np.mean(positions[[94, 95, 98, 99]], axis=0)
     print(" Center : ", center)
     for n in range(3):
-        new_top, new_pos = adder.add_solvent(positions, pdb.topology, forcefield, 3, center, n_waters=0, n_o2=3)
+        new_top, new_pos = adder.add_solvent(positions, pdb.topology, forcefield, 4.0, center, n_waters=0, n_o2=8)
         with open('init.{:d}.pdb'.format(n + 1), 'w') as file:
             pdb.writeFile(new_top, new_pos, file)
 
