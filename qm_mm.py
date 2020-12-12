@@ -66,6 +66,12 @@ def parse_idx(idx_file_loc, topology):
 
     return idx_list
 
+def qm_sphere(origin_atom_idx, qm_atoms, radius, pdb):
+    xyz = pdb.getPositions(asNumpy=True, frame=0)
+    origin = xyz[origin_atom_idx - 1]
+    
+
+
 def find_all_qm_atoms(mat_idx_list, bondedToAtom, topology):
     qm_idx_list = []
     atoms = list(topology.atoms())
