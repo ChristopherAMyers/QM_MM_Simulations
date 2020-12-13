@@ -66,12 +66,24 @@ def parse_idx(idx_file_loc, topology):
 
     return idx_list
 
-def qm_sphere(origin_atom_idx, qm_atoms, radius, pdb):
-    xyz = pdb.getPositions(asNumpy=True, frame=0)
-    origin = xyz[origin_atom_idx - 1]
-    
+def check_distance(atom1Coord, atom2Coord):
+    radicand  = [sum((b-a)**2) for a,b in atom1Coord, atom2Coord]
+    return math.sqrt(radicand)
 
-
+# Finds all atoms within a given radius of a user-specified atom
+# and returns a list of atom indices corresponding to those atoms,
+# which will be treated as QM atoms. 
+def get_qm_sphere(origin_atom_idx, qm_atoms, radius, xyz): #origin_atom_idx is the index of the atom to center the QM sphere on
+    qmSphere = []
+    origin = xyz[origin_atom_idx - 1]          
+    with open(pdb, 'r') as file:
+        for residue in pdb.topology.residues():
+            for atom in residue.atoms():
+                distance = check_distance(origin, xyz[atom.index]) 
+                if distance <= radius:
+                    for atom in residue.atoms():
+                        qmSphere.append(atom.index)
+                    
 def find_all_qm_atoms(mat_idx_list, bondedToAtom, topology):
     qm_idx_list = []
     atoms = list(topology.atoms())
@@ -684,13 +696,18 @@ if __name__ == "__main__":
 
         integrator = get_integrator(options)
         qm_atoms = parse_idx(args.idx, pdb.topology)
+        xyz = pdb.getPositions(asNumpy=True, frame=0)
+        qmSphere = get_qm_sphere(origin_atom_idx, qm_atoms, radius, xyz)
+        qmAtomList = []
+        qmAtomList.append(qm_atoms)
+        qmAtomList.append(qmSphere)
         system = forcefield.createSystem(pdb.topology, rigidWater=False)
         #   re-map nonbonded forces so QM only interacts with MM through vdW
-        charges = add_nonbonded_force(qm_atoms, system, pdb.topology.bonds(), outfile=outfile)
+        charges = add_nonbonded_force(qmAtomList, system, pdb.topology.bonds(), outfile=outfile)
         #   "external" force for updating QM forces
-        ext_qm_force = add_ext_qm_force(qm_atoms, system)
+        ext_qm_force = add_ext_qm_force(qmAtomList, system)
         #   "external" force for updating MM forces form QM electrostatics
-        ext_mm_force = add_ext_mm_force(qm_atoms, system, charges)
+        ext_mm_force = add_ext_mm_force(qmAtomList, system, charges)
         
         #   add pulling force
         if True:
@@ -702,7 +719,7 @@ if __name__ == "__main__":
         #   turn on to freeze mm atoms in place
         if False:
             for n in range(system.getNumParticles()):
-                if n not in qm_atoms:
+                if n not in qmAtomList:
                     print("FREEZE: ", n)
                     system.setParticleMass(n, 0*dalton)
 
@@ -728,7 +745,7 @@ if __name__ == "__main__":
         forces = state.getForces()
         print(" Initial Potential energy: ", state.getPotentialEnergy(), file=outfile)
         print(" Initial forces exerted on QM atoms: ", file=outfile)
-        for n in qm_atoms:
+        for n in qmAtomList:
             f = forces[n]/forces[n].unit
             print(" Force on atom {:3d}: {:10.2f}  {:10.2f}  {:10.2f} kJ/mol/nm"
             .format((n+1), f[0], f[1], f[2]), file=outfile)
@@ -750,10 +767,14 @@ if __name__ == "__main__":
         for n in range(options.aimd_steps):
             state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True)  
             pos = state.getPositions(True)
-            if len(qm_atoms) > 0:
-                qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n)
-                update_qm_force(simulation.context, qm_gradient, ext_qm_force, pos[qm_atoms]/nanometer, qm_energy=qm_energy)
+            if len(qmAtomList) > 0:
+                qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qmAtomList, outfile, rem_lines=rem_lines, step_number=n)
+                update_qm_force(simulation.context, qm_gradient, ext_qm_force, pos[qmAtomList]/nanometer, qm_energy=qm_energy)
                 update_mm_force(simulation.context, ext_mm_force, pos/nanometers, outfile=outfile)
+                qmSphere = get_qm_sphere(origin_atom_idx, qm_atoms, radius, pos/angstrom)
+                qmAtomList = []
+                qmAtomList.append(qm_atoms)
+                qmAtomList.append(qmSphere)
             simulation.step(1)
 
             if options.jobtype == 'opt':
