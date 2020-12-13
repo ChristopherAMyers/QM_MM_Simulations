@@ -31,7 +31,7 @@ def run_aimd_test(outfile=sys.stdout):
 
     #   call QM_MM program
     arg_string = '-pdb opt.pdb -idx id_list -rem rem_aimd -repf force.txt -repv vel.txt'
-    #qm_mm.main(arg_string.split())
+    qm_mm.main(arg_string.split())
 
     #   load outputs and reference values
     ref_force = np.loadtxt('ref_force.txt')

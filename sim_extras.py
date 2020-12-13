@@ -2,6 +2,7 @@ from simtk.openmm.app import * #pylint: disable=unused-wildcard-import
 from simtk.openmm import *
 from simtk.openmm.openmm import *
 from simtk.unit import *
+from os import urandom
 import numpy as np
 import time
 import copy
@@ -164,3 +165,5 @@ class JobOptions(object):
         self.aimd_thermostat = None
         self.aimd_langevin_timescale = 100 * femtoseconds
         self.integrator = 'Verlet'
+        #   32-bit random number seed shifted to c++ min/max integer limits
+        self.temperature_seed = int(urandom(4).hex(), 16) - 2147483647

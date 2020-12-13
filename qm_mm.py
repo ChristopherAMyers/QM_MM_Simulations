@@ -98,8 +98,6 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
                 if a in qm_atoms and b in qm_atoms:
                     force.setBondParameters(n, a, b, r, k*0.000)
                     num_bonds_removed += 1
-                if 55 in [a, b]:
-                    print(a, b, r, k)
                 if (a in qm_atoms and b not in qm_atoms) or \
                    (b in qm_atoms and a not in qm_atoms):
                    qm_bonds.append([a, b, r, k])
@@ -448,6 +446,11 @@ def get_rem_lines(rem_file_loc, outfile):
                 opts.aimd_thermostat = sp[1]
             elif option == 'aimd_langevin_timescale':
                 opts.aimd_langevin_timescale = float(sp[1]) * femtoseconds
+            elif option == 'aimd_temp_seed':
+                seed = int(sp[1])
+                if seed > 2147483647 or seed < (2147483647 - 1):
+                    raise ValueError('rem AIMD_TEMP_SEED must be between -2147483648 and 2147483647')
+                opts.temperature_seed = seed
             else:
                 rem_lines.append(line)
             #else:
@@ -476,6 +479,7 @@ def get_rem_lines(rem_file_loc, outfile):
     outfile.write(' number of steps:       {:>10d} \n'.format(opts.aimd_steps) )
     if opts.jobtype == 'aimd':
         outfile.write(' temperature:           {:>10.2f} K \n'.format(opts.aimd_temp/kelvin) )
+        outfile.write(' temperature seed:      {:>10d} K \n'.format(opts.temperature_seed) )
     if opts.aimd_thermostat:
         outfile.write(' thermostat:            {:>10s} \n'.format(opts.aimd_thermostat) )
         outfile.write(' langevin frequency:  1/{:>10.2f} fs \n'.format(opts.aimd_langevin_timescale / femtoseconds) )
@@ -720,7 +724,6 @@ def main(args_in):
         data, bondedToAtom = pdb_to_qc.determine_connectivity(pdb.topology)
         ff_loc = '/network/rit/lab/ChenRNALab/awesomeSauce/2d_materials/ZnSe/quant_espres/znse_2x2/qm_mm/forcefield'
         forcefield = ForceField(os.path.join(ff_loc, 'forcefields/forcefield2.xml'), 'tip3p.xml')
-        unmatched_residues = forcefield.getUnmatchedResidues(pdb.topology)
         [templates, residues] = forcefield.generateTemplatesForUnmatchedResidues(pdb.topology)
         for n, template in enumerate(templates):
             residue = residues[n]
@@ -761,7 +764,7 @@ def main(args_in):
                     system.setParticleMass(n, 0*dalton)
 
         #   remove bonded forces between QM and MM system
-        qm_bonds, qm_angles = adjust_forces(system, simulation.context, pdb.topology, qm_atoms, outfile=outfile)
+        adjust_forces(system, simulation.context, pdb.topology, qm_atoms, outfile=outfile)
         
         #   output files and reporters
         stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qm_atoms, vel_file_loc=args.repv, force_file_loc=args.repf)
@@ -793,14 +796,17 @@ def main(args_in):
             opt = GradientMethod(options.time_step*0.001)
 
         if options.jobtype != 'opt':
-            simulation.context.setVelocitiesToTemperature(options.aimd_temp)
+            simulation.context.setVelocitiesToTemperature(options.aimd_temp, options.temperature_seed)
 
         #   for sanity checking
-        print(' Integrator: ', integrator)
+        print(' Integrator: ', type(integrator))
         sys.stdout.flush()
 
+        
+        exit()
+
+
         #   run simulation
-        base_qm_energy = 0.0 * kilojoules_per_mole
         for n in range(options.aimd_steps):
             state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True)  
             pos = state.getPositions(True)
@@ -808,11 +814,9 @@ def main(args_in):
                 qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile)
                 update_qm_force(simulation.context, qm_gradient, ext_qm_force, pos[qm_atoms]/nanometer, qm_atoms, qm_energy=qm_energy)
                 update_mm_force(simulation.context, ext_mm_force, pos/nanometers, outfile=outfile)
-            #   call reporter before taking a step
-            #   OpenMM calls reporters after taking a step, but this
-            #   will not report the correct force and energy as the
-            #   new current parameters are only valid for the current 
-            #   positions, not after
+            #   call reporter before taking a step. OpenMM calls reporters after taking a step, but this
+            #   will not report the correct force and energy as the new current parameters are only valid 
+            #   for the current positions, not after
             stats_reporter.report(simulation)
 
             simulation.step(1)
