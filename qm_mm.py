@@ -35,10 +35,12 @@ n_procs = cpu_count()
 
 def parse_args(args_in):
     parser = argparse.ArgumentParser('')
-    parser.add_argument('-pdb', help='pdb molecule file to use')
-    parser.add_argument('-rem', help='rem arguments to use with Q-Chem')
-    parser.add_argument('-idx', help='list of atoms to treat as QM')
+    parser.add_argument('-pdb', required=True, help='pdb molecule file to use')
+    parser.add_argument('-rem', required=True, help='rem arguments to use with Q-Chem')
+    parser.add_argument('-idx', required=True, help='list of atoms to treat as QM')
     parser.add_argument('-out', help='output file', default='output.txt')
+    parser.add_argument('-repf', help='file to print forces to')
+    parser.add_argument('-repv', help='file to print velocities to')
     return parser.parse_args(args_in)
 
 def parse_idx(idx_file_loc, topology):
@@ -762,9 +764,9 @@ def main(args_in):
         qm_bonds, qm_angles = adjust_forces(system, simulation.context, pdb.topology, qm_atoms, outfile=outfile)
         
         #   output files and reporters
-        stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qm_atoms)
+        stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qm_atoms, vel_file_loc=args.repv, force_file_loc=args.repf)
         simulation.reporters.append(PDBReporter('output.pdb', 1))
-        simulation.reporters.append(stats_reporter)
+        #simulation.reporters.append(stats_reporter)
 
         scratch = os.path.join(os.path.curdir, 'qm_mm_scratch/')
         #   set up files
@@ -806,6 +808,13 @@ def main(args_in):
                 qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile)
                 update_qm_force(simulation.context, qm_gradient, ext_qm_force, pos[qm_atoms]/nanometer, qm_atoms, qm_energy=qm_energy)
                 update_mm_force(simulation.context, ext_mm_force, pos/nanometers, outfile=outfile)
+            #   call reporter before taking a step
+            #   OpenMM calls reporters after taking a step, but this
+            #   will not report the correct force and energy as the
+            #   new current parameters are only valid for the current 
+            #   positions, not after
+            stats_reporter.report(simulation)
+
             simulation.step(1)
 
             if options.jobtype == 'opt':

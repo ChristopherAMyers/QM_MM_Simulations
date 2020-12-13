@@ -1,0 +1,12 @@
+$rem
+    jobtype opt
+    method PBE0
+    ecp srlc
+    basis srlc
+    sym_ignore true
+    scf_convergence 5
+    scf_max_cycles 200
+    GAUSSIAN_BLUR   TRUE
+    GAUSS_BLUR_WIDTH 5000
+    geom_opt_max_cycles 20
+$end
