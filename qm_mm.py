@@ -448,9 +448,14 @@ def get_rem_lines(rem_file_loc, outfile):
                 opts.aimd_langevin_timescale = float(sp[1]) * femtoseconds
             elif option == 'aimd_temp_seed':
                 seed = int(sp[1])
-                if seed > 2147483647 or seed < (2147483647 - 1):
+                if seed > 2147483647 or seed < -2147483648:
                     raise ValueError('rem AIMD_TEMP_SEED must be between -2147483648 and 2147483647')
-                opts.temperature_seed = seed
+                opts.aimd_temp_seed = seed
+            elif option == 'aimd_langevin_seed':
+                seed = int(sp[1])
+                if seed > 2147483647 or seed < -2147483648:
+                    raise ValueError('rem AIMD_LANGEVIN_SEED must be between -2147483648 and 2147483647')
+                opts.aimd_langevin_seed = seed
             else:
                 rem_lines.append(line)
             #else:
@@ -479,10 +484,11 @@ def get_rem_lines(rem_file_loc, outfile):
     outfile.write(' number of steps:       {:>10d} \n'.format(opts.aimd_steps) )
     if opts.jobtype == 'aimd':
         outfile.write(' temperature:           {:>10.2f} K \n'.format(opts.aimd_temp/kelvin) )
-        outfile.write(' temperature seed:      {:>10d} K \n'.format(opts.temperature_seed) )
+        outfile.write(' temperature seed:      {:>10d} \n'.format(opts.aimd_temp_seed) )
     if opts.aimd_thermostat:
         outfile.write(' thermostat:            {:>10s} \n'.format(opts.aimd_thermostat) )
         outfile.write(' langevin frequency:  1/{:>10.2f} fs \n'.format(opts.aimd_langevin_timescale / femtoseconds) )
+        outfile.write(' langevin seed:         {:10d} \n'.format(opts.aimd_langevin_seed))
     outfile.write('--------------------------------------------\n')
     outfile.flush()
     return rem_lines, opts
@@ -541,7 +547,10 @@ def add_nonbonded_force(qm_atoms, system, bonds, outfile=sys.stdout):
 def get_integrator(opts):
     if opts.jobtype == 'aimd':
         if opts.integrator.lower() == 'langevin':
-            return LangevinIntegrator(opts.aimd_temp, 1/opts.aimd_langevin_timescale, opts.time_step)
+            integrator =  LangevinIntegrator(opts.aimd_temp, 1/opts.aimd_langevin_timescale, opts.time_step)
+            #   32-bit random number seed shifted to c++ min/max integer limits
+            integrator.setRandomNumberSeed(int(os.urandom(4).hex(), 16) - 2147483647)
+            return integrator
         else:
             return VerletIntegrator(opts.time_step)
     elif opts.jobtype == 'grad':
@@ -796,15 +805,11 @@ def main(args_in):
             opt = GradientMethod(options.time_step*0.001)
 
         if options.jobtype != 'opt':
-            simulation.context.setVelocitiesToTemperature(options.aimd_temp, options.temperature_seed)
+            simulation.context.setVelocitiesToTemperature(options.aimd_temp, options.aimd_temp_seed)
 
         #   for sanity checking
         print(' Integrator: ', type(integrator))
         sys.stdout.flush()
-
-        
-        exit()
-
 
         #   run simulation
         for n in range(options.aimd_steps):

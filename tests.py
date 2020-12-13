@@ -51,14 +51,14 @@ def run_aimd_test(outfile=sys.stdout):
     pass_vel = True
     pass_force = True
     pass_pos = True
-    #if max_vel_diff / max_vel > 0.0001:
-    #    pass_vel = False
+    if max_vel_diff / max_vel > 0.0001:
+        pass_vel = False
     if max_force_diff / max_force > 0.0001:
         pass_force = False
     if max_pos_diff > 0.01:
         pass_pos = False
 
-    #print("     Maximum velocity deviation:    {:10.5e}  {:s}".format(max_vel_diff, bool_to_pass(pass_vel)), file=outfile)
+    print("     Maximum velocity deviation:    {:10.5e}  {:s}".format(max_vel_diff, bool_to_pass(pass_vel)), file=outfile)
     print("     Maximum force deviation:       {:10.5e}  {:s}".format(max_force_diff, bool_to_pass(pass_force)), file=outfile)
     print("     Maximum position deviation:    {:10.5e}  {:s}".format(max_pos_diff, bool_to_pass(pass_pos)), file=outfile) 
 

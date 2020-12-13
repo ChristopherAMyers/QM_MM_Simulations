@@ -10,4 +10,5 @@ $rem
     aimd_thermostat langevin
     aimd_langevin_timescale 20000
     aimd_steps          1
+    aimd_temp_seed      12345678
 $end
