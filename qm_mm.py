@@ -193,15 +193,16 @@ def add_ext_force_all(system, charges):
     #   adds external force to all atoms
     #   Gx is the gradient of the energy in the x-direction, etc.
     #   sum is used as a constant to set the energy to zero at each step
-    ext_force = CustomExternalForce('Gx*x + Gy*y + Gz*z - sum + qm_energy')
+    ext_force = CustomExternalForce('q*(Gx*x + Gy*y + Gz*z - sum) + qm_energy')
     ext_force.addPerParticleParameter('Gx')
     ext_force.addPerParticleParameter('Gy')
     ext_force.addPerParticleParameter('Gz')
+    ext_force.addPerParticleParameter('q')
     ext_force.addPerParticleParameter('sum')
     ext_force.addGlobalParameter('qm_energy', 0.0)
     n_atoms = system.getNumParticles()
     for n in range(n_atoms):
-        ext_force.addParticle(n, [0, 0, 0, charges[n], 0])
+        ext_force.addParticle(n, [0, 0, 0, 0, 0])
     
     system.addForce(ext_force)
     return ext_force
@@ -377,7 +378,7 @@ def update_mm_force(context, ext_force, coords_in_nm, outfile=sys.stdout):
     else:
         print(' efield.dat NOT found', file=outfile)
 
-def update_ext_force(context, qm_atoms, qm_gradient, ext_force, coords_in_nm, qm_energy=0.0, outfile=sys.stdout):
+def update_ext_force(context, qm_atoms, qm_gradient, ext_force, coords_in_nm, charges, qm_energy=0.0, outfile=sys.stdout):
     ''' Updates external force for ALL atoms
         See add_ext_force_all for parameter listings
     '''
@@ -389,7 +390,7 @@ def update_ext_force(context, qm_atoms, qm_gradient, ext_force, coords_in_nm, qm
     if os.path.isfile(e_field_file_loc):
         print(' efield.dat found', file=outfile)
         efield = np.loadtxt(e_field_file_loc) * 2625.5009 / bohrs.conversion_factor_to(nanometer)
-        os.remove('efield.dat')
+        #os.remove('efield.dat')
     else:
         print(' efield.dat NOT found', file=outfile)
         efield = np.zeros((n_atoms - n_qm_atoms, 3))
@@ -405,17 +406,21 @@ def update_ext_force(context, qm_atoms, qm_gradient, ext_force, coords_in_nm, qm
         if n in qm_atoms:
             gradient = qm_gradient[qm_idx]
             qm_idx += 1
-            params[4] = qm_energy / n_qm_atoms
+            params[3] = 1.0
         else:
-            gradient = -efield[mm_idx]
+            gradient = -efield[n]
             mm_idx += 1
-            params[4] = 0.0
+            params[3] = charges[n]
 
         for i in range(3):
-                params[i] = [i]
-        params[3] = np.dot(gradient, coords_in_nm[idx])
-
+                params[i] = gradient[i]
+        params[4] = np.dot(gradient, coords_in_nm[n])
         ext_force.setParticleParameters(n, idx, params)
+
+        if n == 9:
+            print(coords_in_nm[n], params)
+    
+    context.setParameter('qm_energy', qm_energy/n_atoms)
     ext_force.updateParametersInContext(context)
     
 
@@ -753,10 +758,8 @@ def main(args_in):
         system = forcefield.createSystem(pdb.topology, rigidWater=False)
         #   re-map nonbonded forces so QM only interacts with MM through vdW
         charges = add_nonbonded_force(qm_atoms, system, pdb.topology.bonds(), outfile=outfile)
-        #   "external" force for updating QM forces
-        ext_qm_force = add_ext_qm_force(qm_atoms, system)
-        #   "external" force for updating MM forces form QM electrostatics
-        ext_mm_force = add_ext_mm_force(qm_atoms, system, charges)
+        #   "external" force for updating QM forces and MM electrostatics
+        ext_force = add_ext_force_all(system, charges)
         
         #   add pulling force
         if False:
@@ -817,8 +820,7 @@ def main(args_in):
             pos = state.getPositions(True)
             if len(qm_atoms) > 0:
                 qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile)
-                update_qm_force(simulation.context, qm_gradient, ext_qm_force, pos[qm_atoms]/nanometer, qm_atoms, qm_energy=qm_energy)
-                update_mm_force(simulation.context, ext_mm_force, pos/nanometers, outfile=outfile)
+                update_ext_force(simulation.context, qm_atoms, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile)
             #   call reporter before taking a step. OpenMM calls reporters after taking a step, but this
             #   will not report the correct force and energy as the new current parameters are only valid 
             #   for the current positions, not after
