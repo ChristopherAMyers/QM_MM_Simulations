@@ -702,9 +702,9 @@ if __name__ == "__main__":
 
         integrator = get_integrator(options)
         qm_atoms = parse_idx(args.idx, pdb.topology)
-        xyz = pdb.getPositions(asNumpy=True, frame=0)
+        xyz = pdb.getPositions(asNumpy=True, frame=0)/angstrom
         originAtoms = [95, 99]
-        qmSpheres = get_qm_spheres(originAtoms, qm_atoms, radius, xyz, pdb.topology)
+        qmSpheres = get_qm_spheres(originAtoms, qm_atoms, 5, xyz, pdb.topology)
         qmAtomList0 = []
         qmAtomList0.extend(qm_atoms)
         qmAtomList0.extend(qmSpheres)
