@@ -13,6 +13,7 @@ import time
 import shutil
 from scipy import optimize
 from optimize import GradientMethod
+from mdtraj.reporters import HDF5Reporter
 
 # pylint: disable=no-member
 import simtk.unit as unit
@@ -417,9 +418,6 @@ def update_ext_force(context, qm_atoms, qm_gradient, ext_force, coords_in_nm, ch
         params[4] = np.dot(gradient, coords_in_nm[n])
         ext_force.setParticleParameters(n, idx, params)
 
-        if n == 9:
-            print(coords_in_nm[n], params)
-    
     context.setParameter('qm_energy', qm_energy/n_atoms)
     ext_force.updateParametersInContext(context)
     
@@ -780,7 +778,8 @@ def main(args_in):
         
         #   output files and reporters
         stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qm_atoms, vel_file_loc=args.repv, force_file_loc=args.repf)
-        simulation.reporters.append(PDBReporter('output.pdb', 1))
+        #simulation.reporters.append(PDBReporter('output.pdb', 1))
+        simulation.reporters.append(HDF5Reporter('output.h5', 1))
         #simulation.reporters.append(stats_reporter)
 
         scratch = os.path.join(os.path.curdir, 'qm_mm_scratch/')
@@ -819,7 +818,9 @@ def main(args_in):
             state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True)  
             pos = state.getPositions(True)
             if len(qm_atoms) > 0:
-                qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile)
+                #qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile)
+                qm_energy = 0
+                qm_gradient = np.zeros((len(qm_atoms), 3))
                 update_ext_force(simulation.context, qm_atoms, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile)
             #   call reporter before taking a step. OpenMM calls reporters after taking a step, but this
             #   will not report the correct force and energy as the new current parameters are only valid 
@@ -827,6 +828,8 @@ def main(args_in):
             stats_reporter.report(simulation)
 
             simulation.step(1)
+            if n % 10  == 0:
+                simulation.saveState('simulation.xml')
 
             if options.jobtype == 'opt':
                 opt.step(simulation, outfile=outfile)

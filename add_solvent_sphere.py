@@ -7,6 +7,7 @@ import argparse
 import numpy as np
 from numpy.random import random
 import sys
+from mdtraj.reporters import HDF5Reporter
 
 from scipy.spatial.transform import Rotation as rot
 
@@ -205,7 +206,7 @@ if __name__ == "__main__":
         forcefield.registerResidueTemplate(template)
 
     ####   change the center of the water cluster here   ####
-    origin = np.mean(pdb.getPositions(True)[[98]], axis=0)
+    origin = np.mean(pdb.getPositions(True)[[0]], axis=0)
     print(" Center : ", origin)
 
     n_atoms_init = pdb.topology.getNumAtoms()
@@ -235,7 +236,7 @@ if __name__ == "__main__":
     
    
     #   change to True for test simulation stuff
-    if False:
+    if True:
         #   freeze everything not solvent
         for res in mols.topology.residues():
             if res.name != 'HOH':
@@ -248,7 +249,9 @@ if __name__ == "__main__":
         simulation.context.setVelocitiesToTemperature(300*kelvin)
         #print(" Minimizing")
         #simulation.minimizeEnergy()
-        simulation.reporters.append(PDBReporter('output.pdb', 2))
+        simulation.reporters.append(HDF5Reporter('output.h5', 1))
+        simulation.reporters.append(DCDReporter('output.dcd', 1))
+        simulation.reporters.append(PDBReporter('output.pdb', 1))
         simulation.reporters.append(StateDataReporter('stats.txt', 1, step=True,
             potentialEnergy=True, temperature=True, separator=' ', ))
 
@@ -256,7 +259,7 @@ if __name__ == "__main__":
         
         with open('density.txt', 'w') as dens_file:
             print(" Running")
-            for n in range(500):
+            for n in range(100):
                 simulation.step(1)
                 simulation.topology.getNumAtoms
                 density = get_density(simulation, masses_in_kg, origin, 1.5*nanometers)
