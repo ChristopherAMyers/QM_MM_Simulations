@@ -81,7 +81,7 @@ def get_qm_spheres(originAtoms, qm_atoms, radius, xyz, topology):
         while isQuantum is False:
             for i in originAtoms:
                 for atom in residue.atoms():
-                    distance = check_distance(origin, xyz[atom.index]) 
+                    distance = check_distance(xyz[i], xyz[atom.index]) 
                     if distance <= radius:
                         tmp = residues.atoms()
                         exec("qmSphere{0}".format(i) + "= tmp")
