@@ -69,7 +69,7 @@ def parse_idx(idx_file_loc, topology):
 def check_distance(atom1Coord, atom2Coord):
     radicand = 0
     for i in range(3):
-        radicand += (atomCoord2[i] - atomCoord1[i])**2 
+        radicand += (atom2Coord[i] - atom1Coord[i])**2 
     return math.sqrt(radicand)
 
 def get_qm_spheres(originAtoms, qm_atoms, radius, xyz, topology):          
