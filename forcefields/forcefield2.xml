@@ -20,6 +20,8 @@
         <Type name="ETH-HN2" class="lig"  element="H"  mass="1.007947"/>
         <Type name="OTHER-H"  class="other"   element="H"  mass="1.007947"/>
         <Type name="OTHER-O"  class="other"   element="O"  mass="1.007947"/>
+        <Type name="HOH-H"  class="other"   element="H"  mass="1.007947"/>
+        <Type name="HOH-O"  class="other"   element="O"  mass="1.007947"/>
         <Type name="OTHER-Zn" class="other"   element="Zn" mass="15.999"/>
     </AtomTypes>
     <!---->
@@ -45,6 +47,8 @@
         <Atom type="ETH-HN2"  charge="+0.4000" sigma="0.120" epsilon="0.0656"/>
         <Atom type="OTHER-O"  charge="+0.0000" sigma="0.304" epsilon="0.0656"/>
         <Atom type="OTHER-H"  charge="+0.0000" sigma="0.120" epsilon="0.0656"/>
+        <Atom type="HOH-O"  charge="+0.0000" sigma="0.304" epsilon="0.0656"/>
+        <Atom type="HOH-H"  charge="+0.0000" sigma="0.120" epsilon="0.0656"/>
         <Atom type="OTHER-Zn" charge="+0.0000" sigma="0.278" epsilon="0.0656"/>
     
     <!--
