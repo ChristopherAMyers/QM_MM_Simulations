@@ -5,6 +5,7 @@ import qm_mm
 import numpy as np
 from simtk.openmm.app import PDBFile
 from simtk.unit import *
+from mdtraj.formats import HDF5TrajectoryFile
 
 # pylint: disable=no-member
 import simtk.unit as unit
@@ -39,21 +40,22 @@ def run_aimd_test(outfile=sys.stdout):
     ref_pos = np.loadtxt('ref_pos.txt')
     forces = np.loadtxt('force.txt')
     vels = np.loadtxt('vel.txt')
-    pos = PDBFile('output.pdb').getPositions(True)/nanometer
+    pos = HDF5TrajectoryFile('output.h5').read().coordinates[0]
+    #pos = PDBFile('output.pdb').getPositions(True)/nanometer
 
     #   compare to reference data
     max_vel = np.max(np.linalg.norm(ref_force, axis=1))
-    max_vel_diff = np.max(np.linalg.norm(vels - ref_vel, axis=1))
+    max_vel_diff = np.max(np.linalg.norm(vels - ref_vel, axis=1))/max_vel
     max_force = np.max(np.linalg.norm(forces, axis=1))
-    max_force_diff = np.max(np.linalg.norm(forces - ref_force, axis=1))
+    max_force_diff = np.max(np.linalg.norm(forces - ref_force, axis=1))/max_force
     max_pos_diff = np.max(np.linalg.norm(pos - ref_pos, axis=1))
 
     pass_vel = True
     pass_force = True
     pass_pos = True
-    if max_vel_diff / max_vel > 0.0001:
+    if max_vel_diff > 0.0001:
         pass_vel = False
-    if max_force_diff / max_force > 0.0001:
+    if max_force_diff > 0.0001:
         pass_force = False
     if max_pos_diff > 0.001:
         pass_pos = False

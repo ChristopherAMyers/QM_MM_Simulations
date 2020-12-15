@@ -329,6 +329,7 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
         exit()
 
     if len(gradient) != 0:
+        shutil.copyfile(grad_file_loc, os.path.join(qc_scratch, 'GRAD'))
         outfile.write(' Gradient fle found \n')
         outfile.write('                     {:13s}  {:13s}  {:13s} \n'.format('X', 'Y', 'Z'))
         outfile.write(' -----------------------------------------------------------\n')
@@ -498,14 +499,17 @@ def get_rem_lines(rem_file_loc, outfile):
 
 def add_nonbonded_force(qm_atoms, system, bonds, outfile=sys.stdout):
     forces = system.getForces()
-    forceString = "4*epsilon*((sigma/r)^12 - (sigma/r)^6) + 138.935458 * q/r; "
+    forceString = "lj_on*4*epsilon*((sigma/r)^12 - (sigma/r)^6) + coul_on*138.935458 * q/r; "
     forceString += "sigma=0.5*(sigma1+sigma2); "
     forceString += "epsilon=sqrt(epsilon1*epsilon2); "
     forceString += "q=q1*q2; "
+    forceString += "lj_on=1 - min(is_qm1, is_qm2); "
+    forceString += "coul_on=1 - max(is_qm1, is_qm2); "
     customForce = CustomNonbondedForce(forceString)
     customForce.addPerParticleParameter("q")
     customForce.addPerParticleParameter("sigma")
     customForce.addPerParticleParameter("epsilon")
+    customForce.addPerParticleParameter("is_qm")
 
     #   get list of bonds for exclusions
     bond_idx_list = []
@@ -525,14 +529,14 @@ def add_nonbonded_force(qm_atoms, system, bonds, outfile=sys.stdout):
                 charges.append(chg / elementary_charge)
                 if n in qm_atoms:
                     qm_charges.append(chg / elementary_charge)
-                    chg = chg*0
+                    customForce.addParticle([chg, sig, eps, 1])
                 else:
                     mm_atoms.append(n)
-                customForce.addParticle([chg, sig, eps])
+                    customForce.addParticle([chg, sig, eps, 0])
 
             system.removeForce(i)
-            customForce.addInteractionGroup(qm_atoms, mm_atoms)
-            customForce.addInteractionGroup(mm_atoms, mm_atoms)
+            #customForce.addInteractionGroup(qm_atoms, mm_atoms)
+            #customForce.addInteractionGroup(mm_atoms, mm_atoms)
             customForce.createExclusionsFromBonds(bond_idx_list, 2)
             system.addForce(customForce)
 
@@ -727,6 +731,19 @@ def apply_pull_force(coords, system):
     system.addForce(pull_force)
     return pull_force
 
+def print_initial_forces(simulation, qm_atoms, outfile):
+        #   test to make sure that all qm_forces are fine
+        state = simulation.context.getState(getPositions=True, getForces=True, getEnergy=True)
+        forces = state.getForces()
+        print(" Initial Potential energy: ", state.getPotentialEnergy(), file=outfile)
+        print(" Initial forces exerted on QM atoms: ", file=outfile)
+        for n in qm_atoms:
+            f = forces[n]/forces[n].unit
+            print(" Force on atom {:3d}: {:10.2f}  {:10.2f}  {:10.2f} kJ/mol/nm"
+            .format((n+1), f[0], f[1], f[2]), file=outfile)
+        print(" Check to make sure that all forces are ~10^3 or less.", file=outfile)
+        print(" Larger forces may indicate an inproper force field parameterization.", file=outfile)
+
 def main(args_in):
     args = parse_args(args_in)
     with open(args.out, 'w') as outfile:
@@ -778,12 +795,10 @@ def main(args_in):
         
         #   output files and reporters
         stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qm_atoms, vel_file_loc=args.repv, force_file_loc=args.repf)
-        #simulation.reporters.append(PDBReporter('output.pdb', 1))
         simulation.reporters.append(HDF5Reporter('output.h5', 1))
-        #simulation.reporters.append(stats_reporter)
 
-        scratch = os.path.join(os.path.curdir, 'qm_mm_scratch/')
         #   set up files
+        scratch = os.path.join(os.path.curdir, 'qm_mm_scratch/')
         if 'QCSCRATCH' in os.environ:
             qc_scratch = os.environ.get('QCSCRATCH')
             print(" QCSCRATCH set as " + scratch)
@@ -791,17 +806,7 @@ def main(args_in):
         atoms = list(pdb.topology.atoms())
         elements = [x.element.symbol for x in atoms]
 
-        #   test to make sure that all qm_forces are fine
-        state = simulation.context.getState(getPositions=True, getForces=True, getEnergy=True)
-        forces = state.getForces()
-        print(" Initial Potential energy: ", state.getPotentialEnergy(), file=outfile)
-        print(" Initial forces exerted on QM atoms: ", file=outfile)
-        for n in qm_atoms:
-            f = forces[n]/forces[n].unit
-            print(" Force on atom {:3d}: {:10.2f}  {:10.2f}  {:10.2f} kJ/mol/nm"
-            .format((n+1), f[0], f[1], f[2]), file=outfile)
-        print(" Check to make sure that all forces are ~10^3 or less.", file=outfile)
-        print(" Larger forces may indicate an inproper force field parameterization.", file=outfile)
+        print_initial_forces(simulation, qm_atoms, outfile)
 
         if options.jobtype == 'opt':
             opt = GradientMethod(options.time_step*0.001)
@@ -819,8 +824,8 @@ def main(args_in):
             pos = state.getPositions(True)
             if len(qm_atoms) > 0:
                 #qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile)
-                qm_energy = 0
-                qm_gradient = np.zeros((len(qm_atoms), 3))
+                qm_energy = energy = np.loadtxt('qm_mm_scratch/GRAD', skiprows=1, max_rows=1)*2625.5009
+                qm_gradient = np.loadtxt('qm_mm_scratch/GRAD', skiprows=3, max_rows=len(qm_atoms))* 2625.5009  / bohrs.conversion_factor_to(nanometer)
                 update_ext_force(simulation.context, qm_atoms, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile)
             #   call reporter before taking a step. OpenMM calls reporters after taking a step, but this
             #   will not report the correct force and energy as the new current parameters are only valid 

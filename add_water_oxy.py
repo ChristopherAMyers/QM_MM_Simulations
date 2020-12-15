@@ -155,9 +155,6 @@ class SolventAdder(object):
             for coord in water:
                 new_positions.append(coord)
 
-
-
-
         return new_topology, all_coords*angstrom
 
 if __name__ == "__main__":

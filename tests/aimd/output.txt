@@ -9,7 +9,7 @@
  temperature seed:        12345678 
  thermostat:              langevin 
  langevin frequency:  1/  20000.00 fs 
- langevin seed:         1504924540 
+ langevin seed:         -1250391998 
 --------------------------------------------
 
  Force field charge distributions:
@@ -56,7 +56,7 @@
  227  231  232
  227  231  239
  227  231  240
- Initial Potential energy:  -38176.5625 kJ/mol
+ Initial Potential energy:  -38176.56695982988 kJ/mol
  Initial forces exerted on QM atoms: 
  Force on atom   1:       0.44        0.04        3.02 kJ/mol/nm
  Force on atom   2:       0.26       -1.27       -0.67 kJ/mol/nm
@@ -64,7 +64,7 @@
  Force on atom   4:       1.34       -0.29        3.53 kJ/mol/nm
  Force on atom   5:       0.76       -0.58        1.50 kJ/mol/nm
  Force on atom   6:       0.33        0.14       -1.27 kJ/mol/nm
- Force on atom  58:       3.42      695.85        5.00 kJ/mol/nm
+ Force on atom  58:       3.42      695.86        5.00 kJ/mol/nm
  Force on atom  60:     211.48      121.27      312.77 kJ/mol/nm
  Force on atom  62:    -672.68      215.70      -40.06 kJ/mol/nm
  Force on atom  73:     -73.10      154.69       86.45 kJ/mol/nm
@@ -112,7 +112,7 @@
  Force on atom 125:       0.32       -0.10       -0.05 kJ/mol/nm
  Force on atom 126:       0.06        0.26       -0.16 kJ/mol/nm
  Force on atom 223:     -15.38       -9.06      -40.29 kJ/mol/nm
- Force on atom 227:    -423.05      532.06      -86.83 kJ/mol/nm
+ Force on atom 227:    -423.05      532.06      -86.84 kJ/mol/nm
  Force on atom 415:       2.08        0.90       -2.99 kJ/mol/nm
  Force on atom 416:    -138.96      -99.43      -22.53 kJ/mol/nm
  Force on atom 417:      -1.79       -0.95       -1.46 kJ/mol/nm

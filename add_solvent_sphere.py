@@ -249,17 +249,17 @@ if __name__ == "__main__":
         simulation.context.setVelocitiesToTemperature(300*kelvin)
         #print(" Minimizing")
         #simulation.minimizeEnergy()
-        simulation.reporters.append(HDF5Reporter('output.h5', 1))
-        simulation.reporters.append(DCDReporter('output.dcd', 1))
-        simulation.reporters.append(PDBReporter('output.pdb', 1))
-        simulation.reporters.append(StateDataReporter('stats.txt', 1, step=True,
-            potentialEnergy=True, temperature=True, separator=' ', ))
+        simulation.reporters.append(HDF5Reporter('output2.h5', 1))
+        #simulation.reporters.append(DCDReporter('output.dcd', 1))
+        #simulation.reporters.append(PDBReporter('output.pdb', 1))
+        #simulation.reporters.append(StateDataReporter('stats.txt', 1, step=True,
+        #    potentialEnergy=True, temperature=True, separator=' ', ))
 
         masses_in_kg = np.array([system.getParticleMass(n)/dalton for n in range(simulation.topology.getNumAtoms())])*(1.67377E-27)
         
         with open('density.txt', 'w') as dens_file:
             print(" Running")
-            for n in range(100):
+            for n in range(1000):
                 simulation.step(1)
                 simulation.topology.getNumAtoms
                 density = get_density(simulation, masses_in_kg, origin, 1.5*nanometers)
