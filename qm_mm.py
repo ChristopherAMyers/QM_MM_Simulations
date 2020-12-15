@@ -93,7 +93,7 @@ def get_qm_spheres(originAtoms, qm_atoms, radius, xyz, topology):
                 if isQuantum:
                     atoms = []
                     atoms = [atoms.append(atom.index) for atom in residue.atoms()]
-                    exec("qmSphere{0}".format(i) + "= tmp")
+                    exec("qmSphere{0}".format(i) + "= atoms")
                     spheres.append(eval("qmSphere{0}".format(i)))
     qmSpheres = []
     for sphere in spheres:
