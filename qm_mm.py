@@ -76,7 +76,7 @@ def check_distance(atom1Coord, atom2Coord, radius):
     else:
         return False
 
-def get_qm_spheres(originAtoms, qm_atoms, radius, xyz, topology):          
+def get_qm_spheres(originAtoms, radius, xyz, topology):          
     
     '''Finds all atoms within a given radius of each atom in 
        originAtoms to treat as QM and returns a list of atom indices.'''
@@ -87,10 +87,10 @@ def get_qm_spheres(originAtoms, qm_atoms, radius, xyz, topology):
                 for atom in residue.atoms():
                     isQuantum = check_distance(xyz[int(i)], xyz[atom.index], radius)
                     if isQuantum:
-                        break
-                if isQuantum:
                         exec("qmSphere{0}".format(i) + "= residue.atoms()")
                         break
+                if isQuantum:
+                    break
     return [eval("qmSphere{0}".format(x)) for x in originAtoms] 
     
     
@@ -708,7 +708,7 @@ if __name__ == "__main__":
         qm_atoms = parse_idx(args.idx, pdb.topology)
         xyz = pdb.getPositions(asNumpy=True, frame=0)/angstrom
         originAtoms = [95, 99]
-        qmSpheres = get_qm_spheres(originAtoms, qm_atoms, 5, xyz, pdb.topology)
+        qmSpheres = get_qm_spheres(originAtoms, 5, xyz, pdb.topology)
         qmAtomList0 = qm_atoms + qmSpheres
         system = forcefield.createSystem(pdb.topology, rigidWater=False)
         #   re-map nonbonded forces so QM only interacts with MM through vdW
@@ -780,7 +780,7 @@ if __name__ == "__main__":
                 qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qmAtomList, outfile, rem_lines=rem_lines, step_number=n)
                 update_qm_force(simulation.context, qm_gradient, ext_qm_force, pos[qmAtomList]/nanometer, qm_energy=qm_energy)
                 update_mm_force(simulation.context, ext_mm_force, pos/nanometers, outfile=outfile)
-                qmSpheres = get_qm_spheres(origin_atom_idx, qm_atoms, radius, pos/angstrom, pdb.topology)
+                qmSpheres = get_qm_spheres(origin_atom_idx, radius, pos/angstrom, pdb.topology)
                 exec("qmAtomList{0}".format(eval(n+1)) + " = qm_atoms + qmSpheres")
             simulation.step(1)
 
