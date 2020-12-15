@@ -88,8 +88,7 @@ def get_qm_spheres(originAtoms, qm_atoms, radius, xyz, topology):
                         exec("qmSphere{0}".format(i) + "= tmp")
                         isQuantum = True
     qmSpheres = []
-    qmSpheres = [qmSpheres.extend(eval("qmSphere{0}".format(x))) for x in originAtoms] 
-    return 
+    return [qmSpheres.extend(eval("qmSphere{0}".format(x))) for x in originAtoms] 
                     
 def find_all_qm_atoms(mat_idx_list, bondedToAtom, topology):
     qm_idx_list = []
