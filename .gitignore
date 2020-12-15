@@ -1,2 +1,6 @@
 __pycache__
 .vscode
+tests/aimd/output.pdb
+tests/aimd/force.txt
+tests/aimd/vel.txt
+tests/aimd/stats.txt

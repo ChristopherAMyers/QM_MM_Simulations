@@ -13,6 +13,7 @@ import time
 import shutil
 from scipy import optimize
 from optimize import GradientMethod
+from mdtraj.reporters import HDF5Reporter
 
 # pylint: disable=no-member
 import simtk.unit as unit
@@ -33,13 +34,15 @@ job_name = ''
 n_procs = cpu_count()
 
 
-def parse_args():
+def parse_args(args_in):
     parser = argparse.ArgumentParser('')
-    parser.add_argument('-pdb', help='pdb molecule file to use')
-    parser.add_argument('-rem', help='rem arguments to use with Q-Chem')
-    parser.add_argument('-idx', help='list of atoms to treat as QM')
+    parser.add_argument('-pdb', required=True, help='pdb molecule file to use')
+    parser.add_argument('-rem', required=True, help='rem arguments to use with Q-Chem')
+    parser.add_argument('-idx', required=True, help='list of atoms to treat as QM')
     parser.add_argument('-out', help='output file', default='output.txt')
-    return parser.parse_args()
+    parser.add_argument('-repf', help='file to print forces to')
+    parser.add_argument('-repv', help='file to print velocities to')
+    return parser.parse_args(args_in)
 
 def parse_idx(idx_file_loc, topology):
     id_list = []
@@ -126,8 +129,6 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
                 if a in qm_atoms and b in qm_atoms:
                     force.setBondParameters(n, a, b, r, k*0.000)
                     num_bonds_removed += 1
-                if 55 in [a, b]:
-                    print(a, b, r, k)
                 if (a in qm_atoms and b not in qm_atoms) or \
                    (b in qm_atoms and a not in qm_atoms):
                    qm_bonds.append([a, b, r, k])
@@ -219,6 +220,25 @@ def add_ext_mm_force(qm_atoms, system, charges):
 
     return ext_force
 
+def add_ext_force_all(system, charges):
+    #   adds external force to all atoms
+    #   Gx is the gradient of the energy in the x-direction, etc.
+    #   sum is used as a constant to set the energy to zero at each step
+    ext_force = CustomExternalForce('q*(Gx*x + Gy*y + Gz*z - sum) + qm_energy')
+    ext_force.addPerParticleParameter('Gx')
+    ext_force.addPerParticleParameter('Gy')
+    ext_force.addPerParticleParameter('Gz')
+    ext_force.addPerParticleParameter('q')
+    ext_force.addPerParticleParameter('sum')
+    ext_force.addGlobalParameter('qm_energy', 0.0)
+    n_atoms = system.getNumParticles()
+    for n in range(n_atoms):
+        ext_force.addParticle(n, [0, 0, 0, 0, 0])
+    
+    system.addForce(ext_force)
+    return ext_force
+
+
 def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, rem_lines=[], step_number=0, ghost_atoms=[], jobtype=None):
     global scratch
     input_file_loc = os.path.join(scratch, 'input')
@@ -271,7 +291,7 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, rem_lines=
 
         return input_file_loc
 
-def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False):
+def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False, outfile=sys.stdout):
     global scratch, qc_scratch
     redo = True
     failures = 0
@@ -339,6 +359,7 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
         exit()
 
     if len(gradient) != 0:
+        shutil.copyfile(grad_file_loc, os.path.join(qc_scratch, 'GRAD'))
         outfile.write(' Gradient fle found \n')
         outfile.write('                     {:13s}  {:13s}  {:13s} \n'.format('X', 'Y', 'Z'))
         outfile.write(' -----------------------------------------------------------\n')
@@ -359,7 +380,7 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
     energy = energy * 2625.5009 * kilojoules_per_mole
     return (energy, gradient)
 
-def update_qm_force(context, gradient, ext_force, qm_coords_in_nm, qm_energy=0.0):
+def update_qm_force(context, gradient, ext_force, qm_coords_in_nm, qm_atoms, qm_energy=0.0):
     
     dim = len(qm_coords_in_nm)
     total = np.sum(qm_coords_in_nm * gradient)
@@ -389,6 +410,49 @@ def update_mm_force(context, ext_force, coords_in_nm, outfile=sys.stdout):
     else:
         print(' efield.dat NOT found', file=outfile)
 
+def update_ext_force(context, qm_atoms, qm_gradient, ext_force, coords_in_nm, charges, qm_energy=0.0, outfile=sys.stdout):
+    ''' Updates external force for ALL atoms
+        See add_ext_force_all for parameter listings
+    '''
+    
+    #   import electric field components if file is available
+    n_atoms = ext_force.getNumParticles()
+    n_qm_atoms = len(qm_atoms)
+    e_field_file_loc = 'efield.dat'
+    if os.path.isfile(e_field_file_loc):
+        print(' efield.dat found', file=outfile)
+        efield = np.loadtxt(e_field_file_loc) * 2625.5009 / bohrs.conversion_factor_to(nanometer)
+        #os.remove('efield.dat')
+    else:
+        print(' efield.dat NOT found', file=outfile)
+        efield = np.zeros((n_atoms - n_qm_atoms, 3))
+
+    #   QM and MM atoms use separate counters as their order 
+    #   is (most likely) not contiguous
+    qm_idx = 0
+    mm_idx = 0
+    for n in range(n_atoms):
+        idx, params = ext_force.getParticleParameters(n)
+        params = list(params)
+
+        if n in qm_atoms:
+            gradient = qm_gradient[qm_idx]
+            qm_idx += 1
+            params[3] = 1.0
+        else:
+            gradient = -efield[n]
+            mm_idx += 1
+            params[3] = charges[n]
+
+        for i in range(3):
+                params[i] = gradient[i]
+        params[4] = np.dot(gradient, coords_in_nm[n])
+        ext_force.setParticleParameters(n, idx, params)
+
+    context.setParameter('qm_energy', qm_energy/n_atoms)
+    ext_force.updateParametersInContext(context)
+    
+
 def get_rem_lines(rem_file_loc, outfile):
     rem_lines = []
     rem_lines_in = []
@@ -416,6 +480,16 @@ def get_rem_lines(rem_file_loc, outfile):
                 opts.aimd_thermostat = sp[1]
             elif option == 'aimd_langevin_timescale':
                 opts.aimd_langevin_timescale = float(sp[1]) * femtoseconds
+            elif option == 'aimd_temp_seed':
+                seed = int(sp[1])
+                if seed > 2147483647 or seed < -2147483648:
+                    raise ValueError('rem AIMD_TEMP_SEED must be between -2147483648 and 2147483647')
+                opts.aimd_temp_seed = seed
+            elif option == 'aimd_langevin_seed':
+                seed = int(sp[1])
+                if seed > 2147483647 or seed < -2147483648:
+                    raise ValueError('rem AIMD_LANGEVIN_SEED must be between -2147483648 and 2147483647')
+                opts.aimd_langevin_seed = seed
             else:
                 rem_lines.append(line)
             #else:
@@ -444,29 +518,32 @@ def get_rem_lines(rem_file_loc, outfile):
     outfile.write(' number of steps:       {:>10d} \n'.format(opts.aimd_steps) )
     if opts.jobtype == 'aimd':
         outfile.write(' temperature:           {:>10.2f} K \n'.format(opts.aimd_temp/kelvin) )
+        outfile.write(' temperature seed:      {:>10d} \n'.format(opts.aimd_temp_seed) )
     if opts.aimd_thermostat:
         outfile.write(' thermostat:            {:>10s} \n'.format(opts.aimd_thermostat) )
         outfile.write(' langevin frequency:  1/{:>10.2f} fs \n'.format(opts.aimd_langevin_timescale / femtoseconds) )
+        outfile.write(' langevin seed:         {:10d} \n'.format(opts.aimd_langevin_seed))
     outfile.write('--------------------------------------------\n')
     outfile.flush()
     return rem_lines, opts
 
 def add_nonbonded_force(qm_atoms, system, bonds, outfile=sys.stdout):
     forces = system.getForces()
-    forceString = "4*epsilon*((sigma/r)^12 - (sigma/r)^6) + 138.935458 * q/r; "
+    forceString = "lj_on*4*epsilon*((sigma/r)^12 - (sigma/r)^6) + coul_on*138.935458 * q/r; "
     forceString += "sigma=0.5*(sigma1+sigma2); "
     forceString += "epsilon=sqrt(epsilon1*epsilon2); "
     forceString += "q=q1*q2; "
+    forceString += "lj_on=1 - min(is_qm1, is_qm2); "
+    forceString += "coul_on=1 - max(is_qm1, is_qm2); "
     customForce = CustomNonbondedForce(forceString)
     customForce.addPerParticleParameter("q")
     customForce.addPerParticleParameter("sigma")
     customForce.addPerParticleParameter("epsilon")
+    customForce.addPerParticleParameter("is_qm")
 
     #   get list of bonds for exclusions
     bond_idx_list = []
     for bond in bonds:
-        #if bond.atom1.index == 51 or bond.atom2.index == 51:
-        #    print(bond)
         bond_idx_list.append([bond.atom1.index, bond.atom2.index])
     
     #   add the same parameters as in the original force
@@ -482,14 +559,14 @@ def add_nonbonded_force(qm_atoms, system, bonds, outfile=sys.stdout):
                 charges.append(chg / elementary_charge)
                 if n in qm_atoms:
                     qm_charges.append(chg / elementary_charge)
-                    chg = chg*0
+                    customForce.addParticle([chg, sig, eps, 1])
                 else:
                     mm_atoms.append(n)
-                customForce.addParticle([chg, sig, eps])
+                    customForce.addParticle([chg, sig, eps, 0])
 
             system.removeForce(i)
-            customForce.addInteractionGroup(qm_atoms, mm_atoms)
-            customForce.addInteractionGroup(mm_atoms, mm_atoms)
+            #customForce.addInteractionGroup(qm_atoms, mm_atoms)
+            #customForce.addInteractionGroup(mm_atoms, mm_atoms)
             customForce.createExclusionsFromBonds(bond_idx_list, 2)
             system.addForce(customForce)
 
@@ -507,7 +584,10 @@ def add_nonbonded_force(qm_atoms, system, bonds, outfile=sys.stdout):
 def get_integrator(opts):
     if opts.jobtype == 'aimd':
         if opts.integrator.lower() == 'langevin':
-            return LangevinIntegrator(opts.aimd_temp, 1/opts.aimd_langevin_timescale, opts.time_step)
+            integrator =  LangevinIntegrator(opts.aimd_temp, 1/opts.aimd_langevin_timescale, opts.time_step)
+            #   32-bit random number seed shifted to c++ min/max integer limits
+            integrator.setRandomNumberSeed(int(os.urandom(4).hex(), 16) - 2147483647)
+            return integrator
         else:
             return VerletIntegrator(opts.time_step)
     elif opts.jobtype == 'grad':
@@ -591,7 +671,7 @@ def get_integrator(opts):
 
         return integrator
    
-def gen_qchem_opt(options, simulation, charges, elements, qm_atoms, qm_bonds, qm_angles, outfile):
+def gen_qchem_opt(options, simulation, charges, elements, qm_atoms, qm_bonds, qm_angles, rem_lines, outfile):
     global scratch, qc_scratch
     #   all MM atoms involved with bonds and angles
     #   with a QM atoms will be treated as a 'ghost' atom
@@ -681,8 +761,21 @@ def apply_pull_force(coords, system):
     system.addForce(pull_force)
     return pull_force
 
-if __name__ == "__main__":
-    args = parse_args()
+def print_initial_forces(simulation, qm_atoms, outfile):
+        #   test to make sure that all qm_forces are fine
+        state = simulation.context.getState(getPositions=True, getForces=True, getEnergy=True)
+        forces = state.getForces()
+        print(" Initial Potential energy: ", state.getPotentialEnergy(), file=outfile)
+        print(" Initial forces exerted on QM atoms: ", file=outfile)
+        for n in qm_atoms:
+            f = forces[n]/forces[n].unit
+            print(" Force on atom {:3d}: {:10.2f}  {:10.2f}  {:10.2f} kJ/mol/nm"
+            .format((n+1), f[0], f[1], f[2]), file=outfile)
+        print(" Check to make sure that all forces are ~10^3 or less.", file=outfile)
+        print(" Larger forces may indicate an inproper force field parameterization.", file=outfile)
+
+def main(args_in):
+    args = parse_args(args_in)
     with open(args.out, 'w') as outfile:
         rem_lines, options = get_rem_lines(args.rem, outfile)
         pdb = PDBFile(args.pdb)
@@ -690,7 +783,6 @@ if __name__ == "__main__":
         data, bondedToAtom = pdb_to_qc.determine_connectivity(pdb.topology)
         ff_loc = '/network/rit/home/gj785587/ChenRNALab/GregJ/QM_MM_Simulations'
         forcefield = ForceField(os.path.join(ff_loc, 'forcefields/forcefield2.xml'), 'tip3p.xml')
-        unmatched_residues = forcefield.getUnmatchedResidues(pdb.topology)
         [templates, residues] = forcefield.generateTemplatesForUnmatchedResidues(pdb.topology)
         for n, template in enumerate(templates):
             residue = residues[n]
@@ -715,13 +807,11 @@ if __name__ == "__main__":
         system = forcefield.createSystem(pdb.topology, rigidWater=False)
         #   re-map nonbonded forces so QM only interacts with MM through vdW
         charges = add_nonbonded_force(qmAtomList0, system, pdb.topology.bonds(), outfile=outfile)
-        #   "external" force for updating QM forces
-        ext_qm_force = add_ext_qm_force(qmAtomList0, system)
-        #   "external" force for updating MM forces form QM electrostatics
-        ext_mm_force = add_ext_mm_force(qmAtomList0, system, charges)
+        #   "external" force for updating QM forces and MM electrostatics
+        ext_force = add_ext_force_all(system, charges)
         
         #   add pulling force
-        if True:
+        if False:
             pull_force = apply_pull_force(pdb.positions, system)
 
         simulation = Simulation(pdb.topology, system, integrator)
@@ -735,15 +825,14 @@ if __name__ == "__main__":
                     system.setParticleMass(n, 0*dalton)
 
         #   remove bonded forces between QM and MM system
-        qm_bonds, qm_angles = adjust_forces(system, simulation.context, pdb.topology, qmAtomList0, outfile=outfile)
+        adjust_forces(system, simulation.context, pdb.topology, qmAtomList0, outfile=outfile)
         
         #   output files and reporters
-        stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qmAtomList0)
-        simulation.reporters.append(PDBReporter('output.pdb', 1))
-        simulation.reporters.append(stats_reporter)
+        stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qmAtomList0, vel_file_loc=args.repv, force_file_loc=args.repf)
+        simulation.reporters.append(HDF5Reporter('output.h5', 1))
 
-        scratch = os.path.join(os.path.curdir, 'qm_mm_scratch/')
         #   set up files
+        scratch = os.path.join(os.path.curdir, 'qm_mm_scratch/')
         if 'QCSCRATCH' in os.environ:
             qc_scratch = os.environ.get('QCSCRATCH')
             print(" QCSCRATCH set as " + scratch)
@@ -752,44 +841,42 @@ if __name__ == "__main__":
         elements = [x.element.symbol for x in atoms]
 
         #   test to make sure that all qm_forces are fine
-        state = simulation.context.getState(getPositions=True, getForces=True, getEnergy=True)
-        forces = state.getForces()
-        print(" Initial Potential energy: ", state.getPotentialEnergy(), file=outfile)
-        print(" Initial forces exerted on QM atoms: ", file=outfile)
-        for n in qmAtomList0:
-            f = forces[n]/forces[n].unit
-            print(" Force on atom {:3d}: {:10.2f}  {:10.2f}  {:10.2f} kJ/mol/nm"
-            .format((n+1), f[0], f[1], f[2]), file=outfile)
-        print(" Check to make sure that all forces are ~10^3 or less.", file=outfile)
-        print(" Larger forces may indicate an inproper force field parameterization.", file=outfile)
+        print_initial_forces(simulation, qmAtomList0, outfile)
 
         if options.jobtype == 'opt':
             opt = GradientMethod(options.time_step*0.001)
 
         if options.jobtype != 'opt':
-            simulation.context.setVelocitiesToTemperature(options.aimd_temp)
+            simulation.context.setVelocitiesToTemperature(options.aimd_temp, options.aimd_temp_seed)
 
         #   for sanity checking
-        print(' Integrator: ', integrator)
+        print(' Integrator: ', type(integrator))
         sys.stdout.flush()
 
         #   run simulation
-        base_qm_energy = 0.0 * kilojoules_per_mole
+        qmAtomList = qmAtomList0
         for n in range(options.aimd_steps):
             state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True)  
             pos = state.getPositions(True)
-            if len(eval("qmAtomList{0}".format(eval(n)))) > 0:
-                qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qmAtomList, outfile, rem_lines=rem_lines, step_number=n)
-                update_qm_force(simulation.context, qm_gradient, ext_qm_force, pos[qmAtomList]/nanometer, qm_energy=qm_energy)
-                update_mm_force(simulation.context, ext_mm_force, pos/nanometers, outfile=outfile)
-                qmSpheres = get_qm_spheres(origin_atom_idx, qm_atoms, radius, pos/angstrom, pdb.topology)
-                exec("qmAtomList{0}".format(eval(n+1)) + " = qm_atoms + qmSpheres")
+            if len(qmAtomList) > 0:
+                qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile)
+                #qm_energy = energy = np.loadtxt('qm_mm_scratch/GRAD', skiprows=1, max_rows=1)*2625.5009
+                #qm_gradient = np.loadtxt('qm_mm_scratch/GRAD', skiprows=3, max_rows=len(qm_atoms))* 2625.5009  / bohrs.conversion_factor_to(nanometer)
+                update_ext_force(simulation.context, qm_atoms, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile)
+            #   call reporter before taking a step. OpenMM calls reporters after taking a step, but this
+            #   will not report the correct force and energy as the new current parameters are only valid 
+            #   for the current positions, not after
+            stats_reporter.report(simulation)
+
             simulation.step(1)
+            if n % 10  == 0:
+                simulation.saveState('simulation.xml')
 
             if options.jobtype == 'opt':
                 opt.step(simulation, outfile=outfile)
-
-
-
-            
-
+            # update atom list
+            qmSpheres = get_qm_spheres(origin_atom_idx, qm_atoms, radius, pos/angstrom, pdb.topology)
+            qmAtomList = qm_atoms + qmSpheres
+              
+if __name__ == "__main__":
+    main(sys.argv[1:])

@@ -1,0 +1,14 @@
+$rem
+    jobtype aimd
+    method PBE0
+    ecp srlc
+    basis srlc
+    sym_ignore true
+    scf_convergence 5
+    scf_max_cycles 200
+    aimd_temp           300
+    aimd_thermostat langevin
+    aimd_langevin_timescale 20000
+    aimd_steps          1
+    aimd_temp_seed      12345678
+$end
