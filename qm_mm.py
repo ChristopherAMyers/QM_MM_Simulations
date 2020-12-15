@@ -803,10 +803,10 @@ def main(args_in):
         xyz = pdb.getPositions()/angstrom
         originAtoms = [95, 96, 99, 100]
         qmSpheres = get_qm_spheres(originAtoms, qm_atoms, 5, xyz, pdb.topology)
-        qmAtomList0 = qm_atoms + qmSpheres
+        qmAtomList = qm_atoms + qmSpheres
         system = forcefield.createSystem(pdb.topology, rigidWater=False)
         #   re-map nonbonded forces so QM only interacts with MM through vdW
-        charges = add_nonbonded_force(qmAtomList0, system, pdb.topology.bonds(), outfile=outfile)
+        charges = add_nonbonded_force(qmAtomList, system, pdb.topology.bonds(), outfile=outfile)
         #   "external" force for updating QM forces and MM electrostatics
         ext_force = add_ext_force_all(system, charges)
         
@@ -820,15 +820,15 @@ def main(args_in):
         #   turn on to freeze mm atoms in place
         if False:
             for n in range(system.getNumParticles()):
-                if n not in qmAtomList0:
+                if n not in qmAtomList:
                     print("FREEZE: ", n)
                     system.setParticleMass(n, 0*dalton)
 
         #   remove bonded forces between QM and MM system
-        adjust_forces(system, simulation.context, pdb.topology, qmAtomList0, outfile=outfile)
+        adjust_forces(system, simulation.context, pdb.topology, qmAtomList, outfile=outfile)
         
         #   output files and reporters
-        stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qmAtomList0, vel_file_loc=args.repv, force_file_loc=args.repf)
+        stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qmAtomList, vel_file_loc=args.repv, force_file_loc=args.repf)
         simulation.reporters.append(HDF5Reporter('output.h5', 1))
 
         #   set up files
@@ -841,7 +841,7 @@ def main(args_in):
         elements = [x.element.symbol for x in atoms]
 
         #   test to make sure that all qm_forces are fine
-        print_initial_forces(simulation, qmAtomList0, outfile)
+        print_initial_forces(simulation, qmAtomList, outfile)
 
         if options.jobtype == 'opt':
             opt = GradientMethod(options.time_step*0.001)
@@ -854,7 +854,7 @@ def main(args_in):
         sys.stdout.flush()
 
         #   run simulation
-        qmAtomList = qmAtomList0
+
         for n in range(options.aimd_steps):
             state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True)  
             pos = state.getPositions(True)
