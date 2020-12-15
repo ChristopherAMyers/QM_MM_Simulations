@@ -66,30 +66,33 @@ def parse_idx(idx_file_loc, topology):
 
     return idx_list
 
-def check_distance(atom1Coord, atom2Coord):
+def check_distance(atom1Coord, atom2Coord, radius):
     radicand = 0
     for i in range(3):
         radicand += (atom2Coord[i] - atom1Coord[i])**2 
-    return math.sqrt(radicand)
+    distance = math.sqrt(radicand)
+    if distance <= radius:
+        return True
+    else:
+        return False
 
 def get_qm_spheres(originAtoms, qm_atoms, radius, xyz, topology):          
     
     '''Finds all atoms within a given radius of each atom in 
        originAtoms to treat as QM and returns a list of atom indices.'''
     
-    for residue in topology.residues():
-        isQuantum = False
-        while isQuantum is False:
-            for i in originAtoms:
+    for i in originAtoms:
+        for residue in topology.residues():
+                isQuantum is False
                 for atom in residue.atoms():
-                    distance = check_distance(xyz[i], xyz[atom.index]) 
-                    if distance <= radius:
-                        tmp = residue.atoms()
-                        exec("qmSphere{0}".format(i) + "= tmp")
-                        isQuantum = True
-    result = []
-    qmSpheres [result.extend(eval("qmSphere{0}".format(x))) for x in originAtoms] 
-    return qmSpheres
+                    isQuantum = check_distance(xyz[int(i)], xyz[atom.index], radius)
+                    if isQuantum:
+                        break
+                if isQuantum:
+                        exec("qmSphere{0}".format(i) + "= residue.atoms()")
+                        break
+    return [eval("qmSphere{0}".format(x)) for x in originAtoms] 
+    
     
 def find_all_qm_atoms(mat_idx_list, bondedToAtom, topology):
     qm_idx_list = []
