@@ -87,9 +87,10 @@ def get_qm_spheres(originAtoms, qm_atoms, radius, xyz, topology):
                         tmp = residue.atoms()
                         exec("qmSphere{0}".format(i) + "= tmp")
                         isQuantum = True
-    qmSpheres = []
-    return [qmSpheres.extend(eval("qmSphere{0}".format(x))) for x in originAtoms] 
-                    
+    result = []
+    qmSpheres [result.extend(eval("qmSphere{0}".format(x))) for x in originAtoms] 
+    return qmSpheres
+    
 def find_all_qm_atoms(mat_idx_list, bondedToAtom, topology):
     qm_idx_list = []
     atoms = list(topology.atoms())
@@ -705,9 +706,7 @@ if __name__ == "__main__":
         xyz = pdb.getPositions(asNumpy=True, frame=0)/angstrom
         originAtoms = [95, 99]
         qmSpheres = get_qm_spheres(originAtoms, qm_atoms, 5, xyz, pdb.topology)
-        qmAtomList0 = []
-        qmAtomList0.extend(qm_atoms)
-        qmAtomList0.extend(qmSpheres)
+        qmAtomList0 = qm_atoms + qmSpheres
         system = forcefield.createSystem(pdb.topology, rigidWater=False)
         #   re-map nonbonded forces so QM only interacts with MM through vdW
         charges = add_nonbonded_force(qmAtomList, system, pdb.topology.bonds(), outfile=outfile)
@@ -731,10 +730,10 @@ if __name__ == "__main__":
                     system.setParticleMass(n, 0*dalton)
 
         #   remove bonded forces between QM and MM system
-        qm_bonds, qm_angles = adjust_forces(system, simulation.context, pdb.topology, qm_atoms, outfile=outfile)
+        qm_bonds, qm_angles = adjust_forces(system, simulation.context, pdb.topology, qmAtomList0, outfile=outfile)
         
         #   output files and reporters
-        stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qm_atoms)
+        stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qmAtomList0)
         simulation.reporters.append(PDBReporter('output.pdb', 1))
         simulation.reporters.append(stats_reporter)
 
@@ -779,9 +778,7 @@ if __name__ == "__main__":
                 update_qm_force(simulation.context, qm_gradient, ext_qm_force, pos[qmAtomList]/nanometer, qm_energy=qm_energy)
                 update_mm_force(simulation.context, ext_mm_force, pos/nanometers, outfile=outfile)
                 qmSpheres = get_qm_spheres(origin_atom_idx, qm_atoms, radius, pos/angstrom, pdb.topology)
-                exec("qmAtomList{0}".format(eval(n+1)) + " = []")
-                eval("qmAtomList{0}".format(eval(n+1))).extend(qm_atoms)
-                eval("qmAtomList{0}".format(eval(n+1))).extend(qmSpheres)
+                exec("qmAtomList{0}".format(eval(n+1)) + " = qm_atoms + qmSpheres")
             simulation.step(1)
 
             if options.jobtype == 'opt':
