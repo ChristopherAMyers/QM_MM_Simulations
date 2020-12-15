@@ -714,11 +714,11 @@ if __name__ == "__main__":
         qmAtomList0 = qm_atoms + qmSpheres
         system = forcefield.createSystem(pdb.topology, rigidWater=False)
         #   re-map nonbonded forces so QM only interacts with MM through vdW
-        charges = add_nonbonded_force(qmAtomList, system, pdb.topology.bonds(), outfile=outfile)
+        charges = add_nonbonded_force(qmAtomList0, system, pdb.topology.bonds(), outfile=outfile)
         #   "external" force for updating QM forces
-        ext_qm_force = add_ext_qm_force(qmAtomList, system)
+        ext_qm_force = add_ext_qm_force(qmAtomList0, system)
         #   "external" force for updating MM forces form QM electrostatics
-        ext_mm_force = add_ext_mm_force(qmAtomList, system, charges)
+        ext_mm_force = add_ext_mm_force(qmAtomList0, system, charges)
         
         #   add pulling force
         if True:
