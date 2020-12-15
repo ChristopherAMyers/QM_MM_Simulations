@@ -91,7 +91,7 @@ def get_qm_spheres(originAtoms, qm_atoms, radius, xyz, topology):
                         break
                 if isQuantum:
                     break
-    qmSpheres = spheres.flatten()
+    qmSpheres = [item for sublist in spheres for item in sublist]
     return qmSpheres
     
     
