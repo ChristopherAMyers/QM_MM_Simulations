@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from simtk.openmm.app import * #pylint: disable=unused-wildcard-import
 from simtk.openmm import *
 from openmmtools.integrators import VelocityVerletIntegrator
@@ -249,7 +250,7 @@ if __name__ == "__main__":
         simulation.context.setVelocitiesToTemperature(300*kelvin)
         #print(" Minimizing")
         #simulation.minimizeEnergy()
-        simulation.reporters.append(HDF5Reporter('output2.h5', 1))
+        simulation.reporters.append(HDF5Reporter('output.h5', 1))
         #simulation.reporters.append(DCDReporter('output.dcd', 1))
         #simulation.reporters.append(PDBReporter('output.pdb', 1))
         #simulation.reporters.append(StateDataReporter('stats.txt', 1, step=True,
