@@ -89,14 +89,15 @@ def get_qm_spheres(originAtoms, qm_atoms, radius, xyz, topology):
                 isQuantum = False
                 for atom in residue.atoms():
                     isQuantum = check_distance(xyz[int(i)], xyz[atom.index], radius)
-                    if isQuantum:
-                        tmp = [atom.index for atom in residue.atoms()]
-                        exec("qmSphere{0}".format(i) + "= tmp")
-                        spheres.append(eval("qmSphere{0}".format(i)))
-                        break
+                    if isQuantum: break
                 if isQuantum:
-                    break
-    qmSpheres = [item for sublist in spheres for item in sublist]
+                    atoms = []
+                    atoms = [atoms.append(atom.index) for atom in residue.atoms()]
+                    exec("qmSphere{0}".format(i) + "= tmp")
+                    spheres.append(eval("qmSphere{0}".format(i)))
+    qmSpheres = []
+    for sphere in spheres:
+        qmSpheres.extend(sphere)
     return qmSpheres
     
     
