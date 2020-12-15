@@ -168,3 +168,5 @@ class JobOptions(object):
         #   32-bit random number seed shifted to c++ min/max integer limits
         self.aimd_temp_seed = int(urandom(4).hex(), 16) - 2147483647
         self.aimd_langevin_seed = int(urandom(4).hex(), 16) - 2147483647
+
+        self.qm_mm_radius = 5 * angstroms

@@ -207,7 +207,7 @@ if __name__ == "__main__":
         forcefield.registerResidueTemplate(template)
 
     ####   change the center of the water cluster here   ####
-    origin = np.mean(pdb.getPositions(True)[[0]], axis=0)
+    origin = np.mean(pdb.getPositions(True)[[0, 1]], axis=0)
     print(" Center : ", origin)
 
     n_atoms_init = pdb.topology.getNumAtoms()
@@ -240,17 +240,18 @@ if __name__ == "__main__":
     if True:
         #   freeze everything not solvent
         for res in mols.topology.residues():
-            if res.name != 'HOH':
+            if res.name != 'HOH' and False:
                 for atom in res.atoms():
                     system.setParticleMass(atom.index, 0*dalton)
 
         integrator = LangevinIntegrator(300*kelvin, 1/(100*femtoseconds), 0.001*picoseconds)
+        integrator.setRandomNumberSeed(12345)
         simulation = Simulation(mols.topology, system, integrator)
         simulation.context.setPositions(mols.positions)
-        simulation.context.setVelocitiesToTemperature(300*kelvin)
+        simulation.context.setVelocitiesToTemperature(300*kelvin, 12345)
         #print(" Minimizing")
         #simulation.minimizeEnergy()
-        simulation.reporters.append(HDF5Reporter('output.h5', 1))
+        simulation.reporters.append(HDF5Reporter('output.h5', 5))
         #simulation.reporters.append(DCDReporter('output.dcd', 1))
         #simulation.reporters.append(PDBReporter('output.pdb', 1))
         #simulation.reporters.append(StateDataReporter('stats.txt', 1, step=True,
@@ -260,7 +261,7 @@ if __name__ == "__main__":
         
         with open('density.txt', 'w') as dens_file:
             print(" Running")
-            for n in range(1000):
+            for n in range(5000):
                 simulation.step(1)
                 simulation.topology.getNumAtoms
                 density = get_density(simulation, masses_in_kg, origin, 1.5*nanometers)

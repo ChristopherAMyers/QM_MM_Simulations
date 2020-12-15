@@ -61,6 +61,7 @@ def convert(input_file_loc, out_file_loc):
 
     elif extension == 'gsd':
         traj.save_gsd(out_file_loc)
+        
     print(" ...Done writing")
 
 
