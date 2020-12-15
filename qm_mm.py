@@ -688,7 +688,7 @@ if __name__ == "__main__":
         pdb = PDBFile(args.pdb)
         pdb_to_qc.add_bonds(pdb, remove_orig=True)
         data, bondedToAtom = pdb_to_qc.determine_connectivity(pdb.topology)
-        ff_loc = '/network/rit/lab/ChenRNALab/awesomeSauce/2d_materials/ZnSe/quant_espres/znse_2x2/qm_mm/forcefield'
+        ff_loc = '/network/rit/home/gj785587/ChenRNALab/GregJ/QM_MM_Simulations'
         forcefield = ForceField(os.path.join(ff_loc, 'forcefields/forcefield2.xml'), 'tip3p.xml')
         unmatched_residues = forcefield.getUnmatchedResidues(pdb.topology)
         [templates, residues] = forcefield.generateTemplatesForUnmatchedResidues(pdb.topology)
