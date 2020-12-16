@@ -53,7 +53,7 @@ def parse_idx(idx_file_loc, topology):
                 if '*' in sp[0]: 
                     num = list(filter(str.isdigit, sp[0]))
                     idx = [item for sublist in num for item in sublist]
-                    qm_origin_atoms.append(int(sp[0]))
+                    qm_origin_atoms.append(idx)
                 else: 
                     qm_fixed_atoms.append(int(sp[0]))
             #   assume that the output from pymol is used
@@ -317,7 +317,6 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
         outfile.write(' --------------------------------------------\n')
         outfile.write('           Starting Q-Chem\n')
         outfile.write(' --------------------------------------------\n')
-        exit()
 
         if copy_input:
             with open(input_file_loc, 'r') as file:
