@@ -29,7 +29,9 @@ class StatsReporter(object):
         self._init_pot_energy = 0
         self._jobtype = options.jobtype
         self._options = copy.copy(options)
-
+        self._vel_file=None
+        self._force_file=None
+        
         if vel_file_loc:
             self._vel_file = open(vel_file_loc, 'w')
         if force_file_loc:
