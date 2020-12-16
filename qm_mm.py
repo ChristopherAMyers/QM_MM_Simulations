@@ -43,27 +43,41 @@ def parse_args(args_in):
     return parser.parse_args(args_in)
 
 def parse_idx(idx_file_loc, topology):
-    id_list = []
+    qm_fixed_atoms = []
+    qm_origin_atoms = []
     with open(idx_file_loc, 'r') as file:
         for line in file.readlines():
             sp = line.split()
             #   assume that just a column of numbers is used
             if len(sp) == 1:
-                id_list.append(int(sp[0]))
+                if '*' in sp[0]: 
+                    num = list(filter(str.isdigit, sp[0]))
+                    idx = [item for sublist in num for item in sublist]
+                    qm_origin_atoms.append(int(sp[0]))
+                else: 
+                    qm_fixed_atoms.append(int(sp[0]))
             #   assume that the output from pymol is used
             elif len(sp) == 3 and "cmd.identify" in line:
                 idx = sp[-1].split('`')[-1].split(')')[0]
-                id_list.append(int(idx))
+                qm_fixed_atoms.append(int(idx))
             else:
                 print("ERROR: Can't determin index format")
-    id_list = sorted(id_list)
-    idx_list = []
-    for atom in topology.atoms():
-        if int(atom.id) in id_list:
-            idx_list.append(atom.index)
-    idx_list = sorted(idx_list)
+    qm_fixed_atoms = sorted(qm_fixed_atoms)
+    qm_origin_atoms = sorted(qm_origin_atoms)
 
-    return idx_list
+    qm_fixed_atoms_indices = []
+    qm_origin_atoms_indices = []
+    for atom in topology.atoms():
+        if int(atom.id) in qm_fixed_atoms:
+            qm_fixed_atoms_indices.append(atom.index)
+    for atom in topology.atoms():
+        if int(atom.id) in qm_origin_atoms:
+            qm_origin_atoms_indices.append(atom.index)
+    
+    qm_fixed_atoms_indices = sorted(qm_fixed_atoms_indices)
+    qm_origin_atoms_indices = sorted(qm_origin_atoms_indices)
+
+    return (qm_fixed_atoms_indices, qm_origin_atoms_indices)
 
 def check_distance(atom1Coord, atom2Coord, radius):
     radicand = 0
@@ -288,13 +302,8 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, rem_lines=
 
         return input_file_loc
 
-<<<<<<< HEAD
 def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False, outfile=sys.stdout):
     global scratch, qc_scratch, n_procs
-=======
-def calc_qm_force(coords, charges, elements, qmAtomList, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False, outfile=sys.stdout):
-    global scratch, qc_scratch, n_procs, qchem_path
->>>>>>> greg
     redo = True
     failures = 0
     use_rem_lines = copy.copy(rem_lines)
@@ -805,19 +814,9 @@ def main(args_in):
             forcefield.registerResidueTemplate(template)
 
         integrator = get_integrator(options)
-<<<<<<< HEAD
-
         qm_fixed_atoms, qm_origin_atoms = parse_idx(args.idx, pdb.topology)
         qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius, pdb.getPositions()/angstrom, pdb.topology)
         qm_atoms = qm_fixed_atoms + qm_sphere_atoms
-
-=======
-        qm_atoms = parse_idx(args.idx, pdb.topology)
-        xyz = pdb.positions/angstrom
-        originAtoms = [95, 96, 99, 100]
-        qmSpheres = get_qm_spheres(originAtoms, qm_atoms, 5, xyz, pdb.topology)
-        qmAtomList = qm_atoms + qmSpheres
->>>>>>> greg
         system = forcefield.createSystem(pdb.topology, rigidWater=False)
         #   re-map nonbonded forces so QM only interacts with MM through vdW
         charges = add_nonbonded_force(qm_atoms, system, pdb.topology.bonds(), outfile=outfile)
