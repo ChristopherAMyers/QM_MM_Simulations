@@ -28,7 +28,6 @@ import pdb_to_qc
 from sim_extras import *
 
 qchem_path = '/network/rit/lab/ChenRNALab/bin/Q-Chem5.2-GPU'
-scratch = '/tmp'
 qc_scratch = '/tmp'
 n_procs = cpu_count()
 
@@ -58,8 +57,6 @@ def parse_idx(idx_file_loc, topology):
             else:
                 print("ERROR: Can't determin index format")
     id_list = sorted(id_list)
-
-
     idx_list = []
     for atom in topology.atoms():
         if int(atom.id) in id_list:
@@ -292,7 +289,7 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, rem_lines=
         return input_file_loc
 
 def calc_qm_force(coords, charges, elements, qmAtomList, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False, outfile=sys.stdout):
-    global scratch, qc_scratch
+    global scratch, qc_scratch, n_procs
     redo = True
     failures = 0
     use_rem_lines = copy.copy(rem_lines)
