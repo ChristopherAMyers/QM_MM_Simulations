@@ -288,13 +288,9 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, rem_lines=
 
         return input_file_loc
 
-<<<<<<< HEAD
 def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False, outfile=sys.stdout):
     global scratch, qc_scratch, n_procs
-=======
-def calc_qm_force(coords, charges, elements, qmAtomList, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False, outfile=sys.stdout):
-    global scratch, qc_scratch, n_procs, qchem_path
->>>>>>> greg
+
     redo = True
     failures = 0
     use_rem_lines = copy.copy(rem_lines)
@@ -805,19 +801,12 @@ def main(args_in):
             forcefield.registerResidueTemplate(template)
 
         integrator = get_integrator(options)
-<<<<<<< HEAD
 
         qm_fixed_atoms, qm_origin_atoms = parse_idx(args.idx, pdb.topology)
         qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius, pdb.getPositions()/angstrom, pdb.topology)
         qm_atoms = qm_fixed_atoms + qm_sphere_atoms
 
-=======
-        qm_atoms = parse_idx(args.idx, pdb.topology)
-        xyz = pdb.positions/angstrom
-        originAtoms = [95, 96, 99, 100]
-        qmSpheres = get_qm_spheres(originAtoms, qm_atoms, 5, xyz, pdb.topology)
-        qmAtomList = qm_atoms + qmSpheres
->>>>>>> greg
+
         system = forcefield.createSystem(pdb.topology, rigidWater=False)
         #   re-map nonbonded forces so QM only interacts with MM through vdW
         charges = add_nonbonded_force(qm_atoms, system, pdb.topology.bonds(), outfile=outfile)
