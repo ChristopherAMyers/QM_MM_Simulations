@@ -839,7 +839,7 @@ def main(args_in):
         scratch = os.path.join(os.path.curdir, 'qm_mm_scratch/')
         if 'QCSCRATCH' in os.environ:
             qc_scratch = os.environ.get('QCSCRATCH')
-            print(" QCSCRATCH set as " +qc_ scratch)
+            print(" QCSCRATCH set as ", qc_scratch)
         os.makedirs(scratch, exist_ok=True)
         atoms = list(pdb.topology.atoms())
         elements = [x.element.symbol for x in atoms]
