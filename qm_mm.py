@@ -29,9 +29,7 @@ from sim_extras import *
 from forces import *
 
 qchem_path = '/network/rit/lab/ChenRNALab/bin/Q-Chem5.2-GPU'
-scratch = '/tmp'
 qc_scratch = '/tmp'
-job_name = ''
 n_procs = cpu_count()
 
 
@@ -78,7 +76,6 @@ def parse_idx(idx_file_loc, topology):
                     sphere_list.append(id_list[-1])
 
     id_list = sorted(id_list)
-
     idx_list = []
     idx_sphere_list = []
     for atom in topology.atoms():
@@ -105,19 +102,20 @@ def get_qm_spheres(originAtoms, qm_atoms, radius, xyz, topology):
     
     '''Finds all atoms within a given radius of each atom in 
        originAtoms to treat as QM and returns a list of atom indices.'''
-    spheres = []
+
+    qmSpheres = []
     for i in originAtoms:
-        for residue in topology.residues():
-                isQuantum = False
-                for atom in residue.atoms():
-                    isQuantum = check_distance(xyz[int(i)], xyz[atom.index], radius)
-                    if isQuantum:
-                        exec("qmSphere{0}".format(i) + "= residue.atoms()")
-                        spheres.append(eval("qmSphere{0}".format(i)))
-                        break
+        for residue in list(topology.residues()):
+                isQuantum = None
+                for atom in list(residue.atoms()):
+	                if atom.index in qm_atoms: continue
+	                if atom.index in originAtoms: continue
+	                inRadius = check_distance(xyz[int(i)], xyz[atom.index], radius)
+	                if inRadius: isQuantum = True
+	                if isQuantum: break
                 if isQuantum:
-                    break
-    qmSpheres = [item for sublist in spheres for item in sublist]
+	                for atom in list(residue.atoms()):
+	                	qmSpheres.append(atom.index)
     return qmSpheres
       
 def find_all_qm_atoms(mat_idx_list, bondedToAtom, topology):
@@ -262,19 +260,22 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, rem_lines=
 
         return input_file_loc
 
-def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False, outfile=sys.stdout):
-    global scratch, qc_scratch
+def calc_qm_force(coords, charges, elements, qmAtomList, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False, outfile=sys.stdout):
+    global scratch, qc_scratch, n_procs
     redo = True
     failures = 0
     use_rem_lines = copy.copy(rem_lines)
     while redo:
-        input_file_loc = create_qc_input(coords, charges, elements, qm_atoms, total_chg=total_chg, rem_lines=use_rem_lines, step_number=step_number)
+        outfile.write("This is scratch: {:s} \n".format(scratch))
+        outfile.flush()
+        input_file_loc = create_qc_input(coords, charges, elements, qmAtomList, total_chg=total_chg, rem_lines=use_rem_lines, step_number=step_number)
         output_file_loc = os.path.join(scratch, 'output')
         cmd = os.path.join(qchem_path, 'bin/qchem') + ' -save -nt {:d}  {:s}  {:s} save_files'.format(n_procs, input_file_loc, output_file_loc)
 
         outfile.write(' --------------------------------------------\n')
         outfile.write('           Starting Q-Chem\n')
         outfile.write(' --------------------------------------------\n')
+        exit()
 
         if copy_input:
             with open(input_file_loc, 'r') as file:
@@ -734,6 +735,7 @@ def print_initial_forces(simulation, qm_atoms, outfile):
         print(" Larger forces may indicate an inproper force field parameterization.", file=outfile)
 
 def main(args_in):
+    global scratch, n_procs, qc_scratch, qchem_path
     args = parse_args(args_in)
     with open(args.out, 'w') as outfile:
         rem_lines, options = get_rem_lines(args.rem, outfile)
@@ -758,13 +760,14 @@ def main(args_in):
             forcefield.registerResidueTemplate(template)
 
         integrator = get_integrator(options)
-        qm_atoms, originAtoms = parse_idx(args.idx, pdb.topology)
 
+        qm_atoms, originAtoms = parse_idx(args.idx, pdb.topology)
         qmSpheres = get_qm_spheres(originAtoms, qm_atoms, options.qm_mm_radius, pdb.getPositions()/angstrom, pdb.topology)
-        qmAtomList0 = qm_atoms + qmSpheres
+        qmAtomList = qm_atoms + qmSpheres
+
         system = forcefield.createSystem(pdb.topology, rigidWater=False)
         #   re-map nonbonded forces so QM only interacts with MM through vdW
-        charges = add_nonbonded_force(qmAtomList0, system, pdb.topology.bonds(), outfile=outfile)
+        charges = add_nonbonded_force(qmAtomList, system, pdb.topology.bonds(), outfile=outfile)
         #   "external" force for updating QM forces and MM electrostatics
         ext_force = add_ext_force_all(system, charges)
         
@@ -778,28 +781,30 @@ def main(args_in):
         #   turn on to freeze mm atoms in place
         if False:
             for n in range(system.getNumParticles()):
-                if n not in qmAtomList0:
+                if n not in qmAtomList:
                     print("FREEZE: ", n)
                     system.setParticleMass(n, 0*dalton)
 
         #   remove bonded forces between QM and MM system
-        adjust_forces(system, simulation.context, pdb.topology, qmAtomList0, outfile=outfile)
+        adjust_forces(system, simulation.context, pdb.topology, qmAtomList, outfile=outfile)
         
         #   output files and reporters
-        stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qmAtomList0, vel_file_loc=args.repv, force_file_loc=args.repf)
+        stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qmAtomList, vel_file_loc=args.repv, force_file_loc=args.repf)
         simulation.reporters.append(HDF5Reporter('output.h5', 1))
 
         #   set up files
         scratch = os.path.join(os.path.curdir, 'qm_mm_scratch/')
         if 'QCSCRATCH' in os.environ:
             qc_scratch = os.environ.get('QCSCRATCH')
-            print(" QCSCRATCH set as " + qc_scratch)
+            print(" QCSCRATCH set as ", qc_scratch)
+
         os.makedirs(scratch, exist_ok=True)
+        os.makedirs(qc_scratch, exist_ok=True)
         atoms = list(pdb.topology.atoms())
         elements = [x.element.symbol for x in atoms]
 
         #   test to make sure that all qm_forces are fine
-        print_initial_forces(simulation, qmAtomList0, outfile)
+        print_initial_forces(simulation, qmAtomList, outfile)
 
         if options.jobtype == 'opt':
             opt = GradientMethod(options.time_step*0.001)
@@ -812,15 +817,15 @@ def main(args_in):
         sys.stdout.flush()
 
         #   run simulation
-        qmAtomList = qmAtomList0
+
         for n in range(options.aimd_steps):
             state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True)  
             pos = state.getPositions(True)
             if len(qmAtomList) > 0:
-                qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile)
+                qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qmAtomList, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile)
                 #qm_energy = energy = np.loadtxt('qm_mm_scratch/GRAD', skiprows=1, max_rows=1)*2625.5009
                 #qm_gradient = np.loadtxt('qm_mm_scratch/GRAD', skiprows=3, max_rows=len(qm_atoms))* 2625.5009  / bohrs.conversion_factor_to(nanometer)
-                update_ext_force(simulation.context, qm_atoms, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile)
+                update_ext_force(simulation.context, qmAtomList, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile)
             #   call reporter before taking a step. OpenMM calls reporters after taking a step, but this
             #   will not report the correct force and energy as the new current parameters are only valid 
             #   for the current positions, not after
@@ -835,7 +840,7 @@ def main(args_in):
             # update atom list
             qmSpheres = get_qm_spheres(originAtoms, qm_atoms, options.qm_mm_radius, pos/angstrom, pdb.topology)
             qmAtomList = qm_atoms + qmSpheres
-            simulation.context.getParameter
+
               
 if __name__ == "__main__":
     main(sys.argv[1:])
