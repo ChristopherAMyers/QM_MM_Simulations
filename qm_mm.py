@@ -49,7 +49,7 @@ def parse_idx(idx_file_loc, topology):
         for line in file.readlines():
             sp = line.split()
             #   assume that just a column of numbers is used
-            if len(sp) == 1:
+            if len(sp) < 3:
                 if '*' in line: 
                     num = list(filter(str.isdigit, sp[0]))
                     idx = [item for sublist in num for item in sublist]
