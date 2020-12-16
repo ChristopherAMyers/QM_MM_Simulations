@@ -877,8 +877,6 @@ def main(args_in):
             if options.jobtype == 'opt':
                 opt.step(simulation, outfile=outfile)
             # update atom list
-            qmSpheres.clear()
-            qmAtomList.clear()
             qmSpheres = get_qm_spheres(originAtoms, qm_atoms, 5, pos/angstrom, pdb.topology)
             qmAtomList = qm_atoms + qmSpheres
               
