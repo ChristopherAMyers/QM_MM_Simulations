@@ -841,6 +841,7 @@ def main(args_in):
             qc_scratch = os.environ.get('QCSCRATCH')
             print(" QCSCRATCH set as ", qc_scratch)
         os.makedirs(scratch, exist_ok=True)
+	os.makedirs(qc_scratch, exist_ok=True)
         atoms = list(pdb.topology.atoms())
         elements = [x.element.symbol for x in atoms]
 
