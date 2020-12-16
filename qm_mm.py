@@ -26,6 +26,7 @@ sys.path.insert(1, "/network/rit/lab/ChenRNALab/bin/Pymol2.3.2/pymol/lib/python3
 #from pymol import cmd, stored # pylint: disable=import-error
 import pdb_to_qc
 from sim_extras import *
+from forces import *
 
 qchem_path = '/network/rit/lab/ChenRNALab/bin/Q-Chem5.2-GPU'
 qc_scratch = '/tmp'
@@ -200,56 +201,6 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
 
     return qm_bonds, qm_angles
 
-def add_ext_qm_force(qmAtomList, system):
-    ext_force = CustomExternalForce('a*x + b*y + c*z - k + qm_energy')
-    ext_force.addGlobalParameter('k', 0.0)
-    ext_force.addGlobalParameter('qm_energy', 0.0)
-    ext_force.addPerParticleParameter('a')
-    ext_force.addPerParticleParameter('b')
-    ext_force.addPerParticleParameter('c')
-    for n in qmAtomList:
-        ext_force.addParticle(n, [0, 0, 0])
-
-    system.addForce(ext_force)
-
-    return ext_force
-
-def add_ext_mm_force(qmAtomList, system, charges):
-    ext_force = CustomExternalForce('-q*(Ex*x + Ey*y + Ez*z - sum)')
-    ext_force.addPerParticleParameter('Ex')
-    ext_force.addPerParticleParameter('Ey')
-    ext_force.addPerParticleParameter('Ez')
-    ext_force.addPerParticleParameter('q')
-    ext_force.addPerParticleParameter('sum')
-    
-    n_atoms = system.getNumParticles()
-    for n in range(n_atoms):
-        if n not in qmAtomList:
-            ext_force.addParticle(n, [0, 0, 0, charges[n], 0])
-
-    system.addForce(ext_force)
-
-    return ext_force
-
-def add_ext_force_all(system, charges):
-    #   adds external force to all atoms
-    #   Gx is the gradient of the energy in the x-direction, etc.
-    #   sum is used as a constant to set the energy to zero at each step
-    ext_force = CustomExternalForce('q*(Gx*x + Gy*y + Gz*z - sum) + qm_energy')
-    ext_force.addPerParticleParameter('Gx')
-    ext_force.addPerParticleParameter('Gy')
-    ext_force.addPerParticleParameter('Gz')
-    ext_force.addPerParticleParameter('q')
-    ext_force.addPerParticleParameter('sum')
-    ext_force.addGlobalParameter('qm_energy', 0.0)
-    n_atoms = system.getNumParticles()
-    for n in range(n_atoms):
-        ext_force.addParticle(n, [0, 0, 0, 0, 0])
-    
-    system.addForce(ext_force)
-    return ext_force
-
-
 def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, rem_lines=[], step_number=0, ghost_atoms=[], jobtype=None):
     global scratch
     input_file_loc = os.path.join(scratch, 'input')
@@ -317,7 +268,7 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
         outfile.write(' --------------------------------------------\n')
         outfile.write('           Starting Q-Chem\n')
         outfile.write(' --------------------------------------------\n')
-        exit()
+        #exit()
 
         if copy_input:
             with open(input_file_loc, 'r') as file:
@@ -764,20 +715,6 @@ def gen_qchem_opt(options, simulation, charges, elements, qm_atoms, qm_bonds, qm
     
     exit()
 
-def apply_pull_force(coords, system):
-    pull_force = CustomExternalForce('px*x + py*y + pz*z')
-    pull_force.addPerParticleParameter('px')
-    pull_force.addPerParticleParameter('py')
-    pull_force.addPerParticleParameter('pz')
-    
-    direction = coords[98] - coords[95]
-    norm = direction / np.linalg.norm(direction)
-    force_mag = 2000
-    pull_force.addParticle(94, -norm*force_mag)
-    pull_force.addParticle(98, -norm*force_mag)
-    system.addForce(pull_force)
-    return pull_force
-
 def print_initial_forces(simulation, qm_atoms, outfile):
         #   test to make sure that all qm_forces are fine
         state = simulation.context.getState(getPositions=True, getForces=True, getEnergy=True)
@@ -800,7 +737,8 @@ def main(args_in):
         pdb_to_qc.add_bonds(pdb, remove_orig=True)
         data, bondedToAtom = pdb_to_qc.determine_connectivity(pdb.topology)
         ff_loc = '/network/rit/home/gj785587/ChenRNALab/GregJ/QM_MM_Simulations'
-        forcefield = ForceField(os.path.join(ff_loc, 'forcefields/forcefield2.xml'), 'tip3p.xml')
+        ff_loc = os.path.join(os.path.dirname(__file__), 'forcefields/forcefield2.xml')
+        forcefield = ForceField(ff_loc, 'tip3p.xml')
         [templates, residues] = forcefield.generateTemplatesForUnmatchedResidues(pdb.topology)
         for n, template in enumerate(templates):
             residue = residues[n]
@@ -818,6 +756,8 @@ def main(args_in):
 
         integrator = get_integrator(options)
         qm_fixed_atoms, qm_origin_atoms = parse_idx(args.idx, pdb.topology)
+        print("QM1: ", qm_fixed_atoms)
+        print("QM2: ", qm_origin_atoms)
         qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius, pdb.getPositions()/angstrom, pdb.topology)
         qm_atoms = qm_fixed_atoms + qm_sphere_atoms
         system = forcefield.createSystem(pdb.topology, rigidWater=False)
@@ -828,7 +768,7 @@ def main(args_in):
         
         #   add pulling force
         if False:
-            pull_force = apply_pull_force(pdb.positions, system)
+            pull_force = add_ext_force_all(pdb.positions, system)
 
         simulation = Simulation(pdb.topology, system, integrator)
         simulation.context.setPositions(pdb.positions)

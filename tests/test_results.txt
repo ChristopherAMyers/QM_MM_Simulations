@@ -1,1 +1,5 @@
  Running AIMD with Q-Chem test
+     Maximum velocity deviation:    0.00000e+00  PASS
+     Maximum force deviation:       2.52787e-06  PASS
+     Maximum position deviation:    1.37732e-04  PASS
+     AIMD overall test Result: PASS
