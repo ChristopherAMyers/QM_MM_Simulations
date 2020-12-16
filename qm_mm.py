@@ -50,7 +50,7 @@ def parse_idx(idx_file_loc, topology):
             sp = line.split()
             #   assume that just a column of numbers is used
             if len(sp) == 1:
-                if '*' in sp[0]: 
+                if '*' in line: 
                     num = list(filter(str.isdigit, sp[0]))
                     idx = [item for sublist in num for item in sublist]
                     qm_origin_atoms.append(idx)
@@ -58,8 +58,13 @@ def parse_idx(idx_file_loc, topology):
                     qm_fixed_atoms.append(int(sp[0]))
             #   assume that the output from pymol is used
             elif len(sp) == 3 and "cmd.identify" in line:
-                idx = sp[-1].split('`')[-1].split(')')[0]
-                qm_fixed_atoms.append(int(idx))
+                if '*' in line:
+                    num = list(filter(str.isdigit, line))
+                    idx = [item for sublist in num for item in sublist]
+                    qm_origin_atoms_indices.append(idx)
+                else:
+                    idx = sp[-1].split('`')[-1].split(')')[0]
+                    qm_fixed_atoms_indices.append(idx)
             else:
                 print("ERROR: Can't determin index format")
     qm_fixed_atoms = sorted(qm_fixed_atoms)
