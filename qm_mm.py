@@ -49,22 +49,22 @@ def parse_idx(idx_file_loc, topology):
         for line in file.readlines():
             sp = line.split()
             #   assume that just a column of numbers is used
-            if len(sp) < 3:
+            if len(sp) == 1:
                 if '*' in line: 
                     num = list(filter(str.isdigit, sp[0]))
-                    idx = [item for sublist in num for item in sublist]
-                    qm_origin_atoms.append(idx)
+                    idx = ''.join(num)
+                    qm_origin_atoms.append(int(idx))
                 else: 
                     qm_fixed_atoms.append(int(sp[0]))
             #   assume that the output from pymol is used
             elif len(sp) == 3 and "cmd.identify" in line:
                 if '*' in line:
                     num = list(filter(str.isdigit, line))
-                    idx = [item for sublist in num for item in sublist]
-                    qm_origin_atoms_indices.append(idx)
+                    idx = ''.join(num)
+                    qm_origin_atoms.append(int(idx))
                 else:
                     idx = sp[-1].split('`')[-1].split(')')[0]
-                    qm_fixed_atoms_indices.append(idx)
+                    qm_fixed_atoms.append(idx)
             else:
                 print("ERROR: Can't determin index format")
     qm_fixed_atoms = sorted(qm_fixed_atoms)
@@ -98,7 +98,7 @@ def get_qm_spheres(originAtoms, qm_atoms, radius, xyz, topology):
     
     '''Finds all atoms within a given radius of each atom in 
        originAtoms to treat as QM and returns a list of atom indices.'''
-
+    radius = radius/angstrom
     qmSpheres = []
     for i in originAtoms:
         for residue in list(topology.residues()):
