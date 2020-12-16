@@ -26,7 +26,6 @@ sys.path.insert(1, "/network/rit/lab/ChenRNALab/bin/Pymol2.3.2/pymol/lib/python3
 #from pymol import cmd, stored # pylint: disable=import-error
 import pdb_to_qc
 from sim_extras import *
-from forces import *
 
 qchem_path = '/network/rit/lab/ChenRNALab/bin/Q-Chem5.2-GPU'
 qc_scratch = '/tmp'
@@ -44,49 +43,27 @@ def parse_args(args_in):
     return parser.parse_args(args_in)
 
 def parse_idx(idx_file_loc, topology):
-
-    def is_digit(s):
-        try: 
-            int(s)
-            return True
-        except ValueError:
-            return False
-
     id_list = []
-    sphere_list = []
     with open(idx_file_loc, 'r') as file:
         for line in file.readlines():
             sp = line.split()
-            correct_format = True
             #   assume that just a column of numbers is used
-            if is_digit(sp[0]):
+            if len(sp) == 1:
                 id_list.append(int(sp[0]))
             #   assume that the output from pymol is used
-            elif len(sp) >= 3 and "cmd.identify" in line:
-                idx = sp[2].split('`')[-1].split(')')[0]
+            elif len(sp) == 3 and "cmd.identify" in line:
+                idx = sp[-1].split('`')[-1].split(')')[0]
                 id_list.append(int(idx))
             else:
                 print("ERROR: Can't determin index format")
-                correct_format = False
-            
-            #   if correct format is used and the atom is one to
-            #   put a qm sphere around
-            if correct_format:
-                if sp[-1] == '*':
-                    sphere_list.append(id_list[-1])
-
     id_list = sorted(id_list)
     idx_list = []
-    idx_sphere_list = []
     for atom in topology.atoms():
         if int(atom.id) in id_list:
             idx_list.append(atom.index)
-        if int(atom.id) in sphere_list:
-            idx_sphere_list.append(atom.index)
     idx_list = sorted(idx_list)
-    idx_sphere_list = sorted(idx_sphere_list)
 
-    return idx_list, idx_sphere_list
+    return idx_list
 
 def check_distance(atom1Coord, atom2Coord, radius):
     radicand = 0
@@ -117,7 +94,8 @@ def get_qm_spheres(originAtoms, qm_atoms, radius, xyz, topology):
 	                for atom in list(residue.atoms()):
 	                	qmSpheres.append(atom.index)
     return qmSpheres
-      
+    
+    
 def find_all_qm_atoms(mat_idx_list, bondedToAtom, topology):
     qm_idx_list = []
     atoms = list(topology.atoms())
@@ -208,6 +186,56 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
 
     return qm_bonds, qm_angles
 
+def add_ext_qm_force(qmAtomList, system):
+    ext_force = CustomExternalForce('a*x + b*y + c*z - k + qm_energy')
+    ext_force.addGlobalParameter('k', 0.0)
+    ext_force.addGlobalParameter('qm_energy', 0.0)
+    ext_force.addPerParticleParameter('a')
+    ext_force.addPerParticleParameter('b')
+    ext_force.addPerParticleParameter('c')
+    for n in qmAtomList:
+        ext_force.addParticle(n, [0, 0, 0])
+
+    system.addForce(ext_force)
+
+    return ext_force
+
+def add_ext_mm_force(qmAtomList, system, charges):
+    ext_force = CustomExternalForce('-q*(Ex*x + Ey*y + Ez*z - sum)')
+    ext_force.addPerParticleParameter('Ex')
+    ext_force.addPerParticleParameter('Ey')
+    ext_force.addPerParticleParameter('Ez')
+    ext_force.addPerParticleParameter('q')
+    ext_force.addPerParticleParameter('sum')
+    
+    n_atoms = system.getNumParticles()
+    for n in range(n_atoms):
+        if n not in qmAtomList:
+            ext_force.addParticle(n, [0, 0, 0, charges[n], 0])
+
+    system.addForce(ext_force)
+
+    return ext_force
+
+def add_ext_force_all(system, charges):
+    #   adds external force to all atoms
+    #   Gx is the gradient of the energy in the x-direction, etc.
+    #   sum is used as a constant to set the energy to zero at each step
+    ext_force = CustomExternalForce('q*(Gx*x + Gy*y + Gz*z - sum) + qm_energy')
+    ext_force.addPerParticleParameter('Gx')
+    ext_force.addPerParticleParameter('Gy')
+    ext_force.addPerParticleParameter('Gz')
+    ext_force.addPerParticleParameter('q')
+    ext_force.addPerParticleParameter('sum')
+    ext_force.addGlobalParameter('qm_energy', 0.0)
+    n_atoms = system.getNumParticles()
+    for n in range(n_atoms):
+        ext_force.addParticle(n, [0, 0, 0, 0, 0])
+    
+    system.addForce(ext_force)
+    return ext_force
+
+
 def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, rem_lines=[], step_number=0, ghost_atoms=[], jobtype=None):
     global scratch
     input_file_loc = os.path.join(scratch, 'input')
@@ -261,7 +289,7 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, rem_lines=
         return input_file_loc
 
 def calc_qm_force(coords, charges, elements, qmAtomList, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False, outfile=sys.stdout):
-    global scratch, qc_scratch, n_procs
+    global scratch, qc_scratch, n_procs, qchem_path
     redo = True
     failures = 0
     use_rem_lines = copy.copy(rem_lines)
@@ -424,6 +452,7 @@ def update_ext_force(context, qm_atoms, qm_gradient, ext_force, coords_in_nm, ch
     context.setParameter('qm_energy', qm_energy/n_atoms)
     ext_force.updateParametersInContext(context)
     
+
 def get_rem_lines(rem_file_loc, outfile):
     rem_lines = []
     rem_lines_in = []
@@ -443,8 +472,6 @@ def get_rem_lines(rem_file_loc, outfile):
                 opts.time_step = float(sp[1]) * 0.0242 * femtoseconds
             elif option == 'jobtype':
                 opts.jobtype = sp[1]
-            elif option == 'qm_mm_radius':
-                opts.qm_mm_radius = sp[1] * angstroms
             elif option == 'aimd_steps' or option == 'geom_opt_max_cycles':
                 opts.aimd_steps = int(sp[1])
             elif option == 'aimd_temp':
@@ -489,7 +516,6 @@ def get_rem_lines(rem_file_loc, outfile):
     outfile.write(' integrator:            {:>10s} \n'.format(opts.integrator) )
     outfile.write(' time step:             {:>10.2f} fs \n'.format(opts.time_step/femtoseconds) )
     outfile.write(' number of steps:       {:>10d} \n'.format(opts.aimd_steps) )
-    outfile.write(' QM/MM radius:          {:>10d} Ang.\n'.format(opts.qm_mm_radius/angstroms) )
     if opts.jobtype == 'aimd':
         outfile.write(' temperature:           {:>10.2f} K \n'.format(opts.aimd_temp/kelvin) )
         outfile.write(' temperature seed:      {:>10d} \n'.format(opts.aimd_temp_seed) )
@@ -721,6 +747,20 @@ def gen_qchem_opt(options, simulation, charges, elements, qm_atoms, qm_bonds, qm
     
     exit()
 
+def apply_pull_force(coords, system):
+    pull_force = CustomExternalForce('px*x + py*y + pz*z')
+    pull_force.addPerParticleParameter('px')
+    pull_force.addPerParticleParameter('py')
+    pull_force.addPerParticleParameter('pz')
+    
+    direction = coords[98] - coords[95]
+    norm = direction / np.linalg.norm(direction)
+    force_mag = 2000
+    pull_force.addParticle(94, -norm*force_mag)
+    pull_force.addParticle(98, -norm*force_mag)
+    system.addForce(pull_force)
+    return pull_force
+
 def print_initial_forces(simulation, qm_atoms, outfile):
         #   test to make sure that all qm_forces are fine
         state = simulation.context.getState(getPositions=True, getForces=True, getEnergy=True)
@@ -742,8 +782,8 @@ def main(args_in):
         pdb = PDBFile(args.pdb)
         pdb_to_qc.add_bonds(pdb, remove_orig=True)
         data, bondedToAtom = pdb_to_qc.determine_connectivity(pdb.topology)
-        ff_loc = os.path.join(os.path.dirname(__file__), 'forcefields/forcefield2.xml')
-        forcefield = ForceField(ff_loc, 'tip3p.xml')
+        ff_loc = '/network/rit/home/gj785587/ChenRNALab/GregJ/QM_MM_Simulations'
+        forcefield = ForceField(os.path.join(ff_loc, 'forcefields/forcefield2.xml'), 'tip3p.xml')
         [templates, residues] = forcefield.generateTemplatesForUnmatchedResidues(pdb.topology)
         for n, template in enumerate(templates):
             residue = residues[n]
@@ -760,11 +800,11 @@ def main(args_in):
             forcefield.registerResidueTemplate(template)
 
         integrator = get_integrator(options)
-
-        qm_atoms, originAtoms = parse_idx(args.idx, pdb.topology)
-        qmSpheres = get_qm_spheres(originAtoms, qm_atoms, options.qm_mm_radius, pdb.getPositions()/angstrom, pdb.topology)
+        qm_atoms = parse_idx(args.idx, pdb.topology)
+        xyz = pdb.positions/angstrom
+        originAtoms = [95, 96, 99, 100]
+        qmSpheres = get_qm_spheres(originAtoms, qm_atoms, 5, xyz, pdb.topology)
         qmAtomList = qm_atoms + qmSpheres
-
         system = forcefield.createSystem(pdb.topology, rigidWater=False)
         #   re-map nonbonded forces so QM only interacts with MM through vdW
         charges = add_nonbonded_force(qmAtomList, system, pdb.topology.bonds(), outfile=outfile)
@@ -773,7 +813,7 @@ def main(args_in):
         
         #   add pulling force
         if False:
-            pull_force = add_pull_force(pdb.positions, system)
+            pull_force = apply_pull_force(pdb.positions, system)
 
         simulation = Simulation(pdb.topology, system, integrator)
         simulation.context.setPositions(pdb.positions)
@@ -797,7 +837,6 @@ def main(args_in):
         if 'QCSCRATCH' in os.environ:
             qc_scratch = os.environ.get('QCSCRATCH')
             print(" QCSCRATCH set as ", qc_scratch)
-
         os.makedirs(scratch, exist_ok=True)
         os.makedirs(qc_scratch, exist_ok=True)
         atoms = list(pdb.topology.atoms())
@@ -838,9 +877,8 @@ def main(args_in):
             if options.jobtype == 'opt':
                 opt.step(simulation, outfile=outfile)
             # update atom list
-            qmSpheres = get_qm_spheres(originAtoms, qm_atoms, options.qm_mm_radius, pos/angstrom, pdb.topology)
+            qmSpheres = get_qm_spheres(originAtoms, qm_atoms, 5, pos/angstrom, pdb.topology)
             qmAtomList = qm_atoms + qmSpheres
-
               
 if __name__ == "__main__":
     main(sys.argv[1:])
