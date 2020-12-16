@@ -36,7 +36,7 @@ class StatsReporter(object):
             self._vel_file = open(vel_file_loc, 'w')
         if force_file_loc:
             self._force_file = open(force_file_loc, 'w')
-
+        
         #   aimd and optimization jobs have diffeent stats
         if self._jobtype == 'aimd':
             self._out.write(' Step Pot-Energy QM-Energy MM-Temp(K) QM-Temp(K) All-Temp(K) Time-Elapsed(s) Time-Remaining \n')
