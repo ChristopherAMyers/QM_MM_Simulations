@@ -54,6 +54,7 @@ def parse_idx(idx_file_loc, topology):
                     num = list(filter(str.isdigit, sp[0]))
                     idx = ''.join(num)
                     qm_origin_atoms.append(int(idx))
+                    qm_fixed_atoms.append(int(idx))
                 else: 
                     qm_fixed_atoms.append(int(sp[0]))
             #   assume that the output from pymol is used
@@ -62,9 +63,10 @@ def parse_idx(idx_file_loc, topology):
                     num = list(filter(str.isdigit, line))
                     idx = ''.join(num)
                     qm_origin_atoms.append(int(idx))
+                    qm_fixed_atoms.append(int(idx))
                 else:
                     idx = sp[-1].split('`')[-1].split(')')[0]
-                    qm_fixed_atoms.append(idx)
+                    qm_fixed_atoms.append(int(idx))
             else:
                 print("ERROR: Can't determin index format")
     qm_fixed_atoms = sorted(qm_fixed_atoms)
