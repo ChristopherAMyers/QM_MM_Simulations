@@ -51,19 +51,26 @@ def parse_idx(idx_file_loc, topology):
             sp = line.split()
             #   assume that just a column of numbers is used
             if len(sp) == 1:
-                if '*' in sp[0]: 
+                if '*' in line: 
                     num = list(filter(str.isdigit, sp[0]))
-                    idx = [item for sublist in num for item in sublist]
-                    qm_origin_atoms.append(int(sp[0]))
+                    idx = ''.join(num)
+                    qm_origin_atoms.append(int(idx))
                 else: 
                     qm_fixed_atoms.append(int(sp[0]))
             #   assume that the output from pymol is used
             elif len(sp) == 3 and "cmd.identify" in line:
-                idx = sp[-1].split('`')[-1].split(')')[0]
-                qm_fixed_atoms.append(int(idx))
+                if '*' in line:
+                    num = list(filter(str.isdigit, line))
+                    idx = ''.join(num)
+                    qm_origin_atoms.append(int(idx))
+                else:
+                    idx = sp[-1].split('`')[-1].split(')')[0]
+                    qm_fixed_atoms.append(int(idx))
             else:
                 print("ERROR: Can't determin index format")
-    qm_fixed_atoms = sorted(qm_fixed_atoms)
+    print(qm_fixed_atoms)
+    print(qm_origin_atoms)
+    qm_fixed_atoms = sorted(qm_fixed_atoms + qm_origin_atoms)
     qm_origin_atoms = sorted(qm_origin_atoms)
 
     qm_fixed_atoms_indices = []
@@ -80,31 +87,21 @@ def parse_idx(idx_file_loc, topology):
 
     return (qm_fixed_atoms_indices, qm_origin_atoms_indices)
 
-def check_distance(atom1Coord, atom2Coord, radius):
-    radicand = 0
-    for i in range(3):
-        radicand += (atom2Coord[i] - atom1Coord[i])**2 
-    distance = math.sqrt(radicand)
-    if distance <= radius:
-        return True
-    else:
-        return False
+def get_qm_spheres(originAtoms, qm_atoms, radius_in_ang, xyz_in_ang, topology):          
 
-def get_qm_spheres(originAtoms, qm_atoms, radius, xyz, topology):          
-    
     '''Finds all atoms within a given radius of each atom in 
-       originAtoms to treat as QM and returns a list of atom indices.'''
+        originAtoms to treat as QM and returns a list of atom indices.'''
 
     qmSpheres = []
     for i in originAtoms:
         for residue in list(topology.residues()):
                 isQuantum = None
                 for atom in list(residue.atoms()):
-	                if atom.index in qm_atoms: continue
-	                if atom.index in originAtoms: continue
-	                inRadius = check_distance(xyz[int(i)], xyz[atom.index], radius)
-	                if inRadius: isQuantum = True
-	                if isQuantum: break
+                    if atom.index in qm_atoms: continue
+                    if atom.index in originAtoms: continue
+                    if np.linalg.norm(xyz_in_ang[int(i)] - xyz_in_ang[atom.index]) < radius_in_ang:
+                        isQuantum = True
+                        break
                 if isQuantum:
 	                for atom in list(residue.atoms()):
 	                	qmSpheres.append(atom.index)
@@ -268,7 +265,7 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
         outfile.write(' --------------------------------------------\n')
         outfile.write('           Starting Q-Chem\n')
         outfile.write(' --------------------------------------------\n')
-        #exit()
+        exit()
 
         if copy_input:
             with open(input_file_loc, 'r') as file:
@@ -758,7 +755,7 @@ def main(args_in):
         qm_fixed_atoms, qm_origin_atoms = parse_idx(args.idx, pdb.topology)
         print("QM1: ", qm_fixed_atoms)
         print("QM2: ", qm_origin_atoms)
-        qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius, pdb.getPositions()/angstrom, pdb.topology)
+        qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pdb.getPositions()/angstrom, pdb.topology)
         qm_atoms = qm_fixed_atoms + qm_sphere_atoms
         system = forcefield.createSystem(pdb.topology, rigidWater=False)
         #   re-map nonbonded forces so QM only interacts with MM through vdW
@@ -832,7 +829,7 @@ def main(args_in):
             if options.jobtype == 'opt':
                 opt.step(simulation, outfile=outfile)
             # update atom list
-            qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius, pos/angstrom, pdb.topology)
+            qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pos, pdb.topology)
             qm_atoms = qm_fixed_atoms + qm_sphere_atoms
 
               
