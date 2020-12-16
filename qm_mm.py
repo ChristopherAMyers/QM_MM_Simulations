@@ -260,7 +260,7 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, rem_lines=
 
         return input_file_loc
 
-def calc_qm_force(coords, charges, elements, qmAtomList, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False, outfile=sys.stdout):
+def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False, outfile=sys.stdout):
     global scratch, qc_scratch, n_procs
     redo = True
     failures = 0
@@ -268,7 +268,7 @@ def calc_qm_force(coords, charges, elements, qmAtomList, output_file, total_chg=
     while redo:
         outfile.write("This is scratch: {:s} \n".format(scratch))
         outfile.flush()
-        input_file_loc = create_qc_input(coords, charges, elements, qmAtomList, total_chg=total_chg, rem_lines=use_rem_lines, step_number=step_number)
+        input_file_loc = create_qc_input(coords, charges, elements, qm_atoms, total_chg=total_chg, rem_lines=use_rem_lines, step_number=step_number)
         output_file_loc = os.path.join(scratch, 'output')
         cmd = os.path.join(qchem_path, 'bin/qchem') + ' -save -nt {:d}  {:s}  {:s} save_files'.format(n_procs, input_file_loc, output_file_loc)
 
@@ -761,13 +761,13 @@ def main(args_in):
 
         integrator = get_integrator(options)
 
-        qm_atoms, originAtoms = parse_idx(args.idx, pdb.topology)
-        qmSpheres = get_qm_spheres(originAtoms, qm_atoms, options.qm_mm_radius, pdb.getPositions()/angstrom, pdb.topology)
-        qmAtomList = qm_atoms + qmSpheres
+        qm_fixed_atoms, qm_origin_atoms = parse_idx(args.idx, pdb.topology)
+        qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius, pdb.getPositions()/angstrom, pdb.topology)
+        qm_atoms = qm_fixed_atoms + qm_sphere_atoms
 
         system = forcefield.createSystem(pdb.topology, rigidWater=False)
         #   re-map nonbonded forces so QM only interacts with MM through vdW
-        charges = add_nonbonded_force(qmAtomList, system, pdb.topology.bonds(), outfile=outfile)
+        charges = add_nonbonded_force(qm_atoms, system, pdb.topology.bonds(), outfile=outfile)
         #   "external" force for updating QM forces and MM electrostatics
         ext_force = add_ext_force_all(system, charges)
         
@@ -781,15 +781,15 @@ def main(args_in):
         #   turn on to freeze mm atoms in place
         if False:
             for n in range(system.getNumParticles()):
-                if n not in qmAtomList:
+                if n not in qm_atoms:
                     print("FREEZE: ", n)
                     system.setParticleMass(n, 0*dalton)
 
         #   remove bonded forces between QM and MM system
-        adjust_forces(system, simulation.context, pdb.topology, qmAtomList, outfile=outfile)
+        adjust_forces(system, simulation.context, pdb.topology, qm_atoms, outfile=outfile)
         
         #   output files and reporters
-        stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qmAtomList, vel_file_loc=args.repv, force_file_loc=args.repf)
+        stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qm_atoms, vel_file_loc=args.repv, force_file_loc=args.repf)
         simulation.reporters.append(HDF5Reporter('output.h5', 1))
 
         #   set up files
@@ -804,7 +804,7 @@ def main(args_in):
         elements = [x.element.symbol for x in atoms]
 
         #   test to make sure that all qm_forces are fine
-        print_initial_forces(simulation, qmAtomList, outfile)
+        print_initial_forces(simulation, qm_atoms, outfile)
 
         if options.jobtype == 'opt':
             opt = GradientMethod(options.time_step*0.001)
@@ -821,11 +821,11 @@ def main(args_in):
         for n in range(options.aimd_steps):
             state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True)  
             pos = state.getPositions(True)
-            if len(qmAtomList) > 0:
-                qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qmAtomList, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile)
+            if len(qm_atoms) > 0:
+                qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile)
                 #qm_energy = energy = np.loadtxt('qm_mm_scratch/GRAD', skiprows=1, max_rows=1)*2625.5009
                 #qm_gradient = np.loadtxt('qm_mm_scratch/GRAD', skiprows=3, max_rows=len(qm_atoms))* 2625.5009  / bohrs.conversion_factor_to(nanometer)
-                update_ext_force(simulation.context, qmAtomList, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile)
+                update_ext_force(simulation.context, qm_atoms, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile)
             #   call reporter before taking a step. OpenMM calls reporters after taking a step, but this
             #   will not report the correct force and energy as the new current parameters are only valid 
             #   for the current positions, not after
@@ -838,8 +838,8 @@ def main(args_in):
             if options.jobtype == 'opt':
                 opt.step(simulation, outfile=outfile)
             # update atom list
-            qmSpheres = get_qm_spheres(originAtoms, qm_atoms, options.qm_mm_radius, pos/angstrom, pdb.topology)
-            qmAtomList = qm_atoms + qmSpheres
+            qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius, pos/angstrom, pdb.topology)
+            qm_atoms = qm_fixed_atoms + qm_sphere_atoms
 
               
 if __name__ == "__main__":
