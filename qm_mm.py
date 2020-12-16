@@ -96,14 +96,15 @@ def check_distance(atom1Coord, atom2Coord, radius):
     else:
         return False
 
-def get_qm_spheres(originAtoms, qm_atoms, radius, xyz, topology):          
+def get_qm_spheres(originAtoms, qm_atoms, radius_in_ang, xyz, topology):          
     
     '''Finds all atoms within a given radius of each atom in 
        originAtoms to treat as QM and returns a list of atom indices.'''
-    radius = radius/angstrom
+    radius = radius_in_ang/angstrom
     qmSpheres = []
     for i in originAtoms:
         for residue in list(topology.residues()):
+                if residue.name != 'HOH': continue 
                 isQuantum = None
                 for atom in list(residue.atoms()):
 	                if atom.index in qm_atoms: continue
