@@ -21,6 +21,7 @@ femtoseconds = simtk.unit.femtoseconds
 # pylint: enable=no-member
 
 from sim_extras import *
+from forces import *
 import pdb_to_qc
 
 
@@ -213,8 +214,8 @@ if __name__ == "__main__":
     n_atoms_init = pdb.topology.getNumAtoms()
     print(" Initial number of atoms: {:d}".format(n_atoms_init))
     print(" Adding Solvent")
-    mols = add_solvent_shell(pdb.positions, pdb.topology, forcefield, origin=origin, radius=1.5*nanometers, solventBox=userSolvBox)
-    system = forcefield.createSystem(mols.topology, nonbondedMethod=NoCutoff,
+    mols = add_solvent_shell(pdb.positions, pdb.topology, forcefield, origin=origin, radius=3.0*nanometers, solventBox=userSolvBox)
+    system = forcefield.createSystem(mols.topology, nonbondedMethod=CutoffNonPeriodic,
             nonbondedCutoff=1*nanometer, constraints=HBonds)
     n_atoms_final = mols.topology.getNumAtoms()
     print(" Final number of atoms:   {:d}".format(n_atoms_final))
@@ -244,6 +245,7 @@ if __name__ == "__main__":
                 for atom in res.atoms():
                     system.setParticleMass(atom.index, 0*dalton)
 
+        ratchet_force = add_rachet_pawl_force(system, [[0, 1]])
         integrator = LangevinIntegrator(300*kelvin, 1/(100*femtoseconds), 0.001*picoseconds)
         integrator.setRandomNumberSeed(12345)
         simulation = Simulation(mols.topology, system, integrator)
@@ -251,9 +253,7 @@ if __name__ == "__main__":
         simulation.context.setVelocitiesToTemperature(300*kelvin, 12345)
         #print(" Minimizing")
         #simulation.minimizeEnergy()
-        simulation.reporters.append(HDF5Reporter('output.h5', 5))
-        #simulation.reporters.append(DCDReporter('output.dcd', 1))
-        #simulation.reporters.append(PDBReporter('output.pdb', 1))
+        simulation.reporters.append(HDF5Reporter('output2.h5', 5))
         #simulation.reporters.append(StateDataReporter('stats.txt', 1, step=True,
         #    potentialEnergy=True, temperature=True, separator=' ', ))
 
@@ -261,12 +261,18 @@ if __name__ == "__main__":
         
         with open('density.txt', 'w') as dens_file:
             print(" Running")
-            for n in range(5000):
+            for n in range(5000*4):
+
+                state = simulation.context.getState(getPositions=True)
+                update_rachet_pawl_force(ratchet_force, simulation.context, state.getPositions(True)/nanometers)
+
+
                 simulation.step(1)
-                simulation.topology.getNumAtoms
-                density = get_density(simulation, masses_in_kg, origin, 1.5*nanometers)
-                if n % 5 == 0:
-                    dens_file.write('{:10.4f} \n'.format(density/density.unit))
+                if n % 100 == 0:
+                    print(n)
+                #density = get_density(simulation, masses_in_kg, origin, 1.5*nanometers)
+                #if n % 5 == 0:
+                #    dens_file.write('{:10.4f} \n'.format(density/density.unit))
 
     
     print(" Done")

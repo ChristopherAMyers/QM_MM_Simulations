@@ -63,3 +63,40 @@ def add_pull_force(coords, system):
     pull_force.addParticle(98, -norm*force_mag)
     system.addForce(pull_force)
     return pull_force
+
+def add_rachet_pawl_force(system, atom_pairs):
+    ''' Applies a ratched-and-pawl force that favors restricts
+        the approachment of two atoms and is zero if they are
+        moving away.
+        atom_pairs is an Nx2 list of atom indicies to apply this force to
+    '''
+    force_string = 'on_off*0.5*k*(r - r_max)^2; '
+    #force_string += 'r_max=max(r, r_max); '    #    update maximum distance so far
+    #force_string += 'on_off = step(r_max - r); ' #    equals 1 if r < r_max, 0 otherwise
+    force_string += 'r = distance(p1, p2); '
+    custom_force = CustomCompoundBondForce(2, force_string)
+    custom_force.addPerBondParameter('k')
+    custom_force.addPerBondParameter('r_max')
+    custom_force.addPerBondParameter('on_off')
+
+    for pair in atom_pairs:
+        custom_force.addBond(pair, [5000, 0.2, 1.0])
+
+    system.addForce(custom_force)
+    return custom_force
+
+def update_rachet_pawl_force(force, context, coords):
+    n_bonds = force.getNumBonds()
+    for n in range(n_bonds):
+
+        pair, params = force.getBondParameters(n)
+        params = list(params)
+        dist = np.linalg.norm(coords[pair[0]] - coords[pair[1]])
+        if dist < params[1]:
+            params[2] = 1.0
+        else:
+            params[1] = dist
+            params[2] = 0.0
+        #params[1] = np.max([params[1], dist])
+        force.setBondParameters(n, pair, params)
+    force.updateParametersInContext(context)

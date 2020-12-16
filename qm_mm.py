@@ -835,6 +835,7 @@ def main(args_in):
             # update atom list
             qmSpheres = get_qm_spheres(originAtoms, qm_atoms, options.qm_mm_radius, pos/angstrom, pdb.topology)
             qmAtomList = qm_atoms + qmSpheres
+            simulation.context.getParameter
               
 if __name__ == "__main__":
     main(sys.argv[1:])
