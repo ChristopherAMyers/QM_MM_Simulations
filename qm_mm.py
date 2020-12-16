@@ -90,8 +90,7 @@ def parse_idx(idx_file_loc, topology):
 def get_qm_spheres(originAtoms, qm_atoms, radius_in_ang, xyz_in_ang, topology):          
 
     '''Finds all atoms within a given radius of each atom in 
-<<<<<<< HEAD
-        originAtoms to treat as QM and returns a list of atom indices.'''
+       originAtoms to treat as QM and returns a list of atom indices.'''
 
     radius = radius_in_ang/angstrom
     qmSpheres = []
