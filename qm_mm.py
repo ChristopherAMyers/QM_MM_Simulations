@@ -30,7 +30,6 @@ from sim_extras import *
 qchem_path = '/network/rit/lab/ChenRNALab/bin/Q-Chem5.2-GPU'
 scratch = '/tmp'
 qc_scratch = '/tmp'
-job_name = ''
 n_procs = cpu_count()
 
 
@@ -83,21 +82,20 @@ def get_qm_spheres(originAtoms, qm_atoms, radius, xyz, topology):
     
     '''Finds all atoms within a given radius of each atom in 
        originAtoms to treat as QM and returns a list of atom indices.'''
-    spheres = []
-    for i in originAtoms:
-        for residue in topology.residues():
-                isQuantum = False
-                for atom in residue.atoms():
-                    isQuantum = check_distance(xyz[int(i)], xyz[atom.index], radius)
-                    if isQuantum: break
-                if isQuantum:
-                    atoms = []
-                    atoms = [atoms.append(atom.index) for atom in residue.atoms()]
-                    exec("qmSphere{0}".format(i) + "= atoms")
-                    spheres.append(eval("qmSphere{0}".format(i)))
+
     qmSpheres = []
-    for sphere in spheres:
-        qmSpheres.extend(sphere)
+    for i in originAtoms:
+        for residue in list(topology.residues()):
+                isQuantum = None
+                for atom in list(residue.atoms()):
+	                if atom.index in qm_atoms: continue
+	                if atom.index in originAtoms: continue
+	                inRadius = check_distance(xyz[int(i)], xyz[atom.index], radius)
+	                if inRadius: isQuantum = True
+	                if isQuantum: break
+                if isQuantum:
+	                for atom in list(residue.atoms()):
+	                	qmSpheres.append(atom.index)
     return qmSpheres
     
     
@@ -191,21 +189,21 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
 
     return qm_bonds, qm_angles
 
-def add_ext_qm_force(qm_atoms, system):
+def add_ext_qm_force(qmAtomList, system):
     ext_force = CustomExternalForce('a*x + b*y + c*z - k + qm_energy')
     ext_force.addGlobalParameter('k', 0.0)
     ext_force.addGlobalParameter('qm_energy', 0.0)
     ext_force.addPerParticleParameter('a')
     ext_force.addPerParticleParameter('b')
     ext_force.addPerParticleParameter('c')
-    for n in qm_atoms:
+    for n in qmAtomList:
         ext_force.addParticle(n, [0, 0, 0])
 
     system.addForce(ext_force)
 
     return ext_force
 
-def add_ext_mm_force(qm_atoms, system, charges):
+def add_ext_mm_force(qmAtomList, system, charges):
     ext_force = CustomExternalForce('-q*(Ex*x + Ey*y + Ez*z - sum)')
     ext_force.addPerParticleParameter('Ex')
     ext_force.addPerParticleParameter('Ey')
@@ -215,7 +213,7 @@ def add_ext_mm_force(qm_atoms, system, charges):
     
     n_atoms = system.getNumParticles()
     for n in range(n_atoms):
-        if n not in qm_atoms:
+        if n not in qmAtomList:
             ext_force.addParticle(n, [0, 0, 0, charges[n], 0])
 
     system.addForce(ext_force)
@@ -293,19 +291,22 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, rem_lines=
 
         return input_file_loc
 
-def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False, outfile=sys.stdout):
+def calc_qm_force(coords, charges, elements, qmAtomList, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False, outfile=sys.stdout):
     global scratch, qc_scratch
     redo = True
     failures = 0
     use_rem_lines = copy.copy(rem_lines)
     while redo:
-        input_file_loc = create_qc_input(coords, charges, elements, qm_atoms, total_chg=total_chg, rem_lines=use_rem_lines, step_number=step_number)
+        outfile.write("This is scratch: {:s} \n".format(scratch))
+        outfile.flush()
+        input_file_loc = create_qc_input(coords, charges, elements, qmAtomList, total_chg=total_chg, rem_lines=use_rem_lines, step_number=step_number)
         output_file_loc = os.path.join(scratch, 'output')
         cmd = os.path.join(qchem_path, 'bin/qchem') + ' -save -nt {:d}  {:s}  {:s} save_files'.format(n_procs, input_file_loc, output_file_loc)
 
         outfile.write(' --------------------------------------------\n')
         outfile.write('           Starting Q-Chem\n')
         outfile.write(' --------------------------------------------\n')
+        exit()
 
         if copy_input:
             with open(input_file_loc, 'r') as file:
@@ -777,6 +778,7 @@ def print_initial_forces(simulation, qm_atoms, outfile):
         print(" Larger forces may indicate an inproper force field parameterization.", file=outfile)
 
 def main(args_in):
+    global scratch, n_procs, qc_scratch, qchem_path
     args = parse_args(args_in)
     with open(args.out, 'w') as outfile:
         rem_lines, options = get_rem_lines(args.rem, outfile)
@@ -802,7 +804,7 @@ def main(args_in):
 
         integrator = get_integrator(options)
         qm_atoms = parse_idx(args.idx, pdb.topology)
-        xyz = pdb.getPositions()/angstrom
+        xyz = pdb.positions/angstrom
         originAtoms = [95, 96, 99, 100]
         qmSpheres = get_qm_spheres(originAtoms, qm_atoms, 5, xyz, pdb.topology)
         qmAtomList = qm_atoms + qmSpheres
@@ -861,10 +863,10 @@ def main(args_in):
             state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True)  
             pos = state.getPositions(True)
             if len(qmAtomList) > 0:
-                qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile)
+                qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qmAtomList, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile)
                 #qm_energy = energy = np.loadtxt('qm_mm_scratch/GRAD', skiprows=1, max_rows=1)*2625.5009
                 #qm_gradient = np.loadtxt('qm_mm_scratch/GRAD', skiprows=3, max_rows=len(qm_atoms))* 2625.5009  / bohrs.conversion_factor_to(nanometer)
-                update_ext_force(simulation.context, qm_atoms, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile)
+                update_ext_force(simulation.context, qmAtomList, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile)
             #   call reporter before taking a step. OpenMM calls reporters after taking a step, but this
             #   will not report the correct force and energy as the new current parameters are only valid 
             #   for the current positions, not after
@@ -877,7 +879,9 @@ def main(args_in):
             if options.jobtype == 'opt':
                 opt.step(simulation, outfile=outfile)
             # update atom list
-            qmSpheres = get_qm_spheres(origin_atom_idx, qm_atoms, radius, pos/angstrom, pdb.topology)
+            qmSpheres.clear()
+            qmAtomList.clear()
+            qmSpheres = get_qm_spheres(originAtoms, qm_atoms, 5, pos/angstrom, pdb.topology)
             qmAtomList = qm_atoms + qmSpheres
               
 if __name__ == "__main__":
