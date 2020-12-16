@@ -481,6 +481,8 @@ def get_rem_lines(rem_file_loc, outfile):
                 opts.aimd_thermostat = sp[1]
             elif option == 'aimd_langevin_timescale':
                 opts.aimd_langevin_timescale = float(sp[1]) * femtoseconds
+            elif option == 'qm_mm_radius':
+                opts.qm_mm_radius = float(sp[1]) * angstroms
             elif option == 'aimd_temp_seed':
                 seed = int(sp[1])
                 if seed > 2147483647 or seed < -2147483648:
@@ -516,6 +518,7 @@ def get_rem_lines(rem_file_loc, outfile):
     outfile.write(' jobtype:               {:>10s} \n'.format(opts.jobtype) )
     outfile.write(' integrator:            {:>10s} \n'.format(opts.integrator) )
     outfile.write(' time step:             {:>10.2f} fs \n'.format(opts.time_step/femtoseconds) )
+    outfile.write(' QM/MM radius:          {:>10.2f} Ang. \n'.format(opts.qm_mm_radius/angstroms) )
     outfile.write(' number of steps:       {:>10d} \n'.format(opts.aimd_steps) )
     if opts.jobtype == 'aimd':
         outfile.write(' temperature:           {:>10.2f} K \n'.format(opts.aimd_temp/kelvin) )
