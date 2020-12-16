@@ -94,9 +94,11 @@ def get_qm_spheres(originAtoms, qm_atoms, radius_in_ang, xyz_in_ang, topology):
 
     radius = radius_in_ang/angstrom
     qmSpheres = []
+    resList = []
     for i in originAtoms:
         for residue in list(topology.residues()):
                 if residue.name != 'HOH': continue 
+                if residue.id in resList: continue
                 isQuantum = None
                 for atom in list(residue.atoms()):
                     if atom.index in qm_atoms: continue
@@ -107,6 +109,8 @@ def get_qm_spheres(originAtoms, qm_atoms, radius_in_ang, xyz_in_ang, topology):
                 if isQuantum:
 	                for atom in list(residue.atoms()):
 	                	qmSpheres.append(atom.index)
+                        resList.append(residue.id)
+    qmSpheres = set(qmSpheres)
     return qmSpheres
     
     
@@ -305,6 +309,8 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
     gradient = []
     energy = 0.0
     grad_file_loc = os.path.join(qc_scratch, 'save_files/GRAD')
+    shutil.copyfile(grad_file_loc, os.path.join(scratch, 'GRAD'))
+    print("QM_ATOMS: ", qm_atoms)
     if os.path.isfile(grad_file_loc):
         energy = np.loadtxt(grad_file_loc, skiprows=1, max_rows=1)
         gradient = np.loadtxt(grad_file_loc, skiprows=3, max_rows=len(qm_atoms))
