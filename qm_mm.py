@@ -373,7 +373,7 @@ def update_mm_force(context, ext_force, coords_in_nm, outfile=sys.stdout):
     else:
         print(' efield.dat NOT found', file=outfile)
 
-def update_ext_force(context, qm_atoms, qm_gradient, ext_force, coords_in_nm, charges, qm_energy=0.0, outfile=sys.stdout):
+def update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, coords_in_nm, charges, qm_energy=0.0, outfile=sys.stdout):
     ''' Updates external force for ALL atoms
         See add_ext_force_all for parameter listings
     '''
@@ -385,7 +385,7 @@ def update_ext_force(context, qm_atoms, qm_gradient, ext_force, coords_in_nm, ch
     if os.path.isfile(e_field_file_loc):
         print(' efield.dat found', file=outfile)
         efield = np.loadtxt(e_field_file_loc) * 2625.5009 / bohrs.conversion_factor_to(nanometer)
-        #os.remove('efield.dat')
+        os.remove('efield.dat')
     else:
         print(' efield.dat NOT found', file=outfile)
         efield = np.zeros((n_atoms - n_qm_atoms, 3))
@@ -407,13 +407,22 @@ def update_ext_force(context, qm_atoms, qm_gradient, ext_force, coords_in_nm, ch
             mm_idx += 1
             params[3] = charges[n]
 
+        #   check to make sure that gradient contains valid numbers
+        if np.sum(np.isnan(gradient)) != 0:
+            print(" ERROR: Gradient index {:d} at step {:d} contains NaN. Setting to Zero.".format(n, simulation.currentStep), file=outfile)
+            gradient = np.zeros(3)
+        if np.sum(np.isinf(gradient)) != 0:
+            print(" ERROR: Gradient index {:d} at step {:d} contains INF. Setting to Zero.".format(n, simulation.currentStep), file=outfile)
+            gradient = np.zeros(3)
+        
         for i in range(3):
                 params[i] = gradient[i]
         params[4] = np.dot(gradient, coords_in_nm[n])
         ext_force.setParticleParameters(n, idx, params)
 
-    context.setParameter('qm_energy', qm_energy/n_atoms)
-    ext_force.updateParametersInContext(context)
+    simulation.context.setParameter('qm_energy', qm_energy/n_atoms)
+    ext_force.updateParametersInContext(simulation.context)
+    outfile.flush()
 
 def get_rem_lines(rem_file_loc, outfile):
     rem_lines = []
@@ -554,6 +563,8 @@ def add_nonbonded_force(qm_atoms, system, bonds, outfile=sys.stdout):
     print(" Total charge:    %.4f e" % round(total_chg, 4), file=outfile)
     print(" Total MM charge: %.4f e" % round(total_mm_chg, 4), file=outfile)
     print(" Total QM charge: %.4f e" % round(total_qm_chg, 4), file=outfile)
+    print("", file=outfile)
+    print(" Number of atoms: {:d}".format(len(charges)), file=outfile)
     print("", file=outfile)
     return charges
 
@@ -720,8 +731,6 @@ def gen_qchem_opt(options, simulation, charges, elements, qm_atoms, qm_bonds, qm
     with open(output_file_loc, 'r') as file:
         for line in file.readlines():
             outfile.write(line)
-    
-    exit()
 
 def print_initial_forces(simulation, qm_atoms, outfile):
         #   test to make sure that all qm_forces are fine
@@ -737,6 +746,7 @@ def print_initial_forces(simulation, qm_atoms, outfile):
         print(" Larger forces may indicate an inproper force field parameterization.", file=outfile)
 
 def main(args_in):
+
     global scratch, n_procs, qc_scratch, qchem_path
     args = parse_args(args_in)
     with open(args.out, 'w') as outfile:
@@ -823,7 +833,6 @@ def main(args_in):
         sys.stdout.flush()
 
         #   run simulation
-        exit()
         for n in range(options.aimd_steps):
             state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True)  
             pos = state.getPositions(True)
@@ -831,12 +840,11 @@ def main(args_in):
                 qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile)
                 #qm_energy = energy = np.loadtxt('qm_mm_scratch/GRAD', skiprows=1, max_rows=1)*2625.5009
                 #qm_gradient = np.loadtxt('qm_mm_scratch/GRAD', skiprows=3, max_rows=len(qm_atoms))* 2625.5009  / bohrs.conversion_factor_to(nanometer)
-                update_ext_force(simulation.context, qm_atoms, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile)
+                update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile)
             #   call reporter before taking a step. OpenMM calls reporters after taking a step, but this
             #   will not report the correct force and energy as the new current parameters are only valid 
             #   for the current positions, not after
             stats_reporter.report(simulation)
-
             simulation.step(1)
             if n % 10  == 0:
                 simulation.saveState('simulation.xml')
