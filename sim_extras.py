@@ -172,3 +172,5 @@ class JobOptions(object):
         self.aimd_langevin_seed = int(urandom(4).hex(), 16) - 2147483647
 
         self.qm_mm_radius = 5 * angstroms
+        self.ratched_pawl = False
+        self.ratched_pawl_force = 0

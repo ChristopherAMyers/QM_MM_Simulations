@@ -1,5 +1,6 @@
 from simtk.openmm.openmm import *
 import numpy as np
+import os
 
 def add_ext_qm_force(qm_atoms, system):
     ext_force = CustomExternalForce('a*x + b*y + c*z - k + qm_energy')
@@ -64,23 +65,36 @@ def add_pull_force(coords, system):
     system.addForce(pull_force)
     return pull_force
 
-def add_rachet_pawl_force(system, atom_pairs):
+def add_rachet_pawl_force(system, pair_file_loc, coords, strength, topology):
     ''' Applies a ratched-and-pawl force that favors restricts
         the approachment of two atoms and is zero if they are
         moving away.
-        atom_pairs is an Nx2 list of atom indicies to apply this force to
+        pair_file_loc is afile with an Nx2 list of atom id's to apply this force to
     '''
+    #   import atom pairs from file
+    atom_pairs = []
+    index_dict = {}
+    for atom in topology.atoms():
+        index_dict[atom.id] = atom.index
+    with open(pair_file_loc, 'r') as file:
+        for line in file.readlines():
+            sp = line.split()
+            p1 = index_dict[int(sp[0])]
+            p2 = index_dict[int(sp[1])]
+            atom_pairs.append([p1, p2])
+
+    #   create force object
     force_string = 'on_off*0.5*k*(r - r_max)^2; '
-    #force_string += 'r_max=max(r, r_max); '    #    update maximum distance so far
-    #force_string += 'on_off = step(r_max - r); ' #    equals 1 if r < r_max, 0 otherwise
+    force_string += 'on_off = step(r_max - r); ' #    equals 1 if r < r_max, 0 otherwise
     force_string += 'r = distance(p1, p2); '
     custom_force = CustomCompoundBondForce(2, force_string)
     custom_force.addPerBondParameter('k')
     custom_force.addPerBondParameter('r_max')
-    custom_force.addPerBondParameter('on_off')
 
     for pair in atom_pairs:
-        custom_force.addBond(pair, [5000, 0.2, 1.0])
+
+        dist = np.linalg.norm(coords[pair[0]] - coords[pair[1]])
+        custom_force.addBond(pair, [strength, dist])
 
     system.addForce(custom_force)
     return custom_force
@@ -92,11 +106,7 @@ def update_rachet_pawl_force(force, context, coords):
         pair, params = force.getBondParameters(n)
         params = list(params)
         dist = np.linalg.norm(coords[pair[0]] - coords[pair[1]])
-        if dist < params[1]:
-            params[2] = 1.0
-        else:
-            params[1] = dist
-            params[2] = 0.0
-        #params[1] = np.max([params[1], dist])
+        params[1] = np.max([params[1], dist])
         force.setBondParameters(n, pair, params)
     force.updateParametersInContext(context)
+
