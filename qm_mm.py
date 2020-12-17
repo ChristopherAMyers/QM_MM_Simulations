@@ -14,6 +14,7 @@ import shutil
 from scipy import optimize
 from optimize import GradientMethod
 from mdtraj.reporters import HDF5Reporter
+from distutils.util import strtobool
 
 # pylint: disable=no-member
 import simtk.unit as unit
@@ -41,6 +42,7 @@ def parse_args(args_in):
     parser.add_argument('-out', help='output file', default='output.txt')
     parser.add_argument('-repf', help='file to print forces to')
     parser.add_argument('-repv', help='file to print velocities to')
+    parser.add_argument('-pawl', help='list of atom pairs to apply ratchet-pawl force between')
     return parser.parse_args(args_in)
 
 def parse_idx(idx_file_loc, topology):
@@ -68,8 +70,6 @@ def parse_idx(idx_file_loc, topology):
                     qm_fixed_atoms.append(int(idx))
             else:
                 print("ERROR: Can't determin index format")
-    print(qm_fixed_atoms)
-    print(qm_origin_atoms)
     qm_fixed_atoms = sorted(qm_fixed_atoms + qm_origin_atoms)
     qm_origin_atoms = sorted(qm_origin_atoms)
 
@@ -414,7 +414,6 @@ def update_ext_force(context, qm_atoms, qm_gradient, ext_force, coords_in_nm, ch
 
     context.setParameter('qm_energy', qm_energy/n_atoms)
     ext_force.updateParametersInContext(context)
-    
 
 def get_rem_lines(rem_file_loc, outfile):
     rem_lines = []
@@ -445,6 +444,10 @@ def get_rem_lines(rem_file_loc, outfile):
                 opts.aimd_langevin_timescale = float(sp[1]) * femtoseconds
             elif option == 'qm_mm_radius':
                 opts.qm_mm_radius = float(sp[1]) * angstroms
+            elif option == 'ratchet_pawl':
+                opts.ratched_pawl = bool(strtobool(sp[1]))
+            elif option == 'ratchet_pawl_force':
+                opts.ratched_pawl_force = float(sp[1])
             elif option == 'aimd_temp_seed':
                 seed = int(sp[1])
                 if seed > 2147483647 or seed < -2147483648:
@@ -482,13 +485,20 @@ def get_rem_lines(rem_file_loc, outfile):
     outfile.write(' time step:             {:>10.2f} fs \n'.format(opts.time_step/femtoseconds) )
     outfile.write(' QM/MM radius:          {:>10.2f} Ang. \n'.format(opts.qm_mm_radius/angstroms) )
     outfile.write(' number of steps:       {:>10d} \n'.format(opts.aimd_steps) )
+
+    if opts.ratched_pawl:
+        outfile.write(' Ratchet-Pawl:          {:10d} \n'.format(int(opts.ratched_pawl)))
+        outfile.write(' Ratchet-Pawl Force:    {:10d} \n'.format(int(opts.ratched_pawl)))
+
     if opts.jobtype == 'aimd':
         outfile.write(' temperature:           {:>10.2f} K \n'.format(opts.aimd_temp/kelvin) )
         outfile.write(' temperature seed:      {:>10d} \n'.format(opts.aimd_temp_seed) )
+
     if opts.aimd_thermostat:
         outfile.write(' thermostat:            {:>10s} \n'.format(opts.aimd_thermostat) )
         outfile.write(' langevin frequency:  1/{:>10.2f} fs \n'.format(opts.aimd_langevin_timescale / femtoseconds) )
         outfile.write(' langevin seed:         {:10d} \n'.format(opts.aimd_langevin_seed))
+
     outfile.write('--------------------------------------------\n')
     outfile.flush()
     return rem_lines, opts
@@ -754,8 +764,7 @@ def main(args_in):
 
         integrator = get_integrator(options)
         qm_fixed_atoms, qm_origin_atoms = parse_idx(args.idx, pdb.topology)
-        print("QM1: ", qm_fixed_atoms)
-        print("QM2: ", qm_origin_atoms)
+
         qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pdb.getPositions()/angstrom, pdb.topology)
         qm_atoms = qm_fixed_atoms + qm_sphere_atoms
         system = forcefield.createSystem(pdb.topology, rigidWater=False)
@@ -763,6 +772,11 @@ def main(args_in):
         charges = add_nonbonded_force(qm_atoms, system, pdb.topology.bonds(), outfile=outfile)
         #   "external" force for updating QM forces and MM electrostatics
         ext_force = add_ext_force_all(system, charges)
+
+        #   add ratchet-pawl force
+        if options.ratched_pawl:
+            ratchet_pawl_force = add_rachet_pawl_force(system, args.rp, pdb.getPositions(True), options.ratched_pawl_force, pdb.topology)
+
         
         #   add pulling force
         if False:
@@ -809,7 +823,7 @@ def main(args_in):
         sys.stdout.flush()
 
         #   run simulation
-
+        exit()
         for n in range(options.aimd_steps):
             state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True)  
             pos = state.getPositions(True)
@@ -829,10 +843,12 @@ def main(args_in):
 
             if options.jobtype == 'opt':
                 opt.step(simulation, outfile=outfile)
+
             # update atom list
             qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pos, pdb.topology)
             qm_atoms = qm_fixed_atoms + qm_sphere_atoms
 
+    return None
               
 if __name__ == "__main__":
     main(sys.argv[1:])
