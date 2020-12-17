@@ -853,7 +853,7 @@ def main(args_in):
                 opt.step(simulation, outfile=outfile)
 
             # update atom list
-            qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pos, pdb.topology)
+            qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pos/angstrom, pdb.topology)
             qm_atoms = qm_fixed_atoms + qm_sphere_atoms
 
     return None
