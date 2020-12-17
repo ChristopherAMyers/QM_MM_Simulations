@@ -107,7 +107,7 @@ def get_qm_spheres(originAtoms, qm_atoms, radius_in_ang, xyz_in_ang, topology):
                 if isQuantum:
 	                for atom in list(residue.atoms()):
 	                	qmSpheres.append(atom.index)
-    return qmSpheres
+    return list(sorted(set(qmSpheres)))
     
     
 def find_all_qm_atoms(mat_idx_list, bondedToAtom, topology):
