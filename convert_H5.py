@@ -3,13 +3,14 @@ import mdtraj as md
 import argparse
 import os
 
-
 def convert(input_file_loc, out_file_loc):
+    print(" Reading in trajectory file...", end='', flush=True)
     traj = md.load(input_file_loc)
+    print("Done")
 
     extension = os.path.splitext(out_file_loc)[-1][1:]
     print(" Requested output: {:s}".format(extension))
-    print(" Writing...")
+    print(" Writing...", end='', flush=True)
 
     if extension == 'hdf5':
         traj.save_hdf5(out_file_loc)
@@ -62,7 +63,7 @@ def convert(input_file_loc, out_file_loc):
     elif extension == 'gsd':
         traj.save_gsd(out_file_loc)
         
-    print(" ...Done writing")
+    print("Done")
 
 
 if __name__ == "__main__":

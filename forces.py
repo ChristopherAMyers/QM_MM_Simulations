@@ -1,6 +1,14 @@
-from simtk.openmm.openmm import *
+from simtk.openmm.openmm import * #pylint: disable=unused-wildcard-import
+from simtk.unit import * #pylint: disable=unused-wildcard-import
 import numpy as np
 import os
+
+# pylint: disable=no-member
+import simtk.unit as unit
+picosecond = picoseconds = unit.picosecond
+nanometer = nanometers = unit.nanometer
+femtoseconds = unit.femtoseconds
+# pylint: enable=no-member
 
 def add_ext_qm_force(qm_atoms, system):
     ext_force = CustomExternalForce('a*x + b*y + c*z - k + qm_energy')
@@ -51,6 +59,113 @@ def add_ext_force_all(system, charges):
     system.addForce(ext_force)
     return ext_force
 
+def add_nonbonded_force(qm_atoms, system, bonds, outfile=sys.stdout):
+    forces = system.getForces()
+    forceString = "lj_on*4*epsilon*((sigma/r)^12 - (sigma/r)^6) + coul_on*138.935458 * q/r; "
+    forceString += "sigma=0.5*(sigma1+sigma2); "
+    forceString += "epsilon=sqrt(epsilon1*epsilon2); "
+    forceString += "q=q1*q2; "
+    forceString += "lj_on=1 - min(is_qm1, is_qm2); "
+    forceString += "coul_on=1 - max(is_qm1, is_qm2); "
+    customForce = CustomNonbondedForce(forceString)
+    customForce.addPerParticleParameter("q")
+    customForce.addPerParticleParameter("sigma")
+    customForce.addPerParticleParameter("epsilon")
+    customForce.addPerParticleParameter("is_qm")
+
+    #   get list of bonds for exclusions
+    bond_idx_list = []
+    for bond in bonds:
+        bond_idx_list.append([bond.atom1.index, bond.atom2.index])
+    
+    #   add the same parameters as in the original force
+    #   but separate based on qm - mm systems
+    charges = []
+    qm_charges = []
+    mm_atoms = []
+    for i, force in enumerate(forces):
+        if isinstance(force, NonbondedForce):
+            print(" Adding custom non-bonded force")
+            for n in range(force.getNumParticles()):
+                chg, sig, eps = force.getParticleParameters(n)
+                charges.append(chg / elementary_charge)
+                if n in qm_atoms:
+                    qm_charges.append(chg / elementary_charge)
+                    customForce.addParticle([chg, sig, eps, 1])
+                else:
+                    mm_atoms.append(n)
+                    customForce.addParticle([chg, sig, eps, 0])
+
+            system.removeForce(i)
+            #customForce.addInteractionGroup(qm_atoms, mm_atoms)
+            #customForce.addInteractionGroup(mm_atoms, mm_atoms)
+            customForce.createExclusionsFromBonds(bond_idx_list, 2)
+            system.addForce(customForce)
+
+    total_chg = np.sum(charges)
+    total_qm_chg = np.sum(qm_charges)
+    total_mm_chg = total_chg - total_qm_chg
+    print("", file=outfile)
+    print(" Force field charge distributions:", file=outfile)
+    print(" Total charge:    %.4f e" % round(total_chg, 4), file=outfile)
+    print(" Total MM charge: %.4f e" % round(total_mm_chg, 4), file=outfile)
+    print(" Total QM charge: %.4f e" % round(total_qm_chg, 4), file=outfile)
+    print("", file=outfile)
+    print(" Number of atoms: {:d}".format(len(charges)), file=outfile)
+    print("", file=outfile)
+    return charges
+
+def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.stdout):
+    """
+    Adjust forces for MM atoms.
+    If bonds have stretched too far, it leaves them as
+    QM atoms and returns a new list of qm_atoms
+    """
+
+    if not is_quantity(coords):
+        raise ValueError('coords must have units')
+    coords = coords/nanometers
+    atoms = list(topology.atoms())
+
+    new_atoms = set()
+    for force in system.getForces():
+        #   remove bond from dynamic qm_atoms pairs
+        if isinstance(force, HarmonicBondForce):
+            for n in range(force.getNumBonds()):
+                a, b, r, k = force.getBondParameters(n)
+                if int(atoms[a].id) in [6, 123, 124] or int(atoms[b].id) in [6, 123, 124]:
+                    print("QM: ", r, k, a in qm_atoms, b in qm_atoms, file=outfile)
+                if a in qm_atoms and b in qm_atoms:
+                    force.setBondParameters(n, a, b, r, k*0.000)
+                else:
+                    dist = np.linalg.norm(coords[a] - coords[b])
+                    #   k=0 identifies that the bond was a QM bond
+                    #   if while QM, the two atoms have stretched
+                    #   too far, leave as QM atoms
+                    if k == 0 and dist > r/nanometer*1.3:
+                        new_atoms.add(a)
+                        new_atoms.add(b)
+                    else:
+                        force.setBondParameters(n, a, b, r, 462750.4*kilojoules_per_mole/nanometer**2)
+            force.updateParametersInContext(context)
+
+    #   now that the new atoms are added, continue with nonbonded force
+    new_qm_atoms = sorted(list(new_atoms) + qm_atoms)
+    for force in system.getForces():
+        #   non-bonded force has built in parameters to turn on/off terms
+        if isinstance(force, NonbondedForce):
+            for n in range(force.getNumParticles()):
+                params = list(force.getParticleParameters(n))
+                if n in new_qm_atoms:
+                    params[-1] = 1
+                else:
+                    params[-1] = 0
+                force.setParticleParameters(n, params)
+            force.updateParametersInContext(context)
+
+            force.updateParametersInContext(context)
+    return new_qm_atoms
+
 def add_pull_force(coords, system):
     pull_force = CustomExternalForce('px*x + py*y + pz*z')
     pull_force.addPerParticleParameter('px')
@@ -92,7 +207,6 @@ def add_rachet_pawl_force(system, pair_file_loc, coords, strength, topology):
     custom_force.addPerBondParameter('r_max')
 
     for pair in atom_pairs:
-
         dist = np.linalg.norm(coords[pair[0]] - coords[pair[1]])
         custom_force.addBond(pair, [strength, dist])
 

@@ -1,7 +1,7 @@
 from simtk.openmm.app import * #pylint: disable=unused-wildcard-import
-from simtk.openmm import *
-from simtk.openmm.openmm import *
-from simtk.unit import *
+from simtk.openmm import * #pylint: disable=unused-wildcard-import
+from simtk.openmm.openmm import * #pylint: disable=unused-wildcard-import
+from simtk.unit import * #pylint: disable=unused-wildcard-import
 from os import urandom
 import numpy as np
 import time
@@ -15,6 +15,24 @@ nanometer = simtk.unit.nanometer
 femtoseconds = simtk.unit.femtoseconds
 # pylint: enable=no-member
 
+class QMatomsReporter(object):
+    """
+    Prints out the current lsit of QM atoms to file
+    This reporter is NOT suited as an OpenMM reporter
+    """
+    def __init__(self, file):
+        self._out = open(file, 'w')
+
+    def __del__(self):
+        self._out.close()
+
+    def report(self, simulation, qm_atoms):
+        self._out.write(" Step {:d}: ".format(simulation.currentStep))
+        for atom in qm_atoms:
+            self._out.write('{:d} '.format(atom))
+        self._out.write('\n')
+        self._out.flush()
+     
 
 
 class StatsReporter(object):
