@@ -135,8 +135,8 @@
             <ExternalBond atomName="N"/>
         </Residue>
         <Residue name="MET">
-            <Atom name="C1"   type="ETH-C1  " charge="-0.3500"/>
-            <Atom name="N"    type="ETH-N   " charge="-0.8000"/>
+            <Atom name="C1"   type="ETH-C1" charge="-0.3500"/>
+            <Atom name="N"    type="ETH-N" charge="-0.8000"/>
             <Atom name="HC11" type="ETH-HC21" charge="+0.2000"/>
             <Atom name="HC12" type="ETH-HC22" charge="+0.2000"/>
             <Atom name="HC13" type="ETH-HC23" charge="+0.2000"/>

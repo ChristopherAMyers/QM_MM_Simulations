@@ -787,7 +787,8 @@ def main(args_in):
         print(' Integrator: ', type(integrator))
         sys.stdout.flush()
 
-        return locals(), simulation
+        #return locals(), simulation
+        
         #   run simulation
         for n in range(options.aimd_steps):
             state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True)  
