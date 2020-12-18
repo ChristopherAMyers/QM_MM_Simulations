@@ -245,7 +245,6 @@ if __name__ == "__main__":
                 for atom in res.atoms():
                     system.setParticleMass(atom.index, 0*dalton)
 
-        ratchet_force = add_rachet_pawl_force(system, [[0, 1]])
         integrator = LangevinIntegrator(300*kelvin, 1/(100*femtoseconds), 0.001*picoseconds)
         integrator.setRandomNumberSeed(12345)
         simulation = Simulation(mols.topology, system, integrator)
@@ -264,9 +263,6 @@ if __name__ == "__main__":
             for n in range(5000*4):
 
                 state = simulation.context.getState(getPositions=True)
-                update_rachet_pawl_force(ratchet_force, simulation.context, state.getPositions(True)/nanometers)
-
-
                 simulation.step(1)
                 if n % 100 == 0:
                     print(n)

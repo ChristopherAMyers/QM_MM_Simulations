@@ -1,8 +1,8 @@
 from simtk.openmm.app import * #pylint: disable=unused-wildcard-import
-from simtk.openmm import *
+from simtk.openmm import * #pylint: disable=unused-wildcard-import
 from openmmtools.integrators import VelocityVerletIntegrator
-from simtk.openmm.openmm import *
-from simtk.unit import *
+from simtk.openmm.openmm import * #pylint: disable=unused-wildcard-import
+from simtk.unit import * #pylint: disable=unused-wildcard-import
 import argparse
 import numpy as np
 import sys
@@ -15,6 +15,7 @@ from scipy import optimize
 from optimize import GradientMethod
 from mdtraj.reporters import HDF5Reporter
 from distutils.util import strtobool
+from code import interact
 
 # pylint: disable=no-member
 import simtk.unit as unit
@@ -133,6 +134,7 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
     qm_bonds = []
     qm_angles = []
     qm_tors = []
+    atoms = list(topology.atoms())
     for force in forces:
         if  isinstance(force, HarmonicBondForce):
             for n in range(force.getNumBonds()):
@@ -146,6 +148,9 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
                 if (a in qm_atoms and b not in qm_atoms) or \
                    (b in qm_atoms and a not in qm_atoms):
                    qm_bonds.append([a, b, r, k])
+
+                
+
             force.updateParametersInContext(context)
 
         elif isinstance(force, HarmonicAngleForce):
@@ -200,7 +205,7 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
     #for tors in qm_tors:
     #    a, b, c, d, mult, phi, k = tors
     #    print(" {:3d}  {:3d}  {:3d}  {:3d}".format(a+1, b+1, c+1, d+1), file=outfile)
-
+    
     return qm_bonds, qm_angles
 
 def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, rem_lines=[], step_number=0, ghost_atoms=[], jobtype=None):
@@ -517,61 +522,6 @@ def get_rem_lines(rem_file_loc, outfile):
     outfile.flush()
     return rem_lines, opts
 
-def add_nonbonded_force(qm_atoms, system, bonds, outfile=sys.stdout):
-    forces = system.getForces()
-    forceString = "lj_on*4*epsilon*((sigma/r)^12 - (sigma/r)^6) + coul_on*138.935458 * q/r; "
-    forceString += "sigma=0.5*(sigma1+sigma2); "
-    forceString += "epsilon=sqrt(epsilon1*epsilon2); "
-    forceString += "q=q1*q2; "
-    forceString += "lj_on=1 - min(is_qm1, is_qm2); "
-    forceString += "coul_on=1 - max(is_qm1, is_qm2); "
-    customForce = CustomNonbondedForce(forceString)
-    customForce.addPerParticleParameter("q")
-    customForce.addPerParticleParameter("sigma")
-    customForce.addPerParticleParameter("epsilon")
-    customForce.addPerParticleParameter("is_qm")
-
-    #   get list of bonds for exclusions
-    bond_idx_list = []
-    for bond in bonds:
-        bond_idx_list.append([bond.atom1.index, bond.atom2.index])
-    
-    #   add the same parameters as in the original force
-    #   but separate based on qm - mm systems
-    charges = []
-    qm_charges = []
-    mm_atoms = []
-    for i, force in enumerate(forces):
-        if isinstance(force, NonbondedForce):
-            print(" Adding custom non-bonded force")
-            for n in range(force.getNumParticles()):
-                chg, sig, eps = force.getParticleParameters(n)
-                charges.append(chg / elementary_charge)
-                if n in qm_atoms:
-                    qm_charges.append(chg / elementary_charge)
-                    customForce.addParticle([chg, sig, eps, 1])
-                else:
-                    mm_atoms.append(n)
-                    customForce.addParticle([chg, sig, eps, 0])
-
-            system.removeForce(i)
-            #customForce.addInteractionGroup(qm_atoms, mm_atoms)
-            #customForce.addInteractionGroup(mm_atoms, mm_atoms)
-            customForce.createExclusionsFromBonds(bond_idx_list, 2)
-            system.addForce(customForce)
-
-    total_chg = np.sum(charges)
-    total_qm_chg = np.sum(qm_charges)
-    total_mm_chg = total_chg - total_qm_chg
-    print("", file=outfile)
-    print(" Force field charge distributions:", file=outfile)
-    print(" Total charge:    %.4f e" % round(total_chg, 4), file=outfile)
-    print(" Total MM charge: %.4f e" % round(total_mm_chg, 4), file=outfile)
-    print(" Total QM charge: %.4f e" % round(total_qm_chg, 4), file=outfile)
-    print("", file=outfile)
-    print(" Number of atoms: {:d}".format(len(charges)), file=outfile)
-    print("", file=outfile)
-    return charges
 
 def get_integrator(opts):
     if opts.jobtype == 'aimd':
@@ -790,7 +740,7 @@ def main(args_in):
 
         #   add ratchet-pawl force
         if options.ratched_pawl:
-            ratchet_pawl_force = add_rachet_pawl_force(system, args.rp, pdb.getPositions(True), options.ratched_pawl_force, pdb.topology)
+            ratchet_pawl_force = add_rachet_pawl_force(system, args.pawl, pdb.getPositions(True), options.ratched_pawl_force, pdb.topology)
 
         
         #   add pulling force
@@ -813,6 +763,7 @@ def main(args_in):
         #   output files and reporters
         stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qm_atoms, vel_file_loc=args.repv, force_file_loc=args.repf)
         simulation.reporters.append(HDF5Reporter('output.h5', 1))
+        qm_atoms_reporter = QMatomsReporter('qm_atoms.txt')
 
         #   set up files
         scratch = os.path.join(os.path.curdir, 'qm_mm_scratch/')
@@ -837,10 +788,16 @@ def main(args_in):
         print(' Integrator: ', type(integrator))
         sys.stdout.flush()
 
+        #return locals(), simulation
+        
         #   run simulation
         for n in range(options.aimd_steps):
             state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True)  
             pos = state.getPositions(True)
+            # update QM atom list
+            qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pos/angstrom, pdb.topology)
+            qm_atoms = qm_fixed_atoms + qm_sphere_atoms
+            qm_atoms = update_mm_forces(qm_atoms, system, simulation.context, pos, pdb.topology, outfile=outfile)
             if len(qm_atoms) > 0:
                 qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile)
                 #qm_energy = energy = np.loadtxt('qm_mm_scratch/GRAD', skiprows=1, max_rows=1)*2625.5009
@@ -849,7 +806,9 @@ def main(args_in):
             #   call reporter before taking a step. OpenMM calls reporters after taking a step, but this
             #   will not report the correct force and energy as the new current parameters are only valid 
             #   for the current positions, not after
+
             stats_reporter.report(simulation)
+            qm_atoms_reporter.report(simulation, qm_atoms)
             simulation.step(1)
             if n % 10  == 0:
                 simulation.saveState('simulation.xml')
@@ -857,11 +816,23 @@ def main(args_in):
             if options.jobtype == 'opt':
                 opt.step(simulation, outfile=outfile)
 
-            # update atom list
-            qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pos/angstrom, pdb.topology)
-            qm_atoms = qm_fixed_atoms + qm_sphere_atoms
 
-    return None
+    return simulation
               
 if __name__ == "__main__":
-    main(sys.argv[1:])
+
+    local, simulation = main(sys.argv[1:])
+
+    ''' DEBUGGING ONLY  '''
+    system = local['system']
+    atoms = list(local['pdb'].topology.atoms())
+    for force in system.getForces():
+        if  isinstance(force, HarmonicBondForce):
+            for n in range(force.getNumBonds()):
+                a, b, r, k = force.getBondParameters(n)
+                ids = [int(atoms[x].id) for x in [a, b]]
+                for id in ids:
+                    if id in [6, 122]:
+                        print(a, b, k, r, ids)
+
+
