@@ -17,12 +17,18 @@
         <Type name="ETH-HC22" class="lig"  element="H"  mass="1.007947"/>
         <Type name="ETH-HC23" class="lig"  element="H"  mass="1.007947"/>
         <Type name="ETH-HN1"  class="lig"  element="H"  mass="1.007947"/>
-        <Type name="ETH-HN2" class="lig"  element="H"  mass="1.007947"/>
+        <Type name="ETH-HN2"  class="lig"  element="H"  mass="1.007947"/>
+
+        <Type name="MTH-C1"  class="lig"  element="C"  mass="12.01078"/>
+        <Type name="MTH-N"   class="lig"  element="N"  mass="14.00672"/>
+        <Type name="MTH-HC11" class="lig"  element="H"  mass="1.007947"/>
+        <Type name="MTH-HC12" class="lig"  element="H"  mass="1.007947"/>
+        <Type name="MTH-HC13" class="lig"  element="H"  mass="1.007947"/>
+        <Type name="MTH-HN1"  class="lig"  element="H"  mass="1.007947"/>
+        <Type name="MTH-HN2"  class="lig"  element="H"  mass="1.007947"/>
+
         <Type name="OTHER-H"  class="other"   element="H"  mass="1.007947"/>
         <Type name="OTHER-O"  class="other"   element="O"  mass="1.007947"/>
-        <Type name="HOH-H1"  class="other"   element="H"  mass="1.007947"/>
-        <Type name="HOH-H2"  class="other"   element="H"  mass="1.007947"/>
-        <Type name="HOH-O"  class="other"   element="O"  mass="1.007947"/>
         <Type name="OTHER-Zn" class="other"   element="Zn" mass="15.999"/>
     </AtomTypes>
     <!---->
@@ -46,6 +52,13 @@
         <Atom type="ETH-HC23" charge="+0.2000" sigma="0.120" epsilon="0.0656"/>
         <Atom type="ETH-HN1"  charge="+0.4000" sigma="0.120" epsilon="0.0656"/>
         <Atom type="ETH-HN2"  charge="+0.4000" sigma="0.120" epsilon="0.0656"/>
+        <Type type="MTH-C1"   charge="-0.3500"  element="C"  mass="12.01078"/>
+        <Type type="MTH-N"    charge="-0.8000"  element="N"  mass="14.00672"/>
+        <Type type="MTH-HC11" charge="+0.2000"  element="H"  mass="1.007947"/>
+        <Type type="MTH-HC12" charge="+0.2000"  element="H"  mass="1.007947"/>
+        <Type type="MTH-HC13" charge="+0.2000"  element="H"  mass="1.007947"/>
+        <Type type="MTH-HN1"  charge="+0.4000"  element="H"  mass="1.007947"/>
+        <Type type="MTH-HN2"  charge="+0.4000"  element="H"  mass="1.007947"/>
         <Atom type="OTHER-O"  charge="+0.0000" sigma="0.304" epsilon="0.0656"/>
         <Atom type="OTHER-H"  charge="+0.0000" sigma="0.120" epsilon="0.0656"/>
         <Atom type="HOH-O"  charge="+0.0000" sigma="0.304" epsilon="0.0656"/>
@@ -53,26 +66,6 @@
         <Atom type="HOH-H2"  charge="+0.0000" sigma="0.120" epsilon="0.0656"/>
         <Atom type="OTHER-Zn" charge="+0.0000" sigma="0.278" epsilon="0.0656"/>
     
-    <!--
-        <Atom type="MAT-ZN1"  charge="+0.5000" sigma="0.278" epsilon="0."/>
-        <Atom type="MAT-ZN2"  charge="+0.5000" sigma="0.278" epsilon="0."/>
-        <Atom type="MAT-ZN3"  charge="+0.5000" sigma="0.278" epsilon="0."/>
-        <Atom type="MAT-ZN4"  charge="+0.5000" sigma="0.278" epsilon="0."/>
-        <Atom type="MAT-SE1"  charge="-0.7500" sigma="0.380" epsilon="0."/>
-        <Atom type="MAT-SE2"  charge="-0.7500" sigma="0.380" epsilon="0."/>
-        <Atom type="MAT-SE3"  charge="-0.7500" sigma="0.380" epsilon="0."/>
-        <Atom type="MAT-SE4"  charge="-0.7500" sigma="0.380" epsilon="0."/>
-        <Atom type="ETH-C1"   charge="-0.2000" sigma="0.340" epsilon="0."/>
-        <Atom type="ETH-C2"   charge="-0.5500" sigma="0.340" epsilon="0."/>
-        <Atom type="ETH-N"    charge="-0.8000" sigma="0.308" epsilon="0."/>
-        <Atom type="ETH-HC11" charge="+0.2000" sigma="0.220" epsilon="0."/>
-        <Atom type="ETH-HC12" charge="+0.2000" sigma="0.220" epsilon="0."/>
-        <Atom type="ETH-HC21" charge="+0.2000" sigma="0.220" epsilon="0."/>
-        <Atom type="ETH-HC22" charge="+0.2000" sigma="0.220" epsilon="0."/>
-        <Atom type="ETH-HC23" charge="+0.2000" sigma="0.220" epsilon="0."/>
-        <Atom type="ETH-HN1"  charge="+0.4000" sigma="0.220" epsilon="0."/>
-        <Atom type="ETH-HN2"  charge="+0.4000" sigma="0.220" epsilon="0."/>
-    -->    
     </NonbondedForce>
     
     <Residues>
@@ -141,8 +134,25 @@
             <Bond atomName1="N"  atomName2="HN2"/>
             <ExternalBond atomName="N"/>
         </Residue>
+        <Residue name="MET">
+            <Atom name="C1"   type="ETH-C1  " charge="-0.3500"/>
+            <Atom name="N"    type="ETH-N   " charge="-0.8000"/>
+            <Atom name="HC11" type="ETH-HC21" charge="+0.2000"/>
+            <Atom name="HC12" type="ETH-HC22" charge="+0.2000"/>
+            <Atom name="HC13" type="ETH-HC23" charge="+0.2000"/>
+            <Atom name="HN1"  type="ETH-HN1"  charge="+0.4000"/>
+            <Atom name="HN2"  type="ETH-HN2"  charge="+0.4000"/>
+            <Bond atomName1="C1" atomName2="HC11"/>
+            <Bond atomName1="C1" atomName2="HC12"/>
+            <Bond atomName1="C1" atomName2="HC13"/>
+            <Bond atomName1="C1" atomName2="N"/>
+            <Bond atomName1="N"  atomName2="HN1"/>
+            <Bond atomName1="N"  atomName2="HN2"/>
+            <ExternalBond atomName="N"/>
+        </Residue>
     </Residues>
     <HarmonicBondForce>
+        <!--Ethylamine ligands-->
         <Bond k="100000.00" length="0.11105" type1="ETH-N"    type2="ETH-HN1" />
         <Bond k="100000.00" length="0.11099" type1="ETH-N"    type2="ETH-HN2" />
         <Bond k="100000.00" length="0.11394" type1="ETH-C1"   type2="ETH-HC11"/>
@@ -152,6 +162,8 @@
         <Bond k="100000.00" length="0.11397" type1="ETH-C2"   type2="ETH-HC23"/>
         <Bond k="100000.00" length="0.15782" type1="ETH-C1"   type2="ETH-N"   />
         <Bond k="100000.00" length="0.15915" type1="ETH-C1"   type2="ETH-C2"  />
+
+        <!-- Material -->
         <Bond k="100000.00" length="0.23832" type1="MAT-SE1"  type2="MAT-ZN1" />
         <Bond k="100000.00" length="0.24251" type1="MAT-SE1"  type2="MAT-ZN2" />
         <Bond k="100000.00" length="0.24247" type1="MAT-SE2"  type2="MAT-ZN1" />
@@ -164,11 +176,24 @@
         <Bond k="100000.00" length="0.23833" type1="MAT-SE2"  type2="MAT-ZN2" />
         <Bond k="100000.00" length="0.23832" type1="MAT-SE3"  type2="MAT-ZN4" />
         <Bond k="100000.00" length="0.24642" type1="MAT-SE1"  type2="MAT-ZN4" />
+
+        <!-- Material with Ligand -->
         <Bond k="100000.00" length="0.21585" type1="MAT-ZN1"  type2="ETH-N"   />
         <Bond k="100000.00" length="0.21576" type1="MAT-ZN2"  type2="ETH-N"   />
         <Bond k="100000.00" length="0.21580" type1="MAT-ZN3"  type2="ETH-N"   />
         <Bond k="100000.00" length="0.21585" type1="MAT-ZN4"  type2="ETH-N"   />
+        <Bond k="100000.00" length="0.21585" type1="MAT-ZN1"  type2="MET-N"   />
+        <Bond k="100000.00" length="0.21576" type1="MAT-ZN2"  type2="MET-N"   />
+        <Bond k="100000.00" length="0.21580" type1="MAT-ZN3"  type2="MET-N"   />
+        <Bond k="100000.00" length="0.21585" type1="MAT-ZN4"  type2="MET-N"   />
 
+        <!--Methylamine ligands-->
+        <Bond k="100000.00" length="0.11105" type1="MET-N"    type2="MET-HN1" />
+        <Bond k="100000.00" length="0.11099" type1="MET-N"    type2="MET-HN2" />
+        <Bond k="100000.00" length="0.15782" type1="MET-C1"   type2="MET-N"   />
+        <Bond k="100000.00" length="0.10898" type1="MET-C1"   type2="MET-HC11"/>
+        <Bond k="100000.00" length="0.11395" type1="MET-C1"   type2="MET-HC12"/>
+        <Bond k="100000.00" length="0.11397" type1="MET-C1"   type2="MET-HC13"/>
 
     </HarmonicBondForce>
     <HarmonicAngleForce>
