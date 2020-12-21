@@ -343,8 +343,8 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
         outfile.write(' -----------------------------------------------------------\n')
         exit()
 
-
-    shutil.copyfile(os.path.join(scratch, 'input'), os.path.join(scratch, 'input_{:d}'.format(step_number)))
+    #   debug only: save all generated input files
+    #shutil.copyfile(os.path.join(scratch, 'input'), os.path.join(scratch, 'input_{:d}'.format(step_number)))
 
     #   convert gradient to kJ/mol/nm and energy to kJ/mol
     gradient = (gradient * 2625.5009 * kilojoules_per_mole / nanometer / bohrs.conversion_factor_to(nanometer))
