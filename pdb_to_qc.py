@@ -128,6 +128,8 @@ def add_bonds(pdb, remove_orig=False):
     if remove_orig:
         pdb.topology._bonds = []
     for bond in bond_list:
+        if '68' in [atoms[bond[0]].id, atoms[bond[1]].id]:
+            print(bond)
         pdb.topology.addBond(atoms[bond[0]], atoms[bond[1]])
 
 def pdb_to_qc(pdb, file_out_loc, bondedToAtom, qc_forcefield):

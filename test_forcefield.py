@@ -224,11 +224,18 @@ def set_ff_params(system, context):
 
 if __name__ == "__main__":
     #create_mat.create_struct(4, 4, 'test.pdb')
-    create_mat.create_struct_from_template(3, 3, 'test.pdb', lig=True)
-    exit()
-    pdb = PDBFile('test.pdb')
+    #create_mat.create_struct_from_template(3, 3, 'test.pdb', lig=True)
+    #pdb = PDBFile('test.pdb')
+    pdb = PDBFile(sys.argv[1])
     pdb_to_qc.add_bonds(pdb)
     data, bondedToAtom = pdb_to_qc.determine_connectivity(pdb.topology)
+
+    if True:
+        get_bond_types(pdb)
+        print_angle_force_field(pdb, data.angles)
+        print_torsion_force_field(pdb, data.propers, data.impropers)
+        exit()
+
     forcefield = ForceField('forcefields/forcefield2.xml')
     
     pdb_to_qc.pdb_to_qc(pdb, 'test.qc', bondedToAtom, 'forcefields/forcefield.prm')
@@ -246,11 +253,6 @@ if __name__ == "__main__":
         forcefield.registerResidueTemplate(template)
 
     #   print out bonded terms for force field file
-    if True:
-        #get_bond_types(pdb)
-        print_angle_force_field(pdb, data.angles)
-        #print_torsion_force_field(pdb, data.propers, data.impropers)
-        exit()
         
 
     system, ff_data = forcefield.createSystem(pdb.topology)

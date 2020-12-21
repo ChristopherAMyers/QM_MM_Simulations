@@ -45,7 +45,7 @@ def add_ext_force_all(system, charges):
     #   adds external force to all atoms
     #   Gx is the gradient of the energy in the x-direction, etc.
     #   sum is used as a constant to set the energy to zero at each step
-    ext_force = CustomExternalForce('q*(Gx*x + Gy*y + Gz*z - sum) + qm_energy')
+    ext_force = CustomExternalForce('q*(Gx*x + Gy*y + Gz*z - sum) + 0*qm_energy')
     ext_force.addPerParticleParameter('Gx')
     ext_force.addPerParticleParameter('Gy')
     ext_force.addPerParticleParameter('Gz')
@@ -89,12 +89,18 @@ def add_nonbonded_force(qm_atoms, system, bonds, outfile=sys.stdout):
             for n in range(force.getNumParticles()):
                 chg, sig, eps = force.getParticleParameters(n)
                 charges.append(chg / elementary_charge)
+
+                #if n not in [952, 1329]:
+                #    chg *= 0
+                #    eps *= 0
+
                 if n in qm_atoms:
                     qm_charges.append(chg / elementary_charge)
                     customForce.addParticle([chg, sig, eps, 1])
                 else:
                     mm_atoms.append(n)
                     customForce.addParticle([chg, sig, eps, 0])
+                
 
             system.removeForce(i)
             #customForce.addInteractionGroup(qm_atoms, mm_atoms)
@@ -133,7 +139,7 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
         if isinstance(force, HarmonicBondForce):
             for n in range(force.getNumBonds()):
                 a, b, r, k = force.getBondParameters(n)
-                if int(atoms[a].id) in [6, 123, 124] or int(atoms[b].id) in [6, 123, 124]:
+                if int(atoms[a].id) in [953] or int(atoms[b].id) in [953]:
                     print("QM: ", r, k, a in qm_atoms, b in qm_atoms, file=outfile)
                 if a in qm_atoms and b in qm_atoms:
                     force.setBondParameters(n, a, b, r, k*0.000)
@@ -149,11 +155,22 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
                         force.setBondParameters(n, a, b, r, 462750.4*kilojoules_per_mole/nanometer**2)
             force.updateParametersInContext(context)
 
+        if isinstance(force, HarmonicAngleForce):
+            for n in range(force.getNumAngles()):
+                a, b, c, t, k = force.getAngleParameters(n)
+                in_qm_atoms = [x in qm_atoms for x in [a, b, c]]
+                num_qm_atoms = np.sum(in_qm_atoms)
+                if num_qm_atoms > 0:
+                    force.setAngleParameters(n, a, b, c, t, k*0.000)
+                else:
+                    force.setAngleParameters(n, a, b, c, t, 836.8*kilojoules_per_mole)
+            force.updateParametersInContext(context)
+
     #   now that the new atoms are added, continue with nonbonded force
     new_qm_atoms = sorted(list(new_atoms) + qm_atoms)
     for force in system.getForces():
         #   non-bonded force has built in parameters to turn on/off terms
-        if isinstance(force, NonbondedForce):
+        if isinstance(force, CustomNonbondedForce):
             for n in range(force.getNumParticles()):
                 params = list(force.getParticleParameters(n))
                 if n in new_qm_atoms:
@@ -161,8 +178,6 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
                 else:
                     params[-1] = 0
                 force.setParticleParameters(n, params)
-            force.updateParametersInContext(context)
-
             force.updateParametersInContext(context)
     return new_qm_atoms
 
@@ -190,7 +205,7 @@ def add_rachet_pawl_force(system, pair_file_loc, coords, strength, topology):
     atom_pairs = []
     index_dict = {}
     for atom in topology.atoms():
-        index_dict[atom.id] = atom.index
+        index_dict[int(atom.id)] = atom.index
     with open(pair_file_loc, 'r') as file:
         for line in file.readlines():
             sp = line.split()

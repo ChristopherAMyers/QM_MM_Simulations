@@ -29,6 +29,8 @@
 
         <Type name="OTHER-H"  class="other"   element="H"  mass="1.007947"/>
         <Type name="OTHER-O"  class="other"   element="O"  mass="1.007947"/>
+        <Type name="OTHER-N"  class="other"   element="N"  mass="1.007947"/>
+        <Type name="OTHER-C"  class="other"   element="C"  mass="1.007947"/>
         <Type name="OTHER-Zn" class="other"   element="Zn" mass="15.999"/>
     </AtomTypes>
     <!---->
@@ -52,14 +54,16 @@
         <Atom type="ETH-HC23" charge="+0.2000" sigma="0.120" epsilon="0.0656"/>
         <Atom type="ETH-HN1"  charge="+0.4000" sigma="0.120" epsilon="0.0656"/>
         <Atom type="ETH-HN2"  charge="+0.4000" sigma="0.120" epsilon="0.0656"/>
-        <Type type="MTH-C1"   charge="-0.3500"  element="C"  mass="12.01078"/>
-        <Type type="MTH-N"    charge="-0.8000"  element="N"  mass="14.00672"/>
-        <Type type="MTH-HC11" charge="+0.2000"  element="H"  mass="1.007947"/>
-        <Type type="MTH-HC12" charge="+0.2000"  element="H"  mass="1.007947"/>
-        <Type type="MTH-HC13" charge="+0.2000"  element="H"  mass="1.007947"/>
-        <Type type="MTH-HN1"  charge="+0.4000"  element="H"  mass="1.007947"/>
-        <Type type="MTH-HN2"  charge="+0.4000"  element="H"  mass="1.007947"/>
+        <Atom type="MTH-C1"   charge="-0.3500" sigma="0.340" epsilon="0.288"/>
+        <Atom type="MTH-N"    charge="-0.8000" sigma="0.308" epsilon="0.711"/>
+        <Atom type="MTH-HC11" charge="+0.2000" sigma="0.120" epsilon="0.0656"/>
+        <Atom type="MTH-HC12" charge="+0.2000" sigma="0.120" epsilon="0.0656"/>
+        <Atom type="MTH-HC13" charge="+0.2000" sigma="0.120" epsilon="0.0656"/>
+        <Atom type="MTH-HN1"  charge="+0.4000" sigma="0.120" epsilon="0.0656"/>
+        <Atom type="MTH-HN2"  charge="+0.4000" sigma="0.120" epsilon="0.0656"/>
         <Atom type="OTHER-O"  charge="+0.0000" sigma="0.304" epsilon="0.0656"/>
+        <Atom type="OTHER-N"  charge="+0.0000" sigma="0.304" epsilon="0.0656"/>
+        <Atom type="OTHER-C"  charge="+0.0000" sigma="0.304" epsilon="0.0656"/>
         <Atom type="OTHER-H"  charge="+0.0000" sigma="0.120" epsilon="0.0656"/>
         <Atom type="HOH-O"  charge="+0.0000" sigma="0.304" epsilon="0.0656"/>
         <Atom type="HOH-H1"  charge="+0.0000" sigma="0.120" epsilon="0.0656"/>
@@ -134,14 +138,14 @@
             <Bond atomName1="N"  atomName2="HN2"/>
             <ExternalBond atomName="N"/>
         </Residue>
-        <Residue name="MET">
-            <Atom name="C1"   type="ETH-C1" charge="-0.3500"/>
-            <Atom name="N"    type="ETH-N" charge="-0.8000"/>
-            <Atom name="HC11" type="ETH-HC21" charge="+0.2000"/>
-            <Atom name="HC12" type="ETH-HC22" charge="+0.2000"/>
-            <Atom name="HC13" type="ETH-HC23" charge="+0.2000"/>
-            <Atom name="HN1"  type="ETH-HN1"  charge="+0.4000"/>
-            <Atom name="HN2"  type="ETH-HN2"  charge="+0.4000"/>
+        <Residue name="MTH">
+            <Atom name="C1"   type="MTH-C1"   charge="-0.3500"/>
+            <Atom name="N"    type="MTH-N"    charge="-0.8000"/>
+            <Atom name="HC11" type="MTH-HC11" charge="+0.2000"/>
+            <Atom name="HC12" type="MTH-HC12" charge="+0.2000"/>
+            <Atom name="HC13" type="MTH-HC13" charge="+0.2000"/>
+            <Atom name="HN1"  type="MTH-HN1"  charge="+0.4000"/>
+            <Atom name="HN2"  type="MTH-HN2"  charge="+0.4000"/>
             <Bond atomName1="C1" atomName2="HC11"/>
             <Bond atomName1="C1" atomName2="HC12"/>
             <Bond atomName1="C1" atomName2="HC13"/>
@@ -152,6 +156,9 @@
         </Residue>
     </Residues>
     <HarmonicBondForce>
+        <!--Other random types-->
+        <Bond k="50000.00" length="0.16000" type1="OTH-O"    type2="OTH-O" />
+
         <!--Ethylamine ligands-->
         <Bond k="100000.00" length="0.11105" type1="ETH-N"    type2="ETH-HN1" />
         <Bond k="100000.00" length="0.11099" type1="ETH-N"    type2="ETH-HN2" />
@@ -182,18 +189,21 @@
         <Bond k="100000.00" length="0.21576" type1="MAT-ZN2"  type2="ETH-N"   />
         <Bond k="100000.00" length="0.21580" type1="MAT-ZN3"  type2="ETH-N"   />
         <Bond k="100000.00" length="0.21585" type1="MAT-ZN4"  type2="ETH-N"   />
-        <Bond k="100000.00" length="0.21585" type1="MAT-ZN1"  type2="MET-N"   />
-        <Bond k="100000.00" length="0.21576" type1="MAT-ZN2"  type2="MET-N"   />
-        <Bond k="100000.00" length="0.21580" type1="MAT-ZN3"  type2="MET-N"   />
-        <Bond k="100000.00" length="0.21585" type1="MAT-ZN4"  type2="MET-N"   />
+        <Bond k="100000.00" length="0.21585" type1="MAT-ZN1"  type2="MTH-N"   />
+        <Bond k="100000.00" length="0.21576" type1="MAT-ZN2"  type2="MTH-N"   />
+        <Bond k="100000.00" length="0.21580" type1="MAT-ZN3"  type2="MTH-N"   />
+        <Bond k="100000.00" length="0.21585" type1="MAT-ZN4"  type2="MTH-N"   />
 
-        <!--Methylamine ligands-->
-        <Bond k="100000.00" length="0.11105" type1="MET-N"    type2="MET-HN1" />
-        <Bond k="100000.00" length="0.11099" type1="MET-N"    type2="MET-HN2" />
-        <Bond k="100000.00" length="0.15782" type1="MET-C1"   type2="MET-N"   />
-        <Bond k="100000.00" length="0.10898" type1="MET-C1"   type2="MET-HC11"/>
-        <Bond k="100000.00" length="0.11395" type1="MET-C1"   type2="MET-HC12"/>
-        <Bond k="100000.00" length="0.11397" type1="MET-C1"   type2="MET-HC13"/>
+        <!--MTHhylamine ligands-->
+        <Bond k="200000.00" length="0.20884" type1="MAT-ZN2"  type2="MTH-N"   />
+        <Bond k="200000.00" length="0.14539" type1="MTH-N"    type2="MTH-C1"  />
+        <Bond k="200000.00" length="0.09448" type1="MTH-N"    type2="MTH-HN1" />
+        <Bond k="200000.00" length="0.09956" type1="MTH-N"    type2="MTH-HN2" />
+        <Bond k="200000.00" length="0.10953" type1="MTH-C1"   type2="MTH-HC11"/>
+        <Bond k="200000.00" length="0.10927" type1="MTH-C1"   type2="MTH-HC12"/>
+        <Bond k="200000.00" length="0.11259" type1="MTH-C1"   type2="MTH-HC13"/>
+        <Bond k="200000.00" length="0.21723" type1="MAT-ZN3"  type2="MTH-N"   />
+
 
     </HarmonicBondForce>
     <HarmonicAngleForce>
@@ -262,8 +272,44 @@
         <Angle k="1000.00" angle=" 1.64773" type1="ETH-N"    type2="MAT-ZN4"   type3="MAT-SE1" />
         <Angle k="1000.00" angle=" 1.87364" type1="MAT-SE3"  type2="MAT-ZN4"   type3="MAT-SE1" />
 
+        <!--Added so that MTHhylamine ligands shortcut could work
+        <Angle k="1000.00" angle=" 1.91511" type1="ETH-N"    type2="ETH-C1"    type3="ETH-H121"/>
+        <Angle k="1000.00" angle=" 1.89845" type1="ETH-N"    type2="ETH-C1"    type3="ETH-H122"/>
+        <Angle k="1000.00" angle=" 1.91016" type1="ETH-N"    type2="ETH-C1"    type3="ETH-H123"/>
+        <Angle k="1000.00" angle=" 1.92552" type1="ETH-HC11" type2="ETH-C1"    type3="ETH-HC12"/>
+        <Angle k="1000.00" angle=" 1.91461" type1="ETH-HC11" type2="ETH-C1"    type3="ETH-HC13"/>
+        <Angle k="1000.00" angle=" 1.89978" type1="ETH-HC12" type2="ETH-C1"    type3="ETH-HC13"/>
+        <Angle k="1000.00" angle=" 1.50990" type1="ETH-HN1"  type2="ETH-N"     type3="ETH-HN2" />
+        <Angle k="1000.00" angle=" 2.16355" type1="MAT-ZN3"  type2="ETH-N"     type3="ETH-C1"  />
+        <Angle k="1000.00" angle=" 2.41029" type1="MAT-ZN3"  type2="ETH-N"     type3="ETH-HN1" />
+        <Angle k="1000.00" angle=" 1.24266" type1="MAT-ZN3"  type2="ETH-N"     type3="ETH-HN2" />
+        <Angle k="1000.00" angle=" 2.16390" type1="MAT-ZN4"  type2="ETH-N"     type3="ETH-C1"  />
+        <Angle k="1000.00" angle=" 2.40990" type1="MAT-ZN4"  type2="ETH-N"     type3="ETH-HN1" />
+        <Angle k="1000.00" angle=" 1.24243" type1="MAT-ZN4"  type2="ETH-N"     type3="ETH-HN2" />
+        -->
 
-
+        <!--MTHhylamine ligands-->
+        <Angle k="1000.00" angle=" 1.20161" type1="MAT-SE1"  type2="MAT-ZN2"   type3="MTH-N"   />
+        <Angle k="1000.00" angle=" 1.88812" type1="MAT-SE4"  type2="MAT-ZN2"   type3="MTH-N"   />
+        <Angle k="1000.00" angle=" 1.93674" type1="MAT-ZN2"  type2="MTH-N"     type3="MTH-C1"  />
+        <Angle k="1000.00" angle=" 1.83560" type1="MAT-ZN2"  type2="MTH-N"     type3="MTH-HN1" />
+        <Angle k="1000.00" angle=" 1.79879" type1="MAT-ZN2"  type2="MTH-N"     type3="MTH-HN2" />
+        <Angle k="1000.00" angle=" 2.11586" type1="MTH-N"    type2="MAT-ZN2"   type3="MAT-SE2" />
+        <Angle k="1000.00" angle=" 2.02028" type1="MTH-N"    type2="MTH-C1"    type3="MTH-HC11"/>
+        <Angle k="1000.00" angle=" 1.94872" type1="MTH-N"    type2="MTH-C1"    type3="MTH-HC12"/>
+        <Angle k="1000.00" angle=" 2.00317" type1="MTH-N"    type2="MTH-C1"    type3="MTH-HC13"/>
+        <Angle k="1000.00" angle=" 1.85457" type1="MTH-C1"   type2="MTH-N"     type3="MTH-HN1" />
+        <Angle k="1000.00" angle=" 2.04289" type1="MTH-C1"   type2="MTH-N"     type3="MTH-HN2" />
+        <Angle k="1000.00" angle=" 1.98541" type1="MTH-HN1"  type2="MTH-N"     type3="MTH-HN2" />
+        <Angle k="1000.00" angle=" 1.85102" type1="MTH-HC11" type2="MTH-C1"    type3="MTH-HC12"/>
+        <Angle k="1000.00" angle=" 1.91839" type1="MTH-HC11" type2="MTH-C1"    type3="MTH-HC13"/>
+        <Angle k="1000.00" angle=" 1.68855" type1="MTH-HC12" type2="MTH-C1"    type3="MTH-HC13"/>
+        <Angle k="1000.00" angle=" 2.01462" type1="MAT-SE2"  type2="MAT-ZN3"   type3="MTH-N"   />
+        <Angle k="1000.00" angle=" 1.60471" type1="MAT-SE3"  type2="MAT-ZN3"   type3="MTH-N"   />
+        <Angle k="1000.00" angle=" 1.62234" type1="MAT-SE4"  type2="MAT-ZN3"   type3="MTH-N"   />
+        <Angle k="1000.00" angle=" 2.00313" type1="MAT-ZN3"  type2="MTH-N"     type3="MTH-C1"  />
+        <Angle k="1000.00" angle=" 1.89516" type1="MAT-ZN3"  type2="MTH-N"     type3="MTH-HN1" />
+        <Angle k="1000.00" angle=" 1.70142" type1="MAT-ZN3"  type2="MTH-N"     type3="MTH-HN2" />
 
     </HarmonicAngleForce>
     <PeriodicTorsionForce>
@@ -403,6 +449,70 @@
         <Proper k1="10.00" periodicity1="1" phase1=" -5.18069" type1="MAT-ZN3"  type2="MAT-SE3"   type3="MAT-ZN4"   type4="MAT-SE1" />
         <Proper k1="10.00" periodicity1="1" phase1=" -3.10160" type1="MAT-SE1"  type2="MAT-ZN4"   type3="MAT-SE3"   type4="MAT-ZN1" />
 
+
+        <!--MTHhylamine ligands-->
+                <Proper k1="10.00" periodicity1="1" phase1=" -0.13857" type1="MAT-SE1"  type2="MAT-ZN2"   type3="MTH-N"     type4="MTH-C1"  />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.13684" type1="MAT-SE1"  type2="MAT-ZN2"   type3="MTH-N"     type4="MTH-HN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.22132" type1="MAT-SE1"  type2="MAT-ZN2"   type3="MTH-N"     type4="MTH-HN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.47564" type1="MAT-SE4"  type2="MAT-ZN2"   type3="MTH-N"     type4="MTH-C1"  />
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.47391" type1="MAT-SE4"  type2="MAT-ZN2"   type3="MTH-N"     type4="MTH-HN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.27521" type1="MAT-SE4"  type2="MAT-ZN2"   type3="MTH-N"     type4="MTH-HN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.50040" type1="MAT-ZN1"  type2="MAT-SE1"   type3="MAT-ZN2"   type4="MTH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.89759" type1="MAT-ZN2"  type2="MTH-N"     type3="MTH-C1"    type4="MTH-HC11"/>
+        <Proper k1="10.00" periodicity1="1" phase1=" -6.01747" type1="MAT-ZN2"  type2="MTH-N"     type3="MTH-C1"    type4="MTH-HC12"/>
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.63338" type1="MAT-ZN2"  type2="MTH-N"     type3="MTH-C1"    type4="MTH-HC13"/>
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.31683" type1="MAT-ZN2"  type2="MAT-SE2"   type3="MAT-ZN3"   type4="MTH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.29405" type1="MAT-ZN3"  type2="MAT-SE4"   type3="MAT-ZN2"   type4="MTH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.55178" type1="MAT-ZN4"  type2="MAT-SE4"   type3="MAT-ZN2"   type4="MTH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.81209" type1="MAT-ZN4"  type2="MAT-SE3"   type3="MAT-ZN3"   type4="MTH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.07556" type1="MTH-N"    type2="MAT-ZN2"   type3="MAT-SE2"   type4="MAT-ZN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.42153" type1="MTH-N"    type2="MAT-ZN2"   type3="MAT-SE2"   type4="MAT-ZN3" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -4.78732" type1="MTH-C1"   type2="MTH-N"     type3="MAT-ZN2"   type4="MAT-SE2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.50241" type1="MTH-HN1"  type2="MTH-N"     type3="MAT-ZN2"   type4="MAT-SE2" />
+        <Proper k1="1.00" periodicity1="1" phase1=" -1.91122" type1="MTH-HN1"  type2="MTH-N"     type3="MTH-C1"    type4="MTH-HC11"/>
+        <Proper k1="1.00" periodicity1="1" phase1=" -4.03110" type1="MTH-HN1"  type2="MTH-N"     type3="MTH-C1"    type4="MTH-HC12"/>
+        <Proper k1="1.00" periodicity1="1" phase1=" -5.93020" type1="MTH-HN1"  type2="MTH-N"     type3="MTH-C1"    type4="MTH-HC13"/>
+        <Proper k1="10.00" periodicity1="1" phase1=" -2.58689" type1="MTH-HN2"  type2="MTH-N"     type3="MAT-ZN2"   type4="MAT-SE2" />
+        <Proper k1="1.00" periodicity1="1" phase1=" -5.95479" type1="MTH-HN2"  type2="MTH-N"     type3="MTH-C1"    type4="MTH-HC11"/>
+        <Proper k1="1.00" periodicity1="1" phase1=" -1.79148" type1="MTH-HN2"  type2="MTH-N"     type3="MTH-C1"    type4="MTH-HC12"/>
+        <Proper k1="1.00" periodicity1="1" phase1=" -3.69058" type1="MTH-HN2"  type2="MTH-N"     type3="MTH-C1"    type4="MTH-HC13"/>
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.56845" type1="MAT-SE2"  type2="MAT-ZN3"   type3="MTH-N"     type4="MTH-C1"  />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.41716" type1="MAT-SE2"  type2="MAT-ZN3"   type3="MTH-N"     type4="MTH-HN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.65235" type1="MAT-SE2"  type2="MAT-ZN3"   type3="MTH-N"     type4="MTH-HN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -6.02241" type1="MAT-SE3"  type2="MAT-ZN3"   type3="MTH-N"     type4="MTH-C1"  />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.87112" type1="MAT-SE3"  type2="MAT-ZN3"   type3="MTH-N"     type4="MTH-HN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.82313" type1="MAT-SE3"  type2="MAT-ZN3"   type3="MTH-N"     type4="MTH-HN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.59988" type1="MAT-SE4"  type2="MAT-ZN3"   type3="MTH-N"     type4="MTH-C1"  />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.73177" type1="MAT-SE4"  type2="MAT-ZN3"   type3="MTH-N"     type4="MTH-HN1" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.68378" type1="MAT-SE4"  type2="MAT-ZN3"   type3="MTH-N"     type4="MTH-HN2" />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.06315" type1="MAT-ZN1"  type2="MAT-SE2"   type3="MAT-ZN3"   type4="MTH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -5.61416" type1="MAT-ZN2"  type2="MAT-SE4"   type3="MAT-ZN3"   type4="MTH-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -6.17939" type1="MAT-ZN3"  type2="MTH-N"     type3="MTH-C1"    type4="MTH-HC11"/>
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.98091" type1="MAT-ZN3"  type2="MTH-N"     type3="MTH-C1"    type4="MTH-HC12"/>
+        <Proper k1="10.00" periodicity1="1" phase1=" -3.95511" type1="MAT-ZN3"  type2="MTH-N"     type3="MTH-C1"    type4="MTH-HC13"/>
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.29501" type1="MAT-ZN4"  type2="MAT-SE4"   type3="MAT-ZN3"   type4="MTH-N"   />
+        <Improper k1="10.00" periodicity1="1" phase1=" -3.62184" type1="MAT-ZN2"  type2="MAT-SE1"   type3="MTH-N"     type4="MAT-SE4" />
+        <Improper k1="10.00" periodicity1="1" phase1=" -2.53690" type1="MAT-ZN2"  type2="MAT-SE1"   type3="MTH-N"     type4="MAT-SE2" />
+        <Improper k1="10.00" periodicity1="1" phase1=" -2.69847" type1="MAT-ZN2"  type2="MTH-N"     type3="MAT-SE4"   type4="MAT-SE2" />
+        <Improper k1="10.00" periodicity1="1" phase1=" -3.60962" type1="MTH-N"    type2="MTH-C1"    type3="MTH-HN1"   type4="MTH-HN2" />
+        <Improper k1="10.00" periodicity1="1" phase1=" -2.33899" type1="MTH-N"    type2="MTH-C1"    type3="MTH-HN1"   type4="MAT-ZN2" />
+        <Improper k1="10.00" periodicity1="1" phase1=" -3.91812" type1="MTH-N"    type2="MTH-C1"    type3="MTH-HN2"   type4="MAT-ZN2" />
+        <Improper k1="10.00" periodicity1="1" phase1=" -2.23492" type1="MTH-N"    type2="MTH-HN1"   type3="MTH-HN2"   type4="MAT-ZN2" />
+        <Improper k1="10.00" periodicity1="1" phase1=" -2.55986" type1="MTH-C1"   type2="MTH-N"     type3="MTH-HC11"  type4="MTH-HC12"/>
+        <Improper k1="10.00" periodicity1="1" phase1=" -3.63604" type1="MTH-C1"   type2="MTH-N"     type3="MTH-HC11"  type4="MTH-HC13"/>
+        <Improper k1="10.00" periodicity1="1" phase1=" -2.46828" type1="MTH-C1"   type2="MTH-N"     type3="MTH-HC12"  type4="MTH-HC13"/>
+        <Improper k1="10.00" periodicity1="1" phase1=" -3.89980" type1="MTH-C1"   type2="MTH-HC11"  type3="MTH-HC12"  type4="MTH-HC13"/>
+        <Improper k1="10.00" periodicity1="1" phase1=" -3.19592" type1="MAT-ZN2"  type2="MAT-SE4"   type3="MTH-N"     type4="MAT-SE1" />
+        <Improper k1="10.00" periodicity1="1" phase1=" -2.51110" type1="MAT-ZN3"  type2="MAT-SE2"   type3="MAT-SE3"   type4="MTH-N"   />
+        <Improper k1="10.00" periodicity1="1" phase1=" -3.81736" type1="MAT-ZN3"  type2="MAT-SE2"   type3="MAT-SE4"   type4="MTH-N"   />
+        <Improper k1="10.00" periodicity1="1" phase1=" -2.25433" type1="MAT-ZN3"  type2="MAT-SE3"   type3="MAT-SE4"   type4="MTH-N"   />
+        <Improper k1="10.00" periodicity1="1" phase1=" -2.42254" type1="MTH-C1"   type2="MTH-HC11"  type3="MTH-HC12"  type4="MTH-N"   />
+        <Improper k1="10.00" periodicity1="1" phase1=" -3.86853" type1="MTH-C1"   type2="MTH-HC11"  type3="MTH-HC13"  type4="MTH-N"   />
+        <Improper k1="10.00" periodicity1="1" phase1=" -2.39285" type1="MTH-C1"   type2="MTH-HC12"  type3="MTH-HC13"  type4="MTH-N"   />
+        <Improper k1="10.00" periodicity1="1" phase1=" -4.07726" type1="MTH-N"    type2="MTH-HN1"   type3="MTH-HN2"   type4="MAT-ZN3" />
+        <Improper k1="10.00" periodicity1="1" phase1=" -2.51702" type1="MTH-N"    type2="MTH-HN1"   type3="MTH-HN2"   type4="MTH-C1"  />
+        <Improper k1="10.00" periodicity1="1" phase1=" -3.72467" type1="MTH-N"    type2="MTH-HN1"   type3="MAT-ZN3"   type4="MTH-C1"  />
+        <Improper k1="10.00" periodicity1="1" phase1=" -2.55174" type1="MTH-N"    type2="MTH-HN2"   type3="MAT-ZN3"   type4="MTH-C1"  />
 
     </PeriodicTorsionForce>
 

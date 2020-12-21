@@ -41,6 +41,7 @@ def parse_args(args_in):
     parser.add_argument('-rem', required=True, help='rem arguments to use with Q-Chem')
     parser.add_argument('-idx', required=True, help='list of atoms to treat as QM')
     parser.add_argument('-out', help='output file', default='output.txt')
+    parser.add_argument('-pos', help='set positions using this pdb file')
     parser.add_argument('-repf', help='file to print forces to')
     parser.add_argument('-repv', help='file to print velocities to')
     parser.add_argument('-pawl', help='list of atom pairs to apply ratchet-pawl force between')
@@ -139,7 +140,7 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
             for n in range(force.getNumBonds()):
                 a, b, r, k = force.getBondParameters(n)
                 #force.setBondParameters(n, a, b, r, k*0.000)
-                #if 51 in [a, b]:
+                #if 952 in [a, b]:
                 #    print(a, b, r, k, atoms[a].name, atoms[b].name, atoms[a].residue.id, atoms[b].residue.id)
                 if a in qm_atoms and b in qm_atoms:
                     force.setBondParameters(n, a, b, r, k*0.000)
@@ -147,9 +148,6 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
                 if (a in qm_atoms and b not in qm_atoms) or \
                    (b in qm_atoms and a not in qm_atoms):
                    qm_bonds.append([a, b, r, k])
-
-                
-
             force.updateParametersInContext(context)
 
         elif isinstance(force, HarmonicAngleForce):
@@ -346,6 +344,7 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
         exit()
 
 
+    shutil.copyfile(os.path.join(scratch, 'input'), os.path.join(scratch, 'input_{:d}'.format(step_number)))
 
     #   convert gradient to kJ/mol/nm and energy to kJ/mol
     gradient = (gradient * 2625.5009 * kilojoules_per_mole / nanometer / bohrs.conversion_factor_to(nanometer))
@@ -412,7 +411,8 @@ def update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, coords_in_nm,
             qm_idx += 1
             params[3] = 1.0
         else:
-            gradient = -efield[n]
+            #gradient = -efield[n]
+            gradient = -efield[mm_idx]
             mm_idx += 1
             params[3] = charges[n]
 
@@ -429,7 +429,7 @@ def update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, coords_in_nm,
         params[4] = np.dot(gradient, coords_in_nm[n])
         ext_force.setParticleParameters(n, idx, params)
 
-    simulation.context.setParameter('qm_energy', qm_energy/n_atoms)
+    simulation.context.setParameter('qm_energy', qm_energy)
     ext_force.updateParametersInContext(simulation.context)
     outfile.flush()
 
@@ -463,9 +463,9 @@ def get_rem_lines(rem_file_loc, outfile):
             elif option == 'qm_mm_radius':
                 opts.qm_mm_radius = float(sp[1]) * angstroms
             elif option == 'ratchet_pawl':
-                opts.ratched_pawl = bool(strtobool(sp[1]))
+                opts.ratchet_pawl = bool(strtobool(sp[1]))
             elif option == 'ratchet_pawl_force':
-                opts.ratched_pawl_force = float(sp[1])
+                opts.ratchet_pawl_force = float(sp[1])
             elif option == 'aimd_temp_seed':
                 seed = int(sp[1])
                 if seed > 2147483647 or seed < -2147483648:
@@ -504,9 +504,9 @@ def get_rem_lines(rem_file_loc, outfile):
     outfile.write(' QM/MM radius:          {:>10.2f} Ang. \n'.format(opts.qm_mm_radius/angstroms) )
     outfile.write(' number of steps:       {:>10d} \n'.format(opts.aimd_steps) )
 
-    if opts.ratched_pawl:
-        outfile.write(' Ratchet-Pawl:          {:10d} \n'.format(int(opts.ratched_pawl)))
-        outfile.write(' Ratchet-Pawl Force:    {:10d} \n'.format(int(opts.ratched_pawl)))
+    if opts.ratchet_pawl:
+        outfile.write(' Ratchet-Pawl:          {:10d} \n'.format(int(opts.ratchet_pawl)))
+        outfile.write(' Ratchet-Pawl Force:    {:10d} \n'.format(int(opts.ratchet_pawl_force)))
 
     if opts.jobtype == 'aimd':
         outfile.write(' temperature:           {:>10.2f} K \n'.format(opts.aimd_temp/kelvin) )
@@ -708,6 +708,7 @@ def main(args_in):
         pdb = PDBFile(args.pdb)
         pdb_to_qc.add_bonds(pdb, remove_orig=True)
         data, bondedToAtom = pdb_to_qc.determine_connectivity(pdb.topology)
+
         ff_loc = '/network/rit/home/gj785587/ChenRNALab/GregJ/QM_MM_Simulations'
         ff_loc = os.path.join(os.path.dirname(__file__), 'forcefields/forcefield2.xml')
         forcefield = ForceField(ff_loc, 'tip3p.xml')
@@ -716,7 +717,7 @@ def main(args_in):
             residue = residues[n]
             atom_names = []
             for atom in template.atoms:
-                if residue.name in ['EXT', 'OTH']:
+                if residue.name in ['EXT', 'OTH', 'MTH']:
                     atom.type = 'OTHER-' + atom.element.symbol
                 else:
                     atom.type = residue.name + "-" + atom.name.upper()
@@ -725,7 +726,6 @@ def main(args_in):
             # Register the template with the forcefield.
             template.name += str(n)
             forcefield.registerResidueTemplate(template)
-
         integrator = get_integrator(options)
         qm_fixed_atoms, qm_origin_atoms = parse_idx(args.idx, pdb.topology)
 
@@ -738,16 +738,26 @@ def main(args_in):
         ext_force = add_ext_force_all(system, charges)
 
         #   add ratchet-pawl force
-        if options.ratched_pawl:
-            ratchet_pawl_force = add_rachet_pawl_force(system, args.pawl, pdb.getPositions(True), options.ratched_pawl_force, pdb.topology)
+        if options.ratchet_pawl:
+            ratchet_pawl_force = add_rachet_pawl_force(system, args.pawl, pdb.getPositions(True), options.ratchet_pawl_force, pdb.topology)
 
+        #   debug only: turns off forces except one
+        if False:
+            while system.getNumForces() > 1:
+                for i, force in enumerate(system.getForces()):
+                    if not isinstance(force, CustomNonbondedForce):
+                        system.removeForce(i)
+                        break
         
         #   add pulling force
         if False:
             pull_force = add_ext_force_all(pdb.positions, system)
 
         simulation = Simulation(pdb.topology, system, integrator)
-        simulation.context.setPositions(pdb.positions)
+        if args.pos:
+            simulation.context.setPositions(PDBFile(args.pos).getPositions())
+        else:
+            simulation.context.setPositions(pdb.positions)
 
         #   turn on to freeze mm atoms in place
         if False:
@@ -758,7 +768,7 @@ def main(args_in):
 
         #   remove bonded forces between QM and MM system
         adjust_forces(system, simulation.context, pdb.topology, qm_atoms, outfile=outfile)
-        
+
         #   output files and reporters
         stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qm_atoms, vel_file_loc=args.repv, force_file_loc=args.repf)
         simulation.reporters.append(HDF5Reporter('output.h5', 1))
@@ -787,11 +797,9 @@ def main(args_in):
         print(' Integrator: ', type(integrator))
         sys.stdout.flush()
 
-        #return locals(), simulation
-        
         #   run simulation
         for n in range(options.aimd_steps):
-            state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True)  
+            state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True, getForces=True)
             pos = state.getPositions(True)
             # update QM atom list
             qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pos/angstrom, pdb.topology)
@@ -820,9 +828,10 @@ def main(args_in):
               
 if __name__ == "__main__":
 
-    local, simulation = main(sys.argv[1:])
+    simulation = main(sys.argv[1:])
 
     ''' DEBUGGING ONLY  '''
+    '''
     system = local['system']
     atoms = list(local['pdb'].topology.atoms())
     for force in system.getForces():
@@ -831,7 +840,13 @@ if __name__ == "__main__":
                 a, b, r, k = force.getBondParameters(n)
                 ids = [int(atoms[x].id) for x in [a, b]]
                 for id in ids:
-                    if id in [6, 122]:
+                    if id in [68]:
                         print(a, b, k, r, ids)
+    '''
+        #if  isinstance(force, CustomNonbondedForce):
+        #    for n in range(force.getNumParticles()):
+        #        params = list(force.getParticleParameters(n))
+        #        print(atoms[n].id, params)
+        
 
 

@@ -83,7 +83,7 @@ class StatsReporter(object):
                 return
 
         qm_atoms = self._qm_atoms
-        qm_energy = simulation.context.getParameter('qm_energy')*len(qm_atoms)
+        qm_energy = simulation.context.getParameter('qm_energy')
         pot_energy = state.getPotentialEnergy()/kilojoules_per_mole
         step = simulation.currentStep
         if not self._has_initialted:
@@ -190,5 +190,5 @@ class JobOptions(object):
         self.aimd_langevin_seed = int(urandom(4).hex(), 16) - 2147483647
 
         self.qm_mm_radius = 5 * angstroms
-        self.ratched_pawl = False
-        self.ratched_pawl_force = 0
+        self.ratchet_pawl = False
+        self.ratchet_pawl_force = 0
