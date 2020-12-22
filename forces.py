@@ -139,8 +139,6 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
         if isinstance(force, HarmonicBondForce):
             for n in range(force.getNumBonds()):
                 a, b, r, k = force.getBondParameters(n)
-                if int(atoms[a].id) in [953] or int(atoms[b].id) in [953]:
-                    print("QM: ", r, k, a in qm_atoms, b in qm_atoms, file=outfile)
                 if a in qm_atoms and b in qm_atoms:
                     force.setBondParameters(n, a, b, r, k*0.000)
                 else:

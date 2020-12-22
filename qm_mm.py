@@ -176,8 +176,7 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
             force.updateParametersInContext(context)
 
         elif isinstance(force, NonbondedForce):
-            print("FOUND")
-            #force.setUseDispersionCorrection(False)
+
             for n in range(force.getNumParticles()):
                 chg, sig, eps = force.getParticleParameters(n)
                 charges.append(chg / elementary_charge)
@@ -263,7 +262,6 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
     failures = 0
     use_rem_lines = copy.copy(rem_lines)
     while redo:
-        outfile.write("This is scratch: {:s} \n".format(scratch))
         outfile.flush()
         input_file_loc = create_qc_input(coords, charges, elements, qm_atoms, total_chg=total_chg, rem_lines=use_rem_lines, step_number=step_number)
         output_file_loc = os.path.join(scratch, 'output')
@@ -311,7 +309,6 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
     energy = 0.0
     grad_file_loc = os.path.join(qc_scratch, 'save_files/GRAD')
     shutil.copyfile(grad_file_loc, os.path.join(scratch, 'GRAD'))
-    print("QM_ATOMS: ", qm_atoms)
     if os.path.isfile(grad_file_loc):
         energy = np.loadtxt(grad_file_loc, skiprows=1, max_rows=1)
         gradient = np.loadtxt(grad_file_loc, skiprows=3, max_rows=len(qm_atoms))
@@ -357,8 +354,6 @@ def update_qm_force(context, gradient, ext_force, qm_coords_in_nm, qm_atoms, qm_
     total = np.sum(qm_coords_in_nm * gradient)
     context.setParameter('k', total / dim)
     context.setParameter('qm_energy', qm_energy/dim)
-    print("K: ", total / dim)
-    print("QM_ENERGY: ", qm_energy)
     for n in range(ext_force.getNumParticles()):
         idx = ext_force.getParticleParameters(n)[0]
         atom_idx = qm_atoms
@@ -801,10 +796,12 @@ def main(args_in):
         for n in range(options.aimd_steps):
             state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True, getForces=True)
             pos = state.getPositions(True)
+
             # update QM atom list
-            qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pos/angstrom, pdb.topology)
-            qm_atoms = qm_fixed_atoms + qm_sphere_atoms
-            qm_atoms = update_mm_forces(qm_atoms, system, simulation.context, pos, pdb.topology, outfile=outfile)
+            if n % 10 == 0:
+                qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pos/angstrom, pdb.topology)
+                qm_atoms = qm_fixed_atoms + qm_sphere_atoms
+                qm_atoms = update_mm_forces(qm_atoms, system, simulation.context, pos, pdb.topology, outfile=outfile)
             if len(qm_atoms) > 0:
                 qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile)
                 #qm_energy = energy = np.loadtxt('qm_mm_scratch/GRAD', skiprows=1, max_rows=1)*2625.5009
@@ -814,6 +811,7 @@ def main(args_in):
             #   will not report the correct force and energy as the new current parameters are only valid 
             #   for the current positions, not after
 
+            update_rachet_pawl_force(ratchet_pawl_force, simulation.context, pos/nanometers)
             stats_reporter.report(simulation)
             qm_atoms_reporter.report(simulation, qm_atoms)
             simulation.step(1)
