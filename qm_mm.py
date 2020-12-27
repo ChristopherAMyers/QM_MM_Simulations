@@ -94,7 +94,6 @@ def get_qm_spheres(originAtoms, qm_atoms, radius_in_ang, xyz_in_ang, topology):
     '''Finds all atoms within a given radius of each atom in 
        originAtoms to treat as QM and returns a list of atom indices.'''
 
-    radius = radius_in_ang/angstrom
     qmSpheres = []
     resList = []
     for i in originAtoms:
@@ -811,7 +810,8 @@ def main(args_in):
             #   will not report the correct force and energy as the new current parameters are only valid 
             #   for the current positions, not after
 
-            update_rachet_pawl_force(ratchet_pawl_force, simulation.context, pos/nanometers)
+            if options.ratchet_pawl:
+                update_rachet_pawl_force(ratchet_pawl_force, simulation.context, pos/nanometers)
             stats_reporter.report(simulation)
             qm_atoms_reporter.report(simulation, qm_atoms)
             simulation.step(1)

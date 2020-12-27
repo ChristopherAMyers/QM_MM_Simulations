@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
 import mdtraj as md
 import argparse
-import os
+import os, sys
 
-def convert(input_file_loc, out_file_loc):
+def convert(input_file_loc, out_file_loc, n_skip=None):
     print(" Reading in trajectory file...", end='', flush=True)
-    traj = md.load(input_file_loc)
+    #   separate out traj object to work better with pylint
+    tmp_traj = md.Trajectory.load(input_file_loc)
+    n_frames_in =  tmp_traj.n_frames
+    if n_skip and isinstance(skip, int):
+        tmp_traj.xyz = tmp_traj.xyz[::skip]
+    traj = md.Trajectory(tmp_traj.xyz, tmp_traj.topology)
     print("Done")
+
+    print(" No. frames inported: {:>12d}".format(n_frames_in))
+    print(" No. frames kept:     {:>12d}".format(traj.n_frames))
 
     extension = os.path.splitext(out_file_loc)[-1][1:]
     print(" Requested output: {:s}".format(extension))
@@ -67,8 +75,10 @@ def convert(input_file_loc, out_file_loc):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--ipt', required=True, help='input HDF5 file')
-    parser.add_argument('-o', '--out', required=True, help='output file (with file extension in name)')
-    args = parser.parse_args()
-    convert(args.ipt, args.out)
+    in_file = sys.argv[1]
+    out_file = sys.argv[2]
+    skip = None
+    if '-skip' in sys.argv:
+        skip = int(sys.argv[sys.argv.index('-skip') + 1])
+    
+    convert(in_file, out_file, skip)
