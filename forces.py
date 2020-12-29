@@ -193,11 +193,18 @@ def add_pull_force(coords, system):
     system.addForce(pull_force)
     return pull_force
 
-def add_rachet_pawl_force(system, pair_file_loc, coords, strength, topology):
+def add_rachet_pawl_force(system, pair_file_loc, coords, strength, topology, half_dist=1000.0):
     ''' Applies a ratched-and-pawl force that favors restricts
         the approachment of two atoms and is zero if they are
         moving away.
-        pair_file_loc is afile with an Nx2 list of atom id's to apply this force to
+
+        pair_file_loc:  file with an Nx2 list of atom id's to apply this force to
+        coords:         coordinates of all atoms in nanometers
+        strength:       scales the ratchet-pawl energy
+        topology:       Topology object of molecule
+        half_dist:      distance in nanometers from the initial bond distance
+                        at which the RP energy is halved. The energy continues 
+                        to be decease exponentially from the initial distance.
     '''
     #   import atom pairs from file
     atom_pairs = []
@@ -212,16 +219,19 @@ def add_rachet_pawl_force(system, pair_file_loc, coords, strength, topology):
             atom_pairs.append([p1, p2])
 
     #   create force object
-    force_string = 'on_off*0.5*k*(r - r_max)^2; '
+    force_string = 'on_off*0.5*k*exp(-a*(r - r_0))(r - r_max)^2; '
     force_string += 'on_off = step(r_max - r); ' #    equals 1 if r < r_max, 0 otherwise
     force_string += 'r = distance(p1, p2); '
     custom_force = CustomCompoundBondForce(2, force_string)
     custom_force.addPerBondParameter('k')
     custom_force.addPerBondParameter('r_max')
+    custom_force.addPerBondParameter('r_0')
+    custom_force.addPerBondParameter('a')
 
+    a = -np.log(0.5)/half_dist
     for pair in atom_pairs:
         dist = np.linalg.norm(coords[pair[0]] - coords[pair[1]])
-        custom_force.addBond(pair, [strength, dist])
+        custom_force.addBond(pair, [strength, dist, dist, a])
 
     system.addForce(custom_force)
     return custom_force

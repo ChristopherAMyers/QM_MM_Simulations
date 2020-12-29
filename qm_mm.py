@@ -37,14 +37,15 @@ n_procs = cpu_count()
 
 def parse_args(args_in):
     parser = argparse.ArgumentParser('')
-    parser.add_argument('-pdb', required=True, help='pdb molecule file to use')
-    parser.add_argument('-rem', required=True, help='rem arguments to use with Q-Chem')
-    parser.add_argument('-idx', required=True, help='list of atoms to treat as QM')
-    parser.add_argument('-out', help='output file', default='output.txt')
-    parser.add_argument('-pos', help='set positions using this pdb file')
-    parser.add_argument('-repf', help='file to print forces to')
-    parser.add_argument('-repv', help='file to print velocities to')
-    parser.add_argument('-pawl', help='list of atom pairs to apply ratchet-pawl force between')
+    parser.add_argument('-pdb',   required=True, help='pdb molecule file to use')
+    parser.add_argument('-rem',   required=True, help='rem arguments to use with Q-Chem')
+    parser.add_argument('-idx',   required=True, help='list of atoms to treat as QM')
+    parser.add_argument('-out',   help='output file', default='output.txt')
+    parser.add_argument('-pos',   help='set positions using this pdb file')
+    parser.add_argument('-state', help='start simulation from simulation state xml file')
+    parser.add_argument('-repf',  help='file to print forces to')
+    parser.add_argument('-repv',  help='file to print velocities to')
+    parser.add_argument('-pawl',  help='list of atom pairs to apply ratchet-pawl force between')
     return parser.parse_args(args_in)
 
 def parse_idx(idx_file_loc, topology):
@@ -460,6 +461,8 @@ def get_rem_lines(rem_file_loc, outfile):
                 opts.ratchet_pawl = bool(strtobool(sp[1]))
             elif option == 'ratchet_pawl_force':
                 opts.ratchet_pawl_force = float(sp[1])
+            elif option == 'ratchet_pawl_half_dist':
+                opts.ratchet_pawl_half_dist = float(sp[1])
             elif option == 'aimd_temp_seed':
                 seed = int(sp[1])
                 if seed > 2147483647 or seed < -2147483648:
@@ -499,8 +502,9 @@ def get_rem_lines(rem_file_loc, outfile):
     outfile.write(' number of steps:       {:>10d} \n'.format(opts.aimd_steps) )
 
     if opts.ratchet_pawl:
-        outfile.write(' Ratchet-Pawl:          {:10d} \n'.format(int(opts.ratchet_pawl)))
-        outfile.write(' Ratchet-Pawl Force:    {:10d} \n'.format(int(opts.ratchet_pawl_force)))
+        outfile.write(' Ratchet-Pawl:              {:10d} \n'.format(int(opts.ratchet_pawl)))
+        outfile.write(' Ratchet-Pawl Force:        {:10d} \n'.format(int(opts.ratchet_pawl_force)))
+        outfile.write(' Ratchet-Pawl Half-Dist:    {:10d} \n'.format(int(opts.ratchet_pawl_half_dist)))
 
     if opts.jobtype == 'aimd':
         outfile.write(' temperature:           {:>10.2f} K \n'.format(opts.aimd_temp/kelvin) )
@@ -733,7 +737,8 @@ def main(args_in):
 
         #   add ratchet-pawl force
         if options.ratchet_pawl:
-            ratchet_pawl_force = add_rachet_pawl_force(system, args.pawl, pdb.getPositions(True), options.ratchet_pawl_force, pdb.topology)
+            ratchet_pawl_force = add_rachet_pawl_force(system, args.pawl, pdb.getPositions(True), \
+                options.ratchet_pawl_force, pdb.topology, half_dist=options.ratchet_pawl_half_dist)
 
         #   debug only: turns off forces except one
         if False:
@@ -747,10 +752,19 @@ def main(args_in):
         if False:
             pull_force = add_ext_force_all(pdb.positions, system)
 
+        #   initialize simulation and set positions
         simulation = Simulation(pdb.topology, system, integrator)
-        if args.pos:
+        if args.state:
+            print(" Setting initial positions and velocities from state file: ", file=outfile)
+            print(" {:s}".format(os.path.abspath(args.state)), file=outfile)
+            simulation.loadState(args.state)
+        elif args.pos:
+            print(" Setting initial positions from PDB file: ", file=outfile)
+            print(" {:s}".format(os.path.abspath(args.pos)), file=outfile)
             simulation.context.setPositions(PDBFile(args.pos).getPositions())
         else:
+            print(" Setting initial positions from PDB file: ", file=outfile)
+            print(" {:s}".format(os.path.abspath(args.pdb)), file=outfile)
             simulation.context.setPositions(pdb.positions)
 
         #   turn on to freeze mm atoms in place
@@ -784,7 +798,8 @@ def main(args_in):
         if options.jobtype == 'opt':
             opt = GradientMethod(options.time_step*0.001)
 
-        if options.jobtype != 'opt':
+        if options.jobtype != 'opt' and not args.state:
+            print(" Setting initial velocities to temperature of {:5f}: ".format(options.aimd_temp), file=outfile)
             simulation.context.setVelocitiesToTemperature(options.aimd_temp, options.aimd_temp_seed)
 
         #   for sanity checking

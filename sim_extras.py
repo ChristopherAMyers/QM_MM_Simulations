@@ -191,4 +191,5 @@ class JobOptions(object):
 
         self.qm_mm_radius = 5 * angstroms
         self.ratchet_pawl = False
-        self.ratchet_pawl_force = 0
+        self.ratchet_pawl_force = 0.0
+        self.ratchet_pawl_half_dist = 1000.0
