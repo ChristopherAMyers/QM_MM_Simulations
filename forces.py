@@ -219,7 +219,7 @@ def add_rachet_pawl_force(system, pair_file_loc, coords, strength, topology, hal
             atom_pairs.append([p1, p2])
 
     #   create force object
-    force_string = 'on_off*0.5*k*exp(-a*(r - r_0))(r - r_max)^2; '
+    force_string = 'on_off*0.5*k*exp(-a*(r - r_0))*(r - r_max)^2; '
     force_string += 'on_off = step(r_max - r); ' #    equals 1 if r < r_max, 0 otherwise
     force_string += 'r = distance(p1, p2); '
     custom_force = CustomCompoundBondForce(2, force_string)

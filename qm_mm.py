@@ -495,25 +495,25 @@ def get_rem_lines(rem_file_loc, outfile):
     outfile.write('--------------------------------------------\n')
     outfile.write('              Script Options                \n')
     outfile.write('--------------------------------------------\n')
-    outfile.write(' jobtype:               {:>10s} \n'.format(opts.jobtype) )
-    outfile.write(' integrator:            {:>10s} \n'.format(opts.integrator) )
-    outfile.write(' time step:             {:>10.2f} fs \n'.format(opts.time_step/femtoseconds) )
-    outfile.write(' QM/MM radius:          {:>10.2f} Ang. \n'.format(opts.qm_mm_radius/angstroms) )
-    outfile.write(' number of steps:       {:>10d} \n'.format(opts.aimd_steps) )
+    outfile.write(' jobtype:                   {:>10s} \n'.format(opts.jobtype) )
+    outfile.write(' integrator:                {:>10s} \n'.format(opts.integrator) )
+    outfile.write(' time step:                 {:>10.2f} fs \n'.format(opts.time_step/femtoseconds) )
+    outfile.write(' QM/MM radius:              {:>10.2f} Ang. \n'.format(opts.qm_mm_radius/angstroms) )
+    outfile.write(' number of steps:           {:>10d} \n'.format(opts.aimd_steps) )
 
     if opts.ratchet_pawl:
         outfile.write(' Ratchet-Pawl:              {:10d} \n'.format(int(opts.ratchet_pawl)))
         outfile.write(' Ratchet-Pawl Force:        {:10d} \n'.format(int(opts.ratchet_pawl_force)))
-        outfile.write(' Ratchet-Pawl Half-Dist:    {:10d} \n'.format(int(opts.ratchet_pawl_half_dist)))
+        outfile.write(' Ratchet-Pawl Half-Dist:    {:10.4f} \n'.format(opts.ratchet_pawl_half_dist))
 
     if opts.jobtype == 'aimd':
-        outfile.write(' temperature:           {:>10.2f} K \n'.format(opts.aimd_temp/kelvin) )
-        outfile.write(' temperature seed:      {:>10d} \n'.format(opts.aimd_temp_seed) )
+        outfile.write(' temperature:               {:>10.2f} K \n'.format(opts.aimd_temp/kelvin) )
+        outfile.write(' temperature seed:          {:>10d} \n'.format(opts.aimd_temp_seed) )
 
     if opts.aimd_thermostat:
-        outfile.write(' thermostat:            {:>10s} \n'.format(opts.aimd_thermostat) )
-        outfile.write(' langevin frequency:  1/{:>10.2f} fs \n'.format(opts.aimd_langevin_timescale / femtoseconds) )
-        outfile.write(' langevin seed:         {:10d} \n'.format(opts.aimd_langevin_seed))
+        outfile.write(' thermostat:                {:>10s} \n'.format(opts.aimd_thermostat) )
+        outfile.write(' langevin frequency:      1/{:>10.2f} fs \n'.format(opts.aimd_langevin_timescale / femtoseconds) )
+        outfile.write(' langevin seed:            {:11d} \n'.format(opts.aimd_langevin_seed))
 
     outfile.write('--------------------------------------------\n')
     outfile.flush()
@@ -799,7 +799,7 @@ def main(args_in):
             opt = GradientMethod(options.time_step*0.001)
 
         if options.jobtype != 'opt' and not args.state:
-            print(" Setting initial velocities to temperature of {:5f}: ".format(options.aimd_temp), file=outfile)
+            print(" Setting initial velocities to temperature of {:5f} K: ".format(options.aimd_temp/kelvin), file=outfile)
             simulation.context.setVelocitiesToTemperature(options.aimd_temp, options.aimd_temp_seed)
 
         #   for sanity checking
