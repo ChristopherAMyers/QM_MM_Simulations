@@ -12,19 +12,46 @@ nanometer = simtk.unit.nanometer
 femtoseconds = simtk.unit.femtoseconds
 # pylint: enable=no-member
 
+
+class SystemData(object):
+    """ taken from simtk/openmm/app/forcefield.py"""
+    """Inner class used to encapsulate data about the system being created."""
+    def __init__(self):
+        self.atomType = {}
+        self.atomParameters = {}
+        self.atomTemplateIndexes = {}
+        self.atoms = []
+        self.excludeAtomWith = []
+        self.virtualSites = {}
+        self.bonds = []
+        self.angles = []
+        self.propers = []
+        self.impropers = []
+        self.atomBonds = []
+        self.isAngleConstrained = []
+        self.constraints = {}
+
+class BondData(object):
+    """ taken from simtk/openmm/app/forcefield.py"""
+    """Inner class used to encapsulate data about a bond."""
+    def __init__(self, atom1, atom2):
+        self.atom1 = atom1
+        self.atom2 = atom2
+        self.isConstrained = False
+        self.length = 0.0
+
 def determine_connectivity(topology):
     '''
         taken from simtk/openmm/app/forcefield.py
     '''
-    data = ForceField._SystemData()
-    data = ForceField._SystemData()
+    data = SystemData()
     data.atoms = list(topology.atoms())
     for atom in data.atoms:
         data.excludeAtomWith.append([])
 
     # Make a list of all bonds
     for bond in topology.bonds():
-        data.bonds.append(ForceField._BondData(bond[0].index, bond[1].index))
+        data.bonds.append(BondData(bond[0].index, bond[1].index))
 
     # Record which atoms are bonded to each other atom
     bondedToAtom = []
