@@ -30,7 +30,7 @@ import pdb_to_qc
 from sim_extras import *
 from forces import *
 
-qchem_path = '/network/rit/lab/ChenRNALab/bin/Q-Chem5.2-GPU'
+qchem_path = ''
 qc_scratch = '/tmp'
 n_procs = cpu_count()
 
@@ -698,16 +698,23 @@ def print_initial_forces(simulation, qm_atoms, outfile):
         print(" Larger forces may indicate an inproper force field parameterization.", file=outfile)
 
 def main(args_in):
-
     global scratch, n_procs, qc_scratch, qchem_path
     args = parse_args(args_in)
+
+    #   make sure Q-Chem is available, exit otherwise
+    if 'QC' in os.environ:
+        qchem_path = os.environ.get('QC')
+        print(" QC set as ", qchem_path)
+    else:
+        print(" Error: environment variable QC not defined. Cannot find Q-Chem directory")
+        exit()
+
     with open(args.out, 'w') as outfile:
         rem_lines, options = get_rem_lines(args.rem, outfile)
         pdb = PDBFile(args.pdb)
         pdb_to_qc.add_bonds(pdb, remove_orig=True)
         data, bondedToAtom = pdb_to_qc.determine_connectivity(pdb.topology)
 
-        ff_loc = '/network/rit/home/gj785587/ChenRNALab/GregJ/QM_MM_Simulations'
         ff_loc = os.path.join(os.path.dirname(__file__), 'forcefields/forcefield2.xml')
         forcefield = ForceField(ff_loc, 'tip3p.xml')
         [templates, residues] = forcefield.generateTemplatesForUnmatchedResidues(pdb.topology)
