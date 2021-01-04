@@ -131,7 +131,6 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
     if not is_quantity(coords):
         raise ValueError('coords must have units')
     coords = coords/nanometers
-    atoms = list(topology.atoms())
 
     new_atoms = set()
     for force in system.getForces():

@@ -739,6 +739,7 @@ def main(args_in):
         system = forcefield.createSystem(pdb.topology, rigidWater=False)
         #   re-map nonbonded forces so QM only interacts with MM through vdW
         charges = add_nonbonded_force(qm_atoms, system, pdb.topology.bonds(), outfile=outfile)
+
         #   "external" force for updating QM forces and MM electrostatics
         ext_force = add_ext_force_all(system, charges)
 
@@ -812,6 +813,8 @@ def main(args_in):
         #   for sanity checking
         print(' Integrator: ', type(integrator))
         sys.stdout.flush()
+
+        simulation.saveState('initial_state.xml')
 
         #   run simulation
         for n in range(options.aimd_steps):
