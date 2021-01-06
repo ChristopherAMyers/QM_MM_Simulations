@@ -460,7 +460,7 @@ def get_rem_lines(rem_file_loc, outfile):
 
             #   temperature anealing
             elif option == 'annealing':
-                opts.annealing = True
+                opts.annealing = bool(strtobool(sp[1]))
             elif option == 'annealing_peak':
                 opts.annealing = float(sp[1]) * kelvin
             elif option == 'annealing_period':
@@ -516,7 +516,7 @@ def get_rem_lines(rem_file_loc, outfile):
 
     if opts.ratchet_pawl:
         outfile.write(' Ratchet-Pawl:              {:10d} \n'.format(int(opts.ratchet_pawl)))
-        outfile.write(' Ratchet-Pawl Force:        {:10d} \n'.format(int(opts.ratchet_pawl_force)))
+        outfile.write(' Ratchet-Pawl Force:        {:10d} \n'.format(float(opts.ratchet_pawl_force)))
         outfile.write(' Ratchet-Pawl Half-Dist:    {:10.4f} \n'.format(opts.ratchet_pawl_half_dist))
 
     if opts.jobtype == 'aimd':
@@ -530,7 +530,7 @@ def get_rem_lines(rem_file_loc, outfile):
 
     if opts.annealing:
         outfile.write(' Temperature Annealing:     {:10d} \n'.format(int(opts.annealing)))
-        outfile.write(' Annealing Peak:            {:10.2f} K\n'.format(int(opts.annealing_peak) / kelvin))
+        outfile.write(' Annealing Peak:            {:10.2f} K\n'.format(float(opts.annealing_peak) / kelvin))
         outfile.write(' Annealing Period:          {:10.1f} fs\n'.format(opts.annealing_period/femtoseconds))
 
     outfile.write('--------------------------------------------\n')
