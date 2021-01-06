@@ -462,9 +462,9 @@ def get_rem_lines(rem_file_loc, outfile):
             elif option == 'annealing':
                 opts.annealing = bool(strtobool(sp[1]))
             elif option == 'annealing_peak':
-                opts.annealing = float(sp[1]) * kelvin
+                opts.annealing_peak = float(sp[1]) * kelvin
             elif option == 'annealing_period':
-                opts.annealing = float(sp[1]) * femtoseconds
+                opts.annealing_period = float(sp[1]) * femtoseconds
             
 
             #   ratchet and pawl force
@@ -529,6 +529,8 @@ def get_rem_lines(rem_file_loc, outfile):
         outfile.write(' langevin seed:            {:11d} \n'.format(opts.aimd_langevin_seed))
 
     if opts.annealing:
+        print(opts.annealing, type(opts.annealing))
+        exit()
         outfile.write(' Temperature Annealing:     {:10d} \n'.format(int(opts.annealing)))
         outfile.write(' Annealing Peak:            {:10.2f} K\n'.format(float(opts.annealing_peak) / kelvin))
         outfile.write(' Annealing Period:          {:10.1f} fs\n'.format(opts.annealing_period/femtoseconds))
