@@ -529,8 +529,6 @@ def get_rem_lines(rem_file_loc, outfile):
         outfile.write(' langevin seed:            {:11d} \n'.format(opts.aimd_langevin_seed))
 
     if opts.annealing:
-        print(opts.annealing, type(opts.annealing))
-        exit()
         outfile.write(' Temperature Annealing:     {:10d} \n'.format(int(opts.annealing)))
         outfile.write(' Annealing Peak:            {:10.2f} K\n'.format(float(opts.annealing_peak) / kelvin))
         outfile.write(' Annealing Period:          {:10.1f} fs\n'.format(opts.annealing_period/femtoseconds))
