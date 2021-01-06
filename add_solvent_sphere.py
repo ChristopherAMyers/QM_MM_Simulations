@@ -208,13 +208,13 @@ if __name__ == "__main__":
         forcefield.registerResidueTemplate(template)
 
     ####   change the center of the water cluster here   ####
-    origin = np.mean(pdb.getPositions(True)[[0, 1]], axis=0)
+    origin = np.mean(pdb.getPositions(True)[list(range(90, 98))], axis=0)
     print(" Center : ", origin)
 
     n_atoms_init = pdb.topology.getNumAtoms()
     print(" Initial number of atoms: {:d}".format(n_atoms_init))
     print(" Adding Solvent")
-    mols = add_solvent_shell(pdb.positions, pdb.topology, forcefield, origin=origin, radius=3.0*nanometers, solventBox=userSolvBox)
+    mols = add_solvent_shell(pdb.positions, pdb.topology, forcefield, origin=origin, radius=1.5*nanometers, solventBox=userSolvBox)
     system = forcefield.createSystem(mols.topology, nonbondedMethod=CutoffNonPeriodic,
             nonbondedCutoff=1*nanometer, constraints=HBonds)
     n_atoms_final = mols.topology.getNumAtoms()
@@ -238,7 +238,7 @@ if __name__ == "__main__":
     
    
     #   change to True for test simulation stuff
-    if True:
+    if False:
         #   freeze everything not solvent
         for res in mols.topology.residues():
             if res.name != 'HOH' and False:

@@ -457,12 +457,25 @@ def get_rem_lines(rem_file_loc, outfile):
                 opts.aimd_langevin_timescale = float(sp[1]) * femtoseconds
             elif option == 'qm_mm_radius':
                 opts.qm_mm_radius = float(sp[1]) * angstroms
+
+            #   temperature anealing
+            elif option == 'annealing':
+                opts.annealing = True
+            elif option == 'annealing_peak':
+                opts.annealing = float(sp[1]) * kelvin
+            elif option == 'annealing_period':
+                opts.annealing = float(sp[1]) * femtoseconds
+            
+
+            #   ratchet and pawl force
             elif option == 'ratchet_pawl':
                 opts.ratchet_pawl = bool(strtobool(sp[1]))
             elif option == 'ratchet_pawl_force':
                 opts.ratchet_pawl_force = float(sp[1])
             elif option == 'ratchet_pawl_half_dist':
                 opts.ratchet_pawl_half_dist = float(sp[1])
+
+            #   random number seeds
             elif option == 'aimd_temp_seed':
                 seed = int(sp[1])
                 if seed > 2147483647 or seed < -2147483648:
@@ -514,6 +527,11 @@ def get_rem_lines(rem_file_loc, outfile):
         outfile.write(' thermostat:                {:>10s} \n'.format(opts.aimd_thermostat) )
         outfile.write(' langevin frequency:      1/{:>10.2f} fs \n'.format(opts.aimd_langevin_timescale / femtoseconds) )
         outfile.write(' langevin seed:            {:11d} \n'.format(opts.aimd_langevin_seed))
+
+    if opts.annealing:
+        outfile.write(' Temperature Annealing:     {:10d} \n'.format(int(opts.annealing)))
+        outfile.write(' Annealing Peak:            {:10.2f} K\n'.format(int(opts.annealing_peak) / kelvin))
+        outfile.write(' Annealing Period:          {:10.1f} fs\n'.format(opts.annealing_period/femtoseconds))
 
     outfile.write('--------------------------------------------\n')
     outfile.flush()
@@ -818,6 +836,13 @@ def main(args_in):
 
         #   run simulation
         for n in range(options.aimd_steps):
+
+            if options.annealing:
+                current_temp = options.aimd_temp * (1 + np.sin(n*options.time_step * n * np.pi / options.annealing_period)**2)
+                integrator.setTemperature(current_temp)
+                outfile.write(" Current temperature: {:10.2f} K".format(current_temp / kelvin))
+
+
             state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True, getForces=True)
             pos = state.getPositions(True)
 

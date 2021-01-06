@@ -190,6 +190,13 @@ class JobOptions(object):
         self.aimd_langevin_seed = int(urandom(4).hex(), 16) - 2147483647
 
         self.qm_mm_radius = 5 * angstroms
+        
+        #   ratchet and pawl force options
         self.ratchet_pawl = False
         self.ratchet_pawl_force = 0.0
         self.ratchet_pawl_half_dist = 1000.0
+
+        #   simulated annealing options
+        self.annealing = False
+        self.annealing_peak = 400 * kelvin
+        self.annealing_period = 5000 * femtoseconds
