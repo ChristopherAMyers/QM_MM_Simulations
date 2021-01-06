@@ -530,7 +530,7 @@ def get_rem_lines(rem_file_loc, outfile):
 
     if opts.annealing:
         outfile.write(' Temperature Annealing:     {:10d} \n'.format(int(opts.annealing)))
-        outfile.write(' Annealing Peak:            {:10.2f} K\n'.format(float(opts.annealing_peak) / kelvin))
+        outfile.write(' Annealing Peak:            {:10.2f} K\n'.format(opts.annealing_peak / kelvin))
         outfile.write(' Annealing Period:          {:10.1f} fs\n'.format(opts.annealing_period/femtoseconds))
 
     outfile.write('--------------------------------------------\n')
@@ -837,10 +837,11 @@ def main(args_in):
         #   run simulation
         for n in range(options.aimd_steps):
 
+
             if options.annealing:
                 current_temp = options.aimd_temp * (1 + np.sin(n*options.time_step * n * np.pi / options.annealing_period)**2)
                 integrator.setTemperature(current_temp)
-                outfile.write(" Current temperature: {:10.2f} K".format(current_temp / kelvin))
+                outfile.write("\n Current temperature: {:10.5f} K \n".format(current_temp / kelvin))
 
 
             state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True, getForces=True)
