@@ -839,7 +839,11 @@ def main(args_in):
 
 
             if options.annealing:
-                current_temp = options.aimd_temp * (1 + np.sin(n*options.time_step * n * np.pi / options.annealing_period)**2)
+                #   add increase in temperature
+                #   new temperature is T_0 + A*sin(t*w)^2
+                omega = np.pi / options.annealing_period
+                temp_diff = options.annealing_peak - options.aimd_temp
+                current_temp = options.aimd_temp  + temp_diff * np.sin(options.time_step * n * omega)**2
                 integrator.setTemperature(current_temp)
                 outfile.write("\n Current temperature: {:10.5f} K \n".format(current_temp / kelvin))
 
