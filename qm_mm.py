@@ -869,12 +869,14 @@ def main(args_in):
                 update_rachet_pawl_force(ratchet_pawl_force, simulation.context, pos/nanometers)
             stats_reporter.report(simulation)
             qm_atoms_reporter.report(simulation, qm_atoms)
-            simulation.step(1)
+            
             if n % 10  == 0:
                 simulation.saveState('simulation.xml')
 
             if options.jobtype == 'opt':
                 opt.step(simulation, outfile=outfile)
+            else:
+                simulation.step(1)
 
 
     return simulation

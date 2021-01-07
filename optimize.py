@@ -93,6 +93,7 @@ class GradientMethod(object):
         print(' -----------------------------------------------------------', file=outfile)
         outfile.flush()
         simulation.context.setPositions(new_pos.reshape(dim, 3) * nanometers)
+        simulation.currentStep += 1
 
 
 
