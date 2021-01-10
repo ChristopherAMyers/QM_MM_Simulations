@@ -183,7 +183,7 @@ if __name__ == "__main__":
 
     adder = SolventAdder()
     positions = pdb.getPositions(True)
-    center = np.mean(positions[[94, 95, 98, 99]], axis=0)
+    center = np.mean(positions[[106, 107, 110, 111]], axis=0)
     print(" Center : ", center)
     for n in range(3):
         new_top, new_pos = adder.add_solvent(positions, pdb.topology, forcefield, 4.0, center, n_waters=0, n_o2=8)

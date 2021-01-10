@@ -279,7 +279,6 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
         outfile.flush()
         start = time.time()
         if step_number == 0 and False:
-            shutil.copytree('/network/rit/lab/ChenRNALab/awesomeSauce/2d_materials/ZnSe/quant_espres/znse_2x2/qm_mm/multi_solvent/6w_2o_no_ligs/save_files', os.path.join(qc_scratch, 'save_files'))
             shutil.copyfile(os.path.join(qc_scratch, 'save_files/output'), output_file_loc)
         else:
             run(cmd.split())
@@ -326,7 +325,6 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
         exit()
 
     if len(gradient) != 0:
-        shutil.copyfile(grad_file_loc, os.path.join(qc_scratch, 'GRAD'))
         outfile.write(' Gradient fle found \n')
         outfile.write('                     {:13s}  {:13s}  {:13s} \n'.format('X', 'Y', 'Z'))
         outfile.write(' -----------------------------------------------------------\n')
@@ -559,7 +557,7 @@ def get_integrator(opts):
             integrator = CustomIntegrator(opts.time_step)
 
             #timestep = 1.0 * unit.femtoseconds
-            integrator.addGlobalVariable("step_size", opts.time_step / nanometers)
+            integrator.addGlobalVariable("step_size", opts.time_step*0 / nanometers)
             integrator.addGlobalVariable("energy_old", 0)
             integrator.addGlobalVariable("energy_new", 0)
             integrator.addGlobalVariable("delta_energy", 0)
@@ -875,8 +873,8 @@ def main(args_in):
 
             if options.jobtype == 'opt':
                 opt.step(simulation, outfile=outfile)
-            else:
-                simulation.step(1)
+          
+            simulation.step(1)
 
 
     return simulation

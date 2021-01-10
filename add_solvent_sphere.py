@@ -208,7 +208,7 @@ if __name__ == "__main__":
         forcefield.registerResidueTemplate(template)
 
     ####   change the center of the water cluster here   ####
-    origin = np.mean(pdb.getPositions(True)[list(range(90, 98))], axis=0)
+    origin = np.mean(pdb.getPositions(True)[[106, 107, 110, 111]], axis=0)
     print(" Center : ", origin)
 
     n_atoms_init = pdb.topology.getNumAtoms()
