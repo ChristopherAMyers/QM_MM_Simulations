@@ -142,7 +142,7 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
                     force.setBondParameters(n, a, b, r, k*0.000)
                 else:
                     dist = np.linalg.norm(coords[a] - coords[b])
-                    #   k=0 identifies that the bond was a QM bond
+                    #   k=0 identifies that the bond was a QM bond.
                     #   if while QM, the two atoms have stretched
                     #   too far, leave as QM atoms
                     if k == 0 and dist > r/nanometer*1.3:
@@ -164,7 +164,7 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
             force.updateParametersInContext(context)
 
     #   now that the new atoms are added, continue with nonbonded force
-    new_qm_atoms = sorted(list(new_atoms) + qm_atoms)
+    new_qm_atoms = sorted(list(set(list(new_atoms) + qm_atoms)))
     for force in system.getForces():
         #   non-bonded force has built in parameters to turn on/off terms
         if isinstance(force, CustomNonbondedForce):

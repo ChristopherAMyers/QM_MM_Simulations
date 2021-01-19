@@ -216,7 +216,7 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, rem_lines=
             file.write(line)
 
         #   use the previous jobs orbitals as an initial guess
-        if step_number != 0:
+        if step_number % 10 != 0:
             file.write('    scf_guess read \n')
         if not jobtype:
             file.write('    jobtype     force \n')
@@ -243,7 +243,7 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, rem_lines=
 
         #   write molecule section
         file.write('$molecule \n')
-        file.write('    {:d}  1 \n'.format(int(total_chg)))
+        file.write('    {:d}  3 \n'.format(int(total_chg)))
         for line in mol_lines:
             file.write(line)
         file.write('$end \n\n')
