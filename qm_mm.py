@@ -204,7 +204,7 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
     
     return qm_bonds, qm_angles
 
-def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, rem_lines=[], step_number=0, ghost_atoms=[], jobtype=None):
+def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, spin_mult=1, rem_lines=[], step_number=0, ghost_atoms=[], jobtype=None):
     global scratch
     input_file_loc = os.path.join(scratch, 'input')
     with open(input_file_loc, 'w') as file:
@@ -243,7 +243,7 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, rem_lines=
 
         #   write molecule section
         file.write('$molecule \n')
-        file.write('    {:d}  9 \n'.format(int(total_chg)))
+        file.write('    {:d}  {:d} \n'.format(int(total_chg), spin_mult))
         for line in mol_lines:
             file.write(line)
         file.write('$end \n\n')
@@ -256,14 +256,14 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, rem_lines=
 
         return input_file_loc
 
-def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False, outfile=sys.stdout):
+def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False, outfile=sys.stdout, spin_mult=1):
     global scratch, qc_scratch, n_procs
     redo = True
     failures = 0
     use_rem_lines = copy.copy(rem_lines)
     while redo:
         outfile.flush()
-        input_file_loc = create_qc_input(coords, charges, elements, qm_atoms, total_chg=total_chg, rem_lines=use_rem_lines, step_number=step_number)
+        input_file_loc = create_qc_input(coords, charges, elements, qm_atoms, total_chg=total_chg, spin_mult=spin_mult, rem_lines=use_rem_lines, step_number=step_number)
         output_file_loc = os.path.join(scratch, 'output')
         cmd = os.path.join(qchem_path, 'bin/qchem') + ' -save -nt {:d}  {:s}  {:s} save_files'.format(n_procs, input_file_loc, output_file_loc)
 
@@ -291,6 +291,8 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
             for line in file.readlines():
                 if "Thank you" in line:
                     found_thank_you = True
+                else:
+                    failures += 1
                 if "SCF failed to converge" in line:
                     found_scf_failure = True
                 outfile.write(line)
@@ -298,17 +300,16 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
         #   if SCF failed, try once more with RCA 
         if found_scf_failure and failures == 0:
             redo = True
-            failures += 1
             use_rem_lines.append('scf_algorithm RCA')
         elif found_thank_you or failures > 0:
             redo = False
-        
 
     gradient = []
     energy = 0.0
     grad_file_loc = os.path.join(qc_scratch, 'save_files/GRAD')
-    shutil.copyfile(grad_file_loc, os.path.join(scratch, 'GRAD'))
+    
     if os.path.isfile(grad_file_loc):
+        shutil.copyfile(grad_file_loc, os.path.join(scratch, 'GRAD'))
         energy = np.loadtxt(grad_file_loc, skiprows=1, max_rows=1)
         gradient = np.loadtxt(grad_file_loc, skiprows=3, max_rows=len(qm_atoms))
 
@@ -483,6 +484,12 @@ def get_rem_lines(rem_file_loc, outfile):
             elif option == 'ratchet_pawl_half_dist':
                 opts.ratchet_pawl_half_dist = float(sp[1])
 
+            #   charge and multiplicity
+            elif option == 'mult':
+                opts.mult = int(sp[1])
+            elif option == 'charge':
+                opts.charge = int(sp[1])
+
             #   random number seeds
             elif option == 'aimd_temp_seed':
                 seed = int(sp[1])
@@ -521,6 +528,8 @@ def get_rem_lines(rem_file_loc, outfile):
     outfile.write(' time step:                 {:>10.2f} fs \n'.format(opts.time_step/femtoseconds) )
     outfile.write(' QM/MM radius:              {:>10.2f} Ang. \n'.format(opts.qm_mm_radius/angstroms) )
     outfile.write(' number of steps:           {:>10d} \n'.format(opts.aimd_steps) )
+    outfile.write(' Total QM charge:           {:10d} \n'.format(opts.charge))
+    outfile.write(' QM Multiplicity:           {:10d} \n'.format(opts.mult))
 
     if opts.ratchet_pawl:
         outfile.write(' Ratchet-Pawl:              {:10d} \n'.format(int(opts.ratchet_pawl)))
@@ -549,7 +558,6 @@ def get_rem_lines(rem_file_loc, outfile):
     outfile.write('--------------------------------------------\n')
     outfile.flush()
     return rem_lines, opts
-
 
 def get_integrator(opts):
     if opts.jobtype == 'aimd':
@@ -876,8 +884,9 @@ def main(args_in):
                 qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pos/angstrom, pdb.topology)
                 qm_atoms = qm_fixed_atoms + qm_sphere_atoms
                 qm_atoms = update_mm_forces(qm_atoms, system, simulation.context, pos, pdb.topology, outfile=outfile)
+                
             if len(qm_atoms) > 0:
-                qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile)
+                qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile, total_chg=options.charge, spin_mult=options.mult)
                 #qm_energy = energy = np.loadtxt('qm_mm_scratch/GRAD', skiprows=1, max_rows=1)*2625.5009
                 #qm_gradient = np.loadtxt('qm_mm_scratch/GRAD', skiprows=3, max_rows=len(qm_atoms))* 2625.5009  / bohrs.conversion_factor_to(nanometer)
                 update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile)

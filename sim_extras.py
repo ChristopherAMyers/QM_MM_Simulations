@@ -185,6 +185,7 @@ class JobOptions(object):
         self.aimd_thermostat = None
         self.aimd_langevin_timescale = 100 * femtoseconds
         self.integrator = 'Verlet'
+        
         #   32-bit random number seed shifted to c++ min/max integer limits
         self.aimd_temp_seed = int(urandom(4).hex(), 16) - 2147483647
         self.aimd_langevin_seed = int(urandom(4).hex(), 16) - 2147483647
@@ -205,3 +206,7 @@ class JobOptions(object):
         self.oxy_bound = False
         self.oxy_bound_force = 0.0
         self.oxy_bound_dist = 0.4 * nanometers
+
+        #   charge and multiplicity
+        self.charge = 0
+        self.mult = 1
