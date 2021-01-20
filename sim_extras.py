@@ -59,7 +59,7 @@ class StatsReporter(object):
         if self._jobtype == 'aimd':
             self._out.write(' Step Pot-Energy QM-Energy MM-Temp(K) QM-Temp(K) All-Temp(K) Time-Elapsed(s) Time-Remaining qm_atoms\n')
         else:
-            self._out.write(' Step Pot-Energy QM-Energy Time-Elapsed(s) Time-Remaining Time-Step RMS-Forces  Max-Forces\n')
+            self._out.write(' Step Pot-Energy QM-Energy Time-Elapsed(s) Time-Remaining Time-Step  RMS-Forces  Max-Forces  Max-Index\n')
 
 
     def __del__(self):
@@ -144,9 +144,10 @@ class StatsReporter(object):
             force_norms = np.linalg.norm(forces, axis=1)
             rms_forces = np.sqrt(np.mean(force_norms**2))
             max_forces = np.max(force_norms)
+            max_force_idx = np.argmax(force_norms)
             timestep = simulation.integrator.getGlobalVariable(0)
-            self._out.write(' {:4d}  {:10.1f}  {:10.3f}  {:10.1f}  {:10s}  {:10.6f}  {:10.3f}  {:10.3f}\n'
-                .format(step, pot_energy, qm_energy, elapsed_seconds, time_rem, timestep, rms_forces, max_forces))
+            self._out.write(' {:4d}  {:10.1f}  {:10.3f}  {:10.1f}  {:10s}  {:10.6f}  {:10.3f}  {:10.3f}  {:4d}\n'
+                .format(step, pot_energy, qm_energy, elapsed_seconds, time_rem, timestep, rms_forces, max_forces, max_force_idx))
 
         self._out.flush()
 
