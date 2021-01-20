@@ -243,7 +243,7 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, rem_lines=
 
         #   write molecule section
         file.write('$molecule \n')
-        file.write('    {:d}  3 \n'.format(int(total_chg)))
+        file.write('    {:d}  9 \n'.format(int(total_chg)))
         for line in mol_lines:
             file.write(line)
         file.write('$end \n\n')
@@ -375,7 +375,10 @@ def update_mm_force(context, ext_force, coords_in_nm, outfile=sys.stdout):
         print(' efield.dat NOT found', file=outfile)
 
 def update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, coords_in_nm, charges, qm_energy=0.0, outfile=sys.stdout):
-    ''' Updates external force for ALL atoms
+    ''' Updates external force for ALL atoms, this includes
+        QM and MM atoms. QM forces are updated via the qm_gradient,
+        while the MM forces are updated from efield.dat file (this
+        function searches for this file).
         See add_ext_force_all for parameter listings
     '''
     
@@ -463,7 +466,14 @@ def get_rem_lines(rem_file_loc, outfile):
                 opts.annealing_peak = float(sp[1]) * kelvin
             elif option == 'annealing_period':
                 opts.annealing_period = float(sp[1]) * femtoseconds
-            
+
+            #   osygen boundry force
+            elif option == 'oxy_bound':
+                opts.oxy_bound = bool(strtobool(sp[1]))
+            elif option == 'oxy_bound_force':
+                opts.oxy_bound_force = float(sp[1])
+            elif option == 'oxy_bound_dist':
+                opts.oxy_bound_dist = float(sp[1]) * nanometers            
 
             #   ratchet and pawl force
             elif option == 'ratchet_pawl':
@@ -514,7 +524,7 @@ def get_rem_lines(rem_file_loc, outfile):
 
     if opts.ratchet_pawl:
         outfile.write(' Ratchet-Pawl:              {:10d} \n'.format(int(opts.ratchet_pawl)))
-        outfile.write(' Ratchet-Pawl Force:        {:10d} \n'.format(float(opts.ratchet_pawl_force)))
+        outfile.write(' Ratchet-Pawl Force:        {:10.1f} \n'.format(float(opts.ratchet_pawl_force)))
         outfile.write(' Ratchet-Pawl Half-Dist:    {:10.4f} \n'.format(opts.ratchet_pawl_half_dist))
 
     if opts.jobtype == 'aimd':
@@ -530,6 +540,11 @@ def get_rem_lines(rem_file_loc, outfile):
         outfile.write(' Temperature Annealing:     {:10d} \n'.format(int(opts.annealing)))
         outfile.write(' Annealing Peak:            {:10.2f} K\n'.format(opts.annealing_peak / kelvin))
         outfile.write(' Annealing Period:          {:10.1f} fs\n'.format(opts.annealing_period/femtoseconds))
+
+    if opts.oxy_bound:
+        outfile.write(' Oxygen boundry:            {:10d} \n'.format(int(opts.oxy_bound)))
+        outfile.write(' Oxygen boundry force:      {:10.4f} nm \n'.format(opts.oxy_bound_dist / nanometers))
+        outfile.write(' Oxygen boundry distance:   {:10.1f} \n'.format(opts.oxy_bound_force))
 
     outfile.write('--------------------------------------------\n')
     outfile.flush()
@@ -715,6 +730,9 @@ def print_initial_forces(simulation, qm_atoms, outfile):
 
 def main(args_in):
     global scratch, n_procs, qc_scratch, qchem_path
+    oxygen_force = None
+    ratchet_pawl_force = None
+
     args = parse_args(args_in)
 
     #   make sure Q-Chem is available, exit otherwise
@@ -763,6 +781,11 @@ def main(args_in):
         if options.ratchet_pawl:
             ratchet_pawl_force = add_rachet_pawl_force(system, args.pawl, pdb.getPositions(True), \
                 options.ratchet_pawl_force, pdb.topology, half_dist=options.ratchet_pawl_half_dist)
+
+        #   add oxygen boundry force
+        if options.oxy_bound:
+            oxygen_force = BoundryForce(system, pdb.topology, pdb.getPositions(True), qm_atoms, \
+                options.oxy_bound_dist, options.oxy_bound_force)
 
         #   debug only: turns off forces except one
         if False:
@@ -835,7 +858,6 @@ def main(args_in):
         #   run simulation
         for n in range(options.aimd_steps):
 
-
             if options.annealing:
                 #   add increase in temperature
                 #   new temperature is T_0 + A*sin(t*w)^2
@@ -865,6 +887,8 @@ def main(args_in):
 
             if options.ratchet_pawl:
                 update_rachet_pawl_force(ratchet_pawl_force, simulation.context, pos/nanometers)
+            if options.oxy_bound:
+                oxygen_force.update(simulation.context, pos, outfile=outfile)
             stats_reporter.report(simulation)
             qm_atoms_reporter.report(simulation, qm_atoms)
             

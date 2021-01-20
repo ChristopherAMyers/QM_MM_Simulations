@@ -11,7 +11,7 @@ import copy
 import simtk
 picoseconds = simtk.unit.picoseconds
 picosecond = picoseconds
-nanometer = simtk.unit.nanometer
+nanometer = nanometers = simtk.unit.nanometer
 femtoseconds = simtk.unit.femtoseconds
 # pylint: enable=no-member
 
@@ -200,3 +200,8 @@ class JobOptions(object):
         self.annealing = False
         self.annealing_peak = 400 * kelvin
         self.annealing_period = 5000 * femtoseconds
+
+        #   oxygen boundry force
+        self.oxy_bound = False
+        self.oxy_bound_force = 0.0
+        self.oxy_bound_dist = 0.4 * nanometers

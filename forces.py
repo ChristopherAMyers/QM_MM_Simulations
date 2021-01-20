@@ -10,6 +10,110 @@ nanometer = nanometers = unit.nanometer
 femtoseconds = unit.femtoseconds
 # pylint: enable=no-member
 
+
+class BoundryForce():
+    def __init__(self, system, topology, positions, qm_atoms, max_dist=0.4*nanometers, scale=50000.0):
+        '''
+            Adds a force that keeps oxygen molecules within a spicific distance
+            from at least one material atom. Applies only to QM atoms
+
+            Parameters:
+                system: openmm.system
+                    openmm system object for the simulation
+                topology: openmm.topology
+                    openmm topology object for all atoms in system
+                positions : list, np.array
+                    array of all atomic positions (unit must be included)
+                qm_atoms:   list
+                    list of QM atom indicies
+                max_dist: Quantity
+                    maximum distance oxygen atoms can be away from the material
+                scale: float
+                    strength of the force to be applied (kJ/mol/nanometers^2)
+        '''
+        
+        force_string = 'on_off*scale*r^2; '
+        force_string += 'on_off = step(r - max_dist); '
+        force_string += 'r = sqrt((x - x_0)^2 + (y - y_0)^2 + (z - z_0)^2)'
+        force_obj = CustomExternalForce(force_string)
+        force_obj.addPerParticleParameter('scale')
+        force_obj.addPerParticleParameter('max_dist')
+        force_obj.addPerParticleParameter('x_0')
+        force_obj.addPerParticleParameter('y_0')
+        force_obj.addPerParticleParameter('z_0')
+        self.oxygen_idx = []
+        self.oxygen_atoms = []
+        self.material_idx = []
+        self.material_atoms = []
+        self.scale = scale
+        self.max_dist = max_dist
+        self.topology = topology
+
+        #   extract atoms used in this force
+        for atom in topology.atoms():
+            if atom.index in qm_atoms:
+                if atom.element.symbol == 'O' and atom.residue.name != 'HOH':
+                    self.oxygen_idx.append(atom.index)
+                    self.oxygen_atoms.append(atom)
+                elif atom.element.symbol in ['Se', 'Zn']:
+                    self.material_idx.append(atom.index)
+                    self.material_atoms.append(atom)
+
+        material_pos = np.array([positions[x]/nanometers for x in self.material_idx])*nanometers
+        for oxy in self.oxygen_idx:
+            distances = np.linalg.norm(positions[oxy] - material_pos, axis=1)
+            min_idx = np.argmin(distances)
+            x, y, z = material_pos[min_idx]
+            force_obj.addParticle(oxy, [scale, max_dist/nanometers, x, y, z])
+
+        system.addForce(force_obj)
+        self.force_obj = force_obj
+
+    def update(self, context, positions, outfile=None):
+        '''
+        Update the force field parameters for the force object.
+        Parameters
+        ----------
+        context : openmm.context
+            OpenMM context object that contains the forces to update
+        positions : list, np.array
+            array of all atomic positions (unit must be included)
+        outfile: output stream
+            if supplied, a summary of the forces will be printed to this stream
+            for example, file, std.out, etc
+
+        Returns
+        -------
+        Nothing
+        '''
+
+        if outfile:
+            print(' ------------------------------------------------------------ ', file=outfile)
+            print('                     Updating Boundry Force', file=outfile)
+            print('      Oxygen Atom            Nearest Material Atom   Dist (Ang) ', file=outfile)
+
+        material_pos = np.array([positions[x]/nanometers for x in self.material_idx])*nanometers
+        for n, oxy in enumerate(self.oxygen_idx):
+            idx = self.force_obj.getParticleParameters(n)[0]
+            distances = np.linalg.norm(positions[oxy] - material_pos, axis=1)
+            min_idx = np.argmin(distances)
+            x, y, z = material_pos[min_idx]
+
+            if outfile:
+                oxy = self.oxygen_atoms[n]
+                mat = self.material_atoms[min_idx]
+                min_dist = distances.min() *10
+                print(' {:4s} id {:5s} res {:5s} | {:4s} id {:5s} res {:5s} | {:8.3f} '. \
+                    format(oxy.name, oxy.id, oxy.residue.id, mat.name, mat.id, mat.residue.id, min_dist), file=outfile)
+            
+            self.force_obj.setParticleParameters(n, idx, [self.scale, self.max_dist, x, y, z])
+
+
+        if outfile:
+            print(' ------------------------------------------------------------ \n', file=outfile)
+
+        
+
 def add_ext_qm_force(qm_atoms, system):
     ext_force = CustomExternalForce('a*x + b*y + c*z - k + qm_energy')
     ext_force.addGlobalParameter('k', 0.0)
