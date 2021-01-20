@@ -723,18 +723,25 @@ def gen_qchem_opt(options, simulation, charges, elements, qm_atoms, qm_bonds, qm
         for line in file.readlines():
             outfile.write(line)
 
-def print_initial_forces(simulation, qm_atoms, outfile):
-        #   test to make sure that all qm_forces are fine
-        state = simulation.context.getState(getPositions=True, getForces=True, getEnergy=True)
-        forces = state.getForces()
-        print(" Initial Potential energy: ", state.getPotentialEnergy(), file=outfile)
-        print(" Initial forces exerted on QM atoms: ", file=outfile)
-        for n in qm_atoms:
-            f = forces[n]/forces[n].unit
-            print(" Force on atom {:3d}: {:10.2f}  {:10.2f}  {:10.2f} kJ/mol/nm"
-            .format((n+1), f[0], f[1], f[2]), file=outfile)
-        print(" Check to make sure that all forces are ~10^3 or less.", file=outfile)
-        print(" Larger forces may indicate an inproper force field parameterization.", file=outfile)
+def print_initial_forces(simulation, qm_atoms, topology, outfile):
+    #   test to make sure that all qm_forces are fine
+    state = simulation.context.getState(getPositions=True, getForces=True, getEnergy=True)
+    forces = state.getForces()
+    atoms = list(topology.atoms())
+    print(" Initial Potential energy: ", state.getPotentialEnergy(), file=outfile)
+    print(" Initial forces exerted on QM atoms: ", file=outfile)
+    for n in qm_atoms:
+        f = forces[n]/forces[n].unit
+        f = np.linalg.norm(f)
+        atom = atoms[n]
+        print(" {:4s}  {:4s} residue {:4s} |  {:10.2f}  kJ/mol/nm ".format(atom.id, atom.name, atom.residue.id, f), file=outfile)
+
+        #print(" Force on atom {:3d}: {:10.2f}  {:10.2f}  {:10.2f} kJ/mol/nm"
+        #.format((n+1), f[0], f[1], f[2]), file=outfile)
+    print(" Check to make sure that all forces are ~10^3 or less.", file=outfile)
+    print(" Larger forces may indicate poor initial coordinates", file=outfile)
+    print(" or an inproper force field parameterization.", file=outfile)
+
 
 def main(args_in):
     global scratch, n_procs, qc_scratch, qchem_path
@@ -848,7 +855,7 @@ def main(args_in):
         elements = [x.element.symbol for x in atoms]
 
         #   test to make sure that all qm_forces are fine
-        print_initial_forces(simulation, qm_atoms, outfile)
+        print_initial_forces(simulation, qm_atoms, pdb.topology, outfile)
 
         if options.jobtype == 'opt':
             opt = GradientMethod(options.time_step*0.001)
@@ -898,7 +905,7 @@ def main(args_in):
                 update_rachet_pawl_force(ratchet_pawl_force, simulation.context, pos/nanometers)
             if options.oxy_bound:
                 oxygen_force.update(simulation.context, pos, outfile=outfile)
-            stats_reporter.report(simulation)
+            stats_reporter.report(simulation, qm_atoms)
             qm_atoms_reporter.report(simulation, qm_atoms)
             
             if n % 10  == 0:

@@ -57,7 +57,7 @@ class StatsReporter(object):
         
         #   aimd and optimization jobs have diffeent stats
         if self._jobtype == 'aimd':
-            self._out.write(' Step Pot-Energy QM-Energy MM-Temp(K) QM-Temp(K) All-Temp(K) Time-Elapsed(s) Time-Remaining \n')
+            self._out.write(' Step Pot-Energy QM-Energy MM-Temp(K) QM-Temp(K) All-Temp(K) Time-Elapsed(s) Time-Remaining qm_atoms\n')
         else:
             self._out.write(' Step Pot-Energy QM-Energy Time-Elapsed(s) Time-Remaining Time-Step RMS-Forces  Max-Forces\n')
 
@@ -74,7 +74,7 @@ class StatsReporter(object):
         steps = self._reportInterval - simulation.currentStep%self._reportInterval
         return (steps, True, True, True, True, None)
 
-    def report(self, simulation, state=None):
+    def report(self, simulation, qm_atoms, state=None):
 
         #   if called outside of OpenMM
         if not state:
@@ -82,7 +82,7 @@ class StatsReporter(object):
             if not (self._reportInterval - simulation.currentStep%self._reportInterval):
                 return
 
-        qm_atoms = self._qm_atoms
+        #qm_atoms = self._qm_atoms
         qm_energy = simulation.context.getParameter('qm_energy')
         pot_energy = state.getPotentialEnergy()/kilojoules_per_mole
         step = simulation.currentStep
@@ -136,8 +136,8 @@ class StatsReporter(object):
                     self._force_file.write('{:15.8E}  {:15.8E}  {:15.8E} \n'.format(f[0], f[1], f[2]))
                 self._force_file.flush()
 
-            self._out.write(' {:4d}  {:10.1f}  {:10.3f}  {:7.2f}  {:7.2f}  {:7.2f}  {:10.1f}  {:10s} \n'
-                .format(step, pot_energy, qm_energy, temp_mm, temp_qm, temp_all, elapsed_seconds, time_rem))
+            self._out.write(' {:4d}  {:10.1f}  {:10.3f}  {:7.2f}  {:7.2f}  {:7.2f}  {:10.1f}  {:10s}  {:3d}\n'
+                .format(step, pot_energy, qm_energy, temp_mm, temp_qm, temp_all, elapsed_seconds, time_rem, len(qm_atoms)))
 
         else:
             forces = state.getForces(True)
