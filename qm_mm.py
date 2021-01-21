@@ -291,17 +291,18 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
             for line in file.readlines():
                 if "Thank you" in line:
                     found_thank_you = True
-                else:
-                    failures += 1
                 if "SCF failed to converge" in line:
                     found_scf_failure = True
                 outfile.write(line)
 
-        #   if SCF failed, try once more with RCA 
-        if found_scf_failure and failures == 0:
+        if not found_thank_you:
+            failures += 1
+
+        #   if SCF failed, try once more with different algorithm 
+        if found_scf_failure and failures == 1:
             redo = True
-            use_rem_lines.append('scf_algorithm RCA')
-        elif found_thank_you or failures > 0:
+            use_rem_lines.append('scf_algorithm DIIS_GDM')
+        elif found_thank_you or failures > 1:
             redo = False
 
     gradient = []
