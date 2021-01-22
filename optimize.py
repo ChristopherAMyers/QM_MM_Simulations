@@ -65,8 +65,11 @@ class GradientMethod(object):
             print(" Polak-Ribiere step factor: ", beta, file=outfile)
         
         #   last step was successfull, try increased stepsize
-        if energy < self._energy_old:
-            print(" Energy condition passed ", file=outfile)
+        if energy < self._energy_old or (energy - self._energy_old) < 2.0*kilojoules_per_mole:
+            if energy < self._energy_old:
+                print(" Energy condition passed ", file=outfile)
+            else:
+                print(" Energy condition failed, but continuing b/c diff. is < 2 kJ/mol")
             self._stepsize = self._stepsize * 1.2
             self._step_old = step
             self._pos_old = pos
@@ -78,7 +81,7 @@ class GradientMethod(object):
             if max_step_length > self._max_step_size:
                 shrink = (self._max_step_size / max_step_length)
                 self._stepsize = self._stepsize * shrink
-                print(" Max step size exceded, shrinking stepsize by {:.5f}".format(shrink), file=outfile)
+                print(" Max step length exceded, shrinking stepsize by {:.5f}".format(shrink), file=outfile)
 
             PDBFile.writeFile(simulation.topology, pos.reshape((dim, 3))*nanometers, file=open(self._pdb_file_loc, 'w'))
             new_pos = pos + self._stepsize * step

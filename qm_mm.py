@@ -45,7 +45,7 @@ def parse_args(args_in):
     parser.add_argument('-state', help='start simulation from simulation state xml file')
     parser.add_argument('-repf',  help='file to print forces to')
     parser.add_argument('-repv',  help='file to print velocities to')
-    parser.add_argument('-pawl',  help='list of atom pairs to apply ratchet-pawl force between')
+    parser.add_argument('-pawl',  help='list of atom ID pairs to apply ratchet-pawl force between')
     return parser.parse_args(args_in)
 
 def parse_idx(idx_file_loc, topology):
@@ -903,7 +903,7 @@ def main(args_in):
             #   for the current positions, not after
 
             if options.ratchet_pawl:
-                update_rachet_pawl_force(ratchet_pawl_force, simulation.context, pos/nanometers)
+                update_rachet_pawl_force(ratchet_pawl_force, simulation.context, pos/nanometers, outfile=outfile)
             if options.oxy_bound:
                 oxygen_force.update(simulation.context, pos, outfile=outfile)
             stats_reporter.report(simulation, qm_atoms)

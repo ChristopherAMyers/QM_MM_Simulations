@@ -323,6 +323,7 @@ def add_rachet_pawl_force(system, pair_file_loc, coords, strength, topology, hal
 
     #   create force object
     force_string = 'on_off*0.5*k*exp(-a*(r - r_0))*(r - r_max)^2; '
+    force_string = 'on_off*0.5*k*exp(-a*(r - r_0))*(r - r_max)^2; '
     force_string += 'on_off = step(r_max - r); ' #    equals 1 if r < r_max, 0 otherwise
     force_string += 'r = distance(p1, p2); '
     custom_force = CustomCompoundBondForce(2, force_string)
@@ -339,7 +340,11 @@ def add_rachet_pawl_force(system, pair_file_loc, coords, strength, topology, hal
     system.addForce(custom_force)
     return custom_force
 
-def update_rachet_pawl_force(force, context, coords):
+def update_rachet_pawl_force(force, context, coords, outfile=None):
+
+    if outfile:
+        print(" Updating Ratchet-Pawl Force", file=outfile)
+
     n_bonds = force.getNumBonds()
     for n in range(n_bonds):
 
@@ -348,5 +353,12 @@ def update_rachet_pawl_force(force, context, coords):
         dist = np.linalg.norm(coords[pair[0]] - coords[pair[1]])
         params[1] = np.max([params[1], dist])
         force.setBondParameters(n, pair, params)
+
+        if outfile:
+            print( "\t{:4d}  {:4d}  {:8.5f}".format(pair[0], pair[1], params[1]), file=outfile)
+
+
     force.updateParametersInContext(context)
+
+
 
