@@ -211,3 +211,7 @@ class JobOptions(object):
         #   charge and multiplicity
         self.charge = 0
         self.mult = 1
+
+        #   oxygen-oxygen repulsion force
+        self.oxy_repel = False
+        self.oxy_repel_dist = 0.25 * nanometers

@@ -10,6 +10,40 @@ nanometer = nanometers = unit.nanometer
 femtoseconds = unit.femtoseconds
 # pylint: enable=no-member
 
+def add_oxygen_repulsion(system, topology, boundary=0.25):
+    force_string = '4*epsilon*(sigma/r)^12; '
+    force_string += 'sigma = (sigma1 + sigma2)*0.5; '
+    force_string += 'epsilon = sqrt(epsilon1*epsilon2)'
+    customForce = CustomNonbondedForce(force_string)
+    customForce.addPerParticleParameter("sigma")
+    customForce.addPerParticleParameter("epsilon")
+
+    #   add only oxygen atoms that are not waters
+    group = []
+    res_ids = []    
+    for atoms in topology.atoms():
+        if atoms.element.symbol == 'O' and atoms.residue.name != 'HOH':
+            group.append(atoms.index)
+            res_ids.append(int(atoms.residue.id))
+            customForce.addParticle([boundary, 1.0])
+        else:
+            customForce.addParticle([boundary, 0.0])
+
+    #   exclude oxygens that are of the same residue
+    exclusions = []        
+    for i, atom1 in enumerate(group):
+        for j, atom2 in enumerate(group):
+            if res_ids[i] == res_ids[j] and i < j:
+                exclusions.append((atom1, atom2))
+
+    customForce.addInteractionGroup(group, group)
+    for excl in exclusions:
+        print("EXCL: ", excl)
+        customForce.addExclusion(*excl)
+
+    system.addForce(customForce)
+
+
 
 class BoundryForce():
     def __init__(self, system, topology, positions, qm_atoms, max_dist=0.4*nanometers, scale=10000.0):
@@ -311,6 +345,8 @@ def add_rachet_pawl_force(system, pair_file_loc, coords, strength, topology, hal
     '''
     #   import atom pairs from file
     atom_pairs = []
+    half_dists =[]
+    strengths = []
     index_dict = {}
     for atom in topology.atoms():
         index_dict[int(atom.id)] = atom.index
@@ -320,9 +356,14 @@ def add_rachet_pawl_force(system, pair_file_loc, coords, strength, topology, hal
             p1 = index_dict[int(sp[0])]
             p2 = index_dict[int(sp[1])]
             atom_pairs.append([p1, p2])
+            if len(sp) == 4:
+                strengths.append(float(sp[2]))
+                half_dists.append(float(sp[3]))
+            else:
+                strengths.append(strength)
+                half_dists.append(half_dist)
 
     #   create force object
-    force_string = 'on_off*0.5*k*exp(-a*(r - r_0))*(r - r_max)^2; '
     force_string = 'on_off*0.5*k*exp(-a*(r - r_0))*(r - r_max)^2; '
     force_string += 'on_off = step(r_max - r); ' #    equals 1 if r < r_max, 0 otherwise
     force_string += 'r = distance(p1, p2); '
@@ -332,10 +373,11 @@ def add_rachet_pawl_force(system, pair_file_loc, coords, strength, topology, hal
     custom_force.addPerBondParameter('r_0')
     custom_force.addPerBondParameter('a')
 
-    a = -np.log(0.5)/half_dist
-    for pair in atom_pairs:
+    
+    for n, pair in enumerate(atom_pairs):
         dist = np.linalg.norm(coords[pair[0]] - coords[pair[1]])
-        custom_force.addBond(pair, [strength, dist, dist, a])
+        a = -np.log(0.5)/half_dists[n]
+        custom_force.addBond(pair, [strengths[n], dist, dist, a])
 
     system.addForce(custom_force)
     return custom_force
@@ -344,6 +386,7 @@ def update_rachet_pawl_force(force, context, coords, outfile=None):
 
     if outfile:
         print(" Updating Ratchet-Pawl Force", file=outfile)
+        print(" \t idx1  idx2  r_max     curr_k      k", file=outfile)
 
     n_bonds = force.getNumBonds()
     for n in range(n_bonds):
@@ -355,7 +398,13 @@ def update_rachet_pawl_force(force, context, coords, outfile=None):
         force.setBondParameters(n, pair, params)
 
         if outfile:
-            print( "\t{:4d}  {:4d}  {:8.5f}".format(pair[0], pair[1], params[1]), file=outfile)
+            k = params[0]
+            r = dist
+            r_0 = params[2]
+            a = params[3]
+            curr_strength = k*np.exp(-a*(r - r_0))
+            print( "\t{:4d}  {:4d}  {:8.5f}  {:8.5f}  {:8.5f}"\
+                .format(pair[0], pair[1], params[1], curr_strength, k), file=outfile)
 
 
     force.updateParametersInContext(context)

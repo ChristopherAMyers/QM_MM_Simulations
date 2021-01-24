@@ -248,6 +248,16 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, spin_mult=
             file.write(line)
         file.write('$end \n\n')
 
+        #   cdft
+        cdft_lines = '''
+        $cdft
+        3
+        1 28 33
+        $end
+
+        '''
+        file.write(cdft_lines)
+
         #   write external charges
         file.write('$external_charges \n')
         for line in chg_lines:
@@ -434,6 +444,7 @@ def update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, coords_in_nm,
 def get_rem_lines(rem_file_loc, outfile):
     rem_lines = []
     rem_lines_in = []
+
     with open(rem_file_loc, 'r') as file:
         for line in file.readlines():
             if "$" not in line:
@@ -491,6 +502,12 @@ def get_rem_lines(rem_file_loc, outfile):
             elif option == 'charge':
                 opts.charge = int(sp[1])
 
+            #   oxygen repulsion force
+            elif option == 'oxy_repel':
+                opts.oxy_repel = bool(strtobool(sp[1]))
+            elif option == 'oxy_repel_dist':
+                opts.oxy_repel_dist = float(sp[1])
+
             #   random number seeds
             elif option == 'aimd_temp_seed':
                 seed = int(sp[1])
@@ -508,6 +525,13 @@ def get_rem_lines(rem_file_loc, outfile):
             #    print("ERROR: rem option < %s > is not supported" % option)
             #    print("       Script will now terminate")
             #    exit()
+
+    #   print rem file to output so user can make sure
+    #   it was interpereted correctly
+    outfile.write(' imported rem file \n')
+    for line in open(rem_file_loc, 'r').readlines():
+        outfile.write(line)
+    outfile.write('\n')
 
     if opts.jobtype == 'aimd':
         if opts.aimd_thermostat:
@@ -555,6 +579,10 @@ def get_rem_lines(rem_file_loc, outfile):
         outfile.write(' Oxygen boundry:            {:10d} \n'.format(int(opts.oxy_bound)))
         outfile.write(' Oxygen boundry force:      {:10.4f} nm \n'.format(opts.oxy_bound_dist / nanometers))
         outfile.write(' Oxygen boundry distance:   {:10.1f} \n'.format(opts.oxy_bound_force))
+
+    if opts.oxy_repel:
+        outfile.write(' Oxy - Oxy Repulsion:       {:10d} \n'.format(int(opts.oxy_repel)))
+        outfile.write(' Oxy - Oxy Distance:        {:10.4f} \n'.format(float(opts.oxy_repel_dist)))
 
     outfile.write('--------------------------------------------\n')
     outfile.flush()
@@ -802,6 +830,9 @@ def main(args_in):
         if options.oxy_bound:
             oxygen_force = BoundryForce(system, pdb.topology, pdb.getPositions(True), qm_atoms, \
                 options.oxy_bound_dist, options.oxy_bound_force)
+
+        if options.oxy_repel:
+            add_oxygen_repulsion(system, pdb.topology, options.oxy_repel_dist)
 
         #   debug only: turns off forces except one
         if False:
