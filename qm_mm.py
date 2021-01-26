@@ -29,6 +29,7 @@ sys.path.insert(1, "/network/rit/lab/ChenRNALab/bin/Pymol2.3.2/pymol/lib/python3
 import pdb_to_qc
 from sim_extras import *
 from forces import *
+from spin_mult import *
 
 qchem_path = ''
 qc_scratch = '/tmp'
@@ -122,6 +123,11 @@ def find_all_qm_atoms(mat_idx_list, bondedToAtom, topology):
         for bonded_to in bondedToAtom[idx]:
             if atoms[bonded_to].element.symbol not in ['Se', 'Zn']:
                 pass
+
+def determine_mult(topology, coords, current_mult):
+    '''
+        determine system spin multiplicity based on number of O2 molecules
+    '''
 
 def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
     #   set the force constants for atoms included
@@ -495,12 +501,16 @@ def get_rem_lines(rem_file_loc, outfile):
                 opts.ratchet_pawl_force = float(sp[1])
             elif option == 'ratchet_pawl_half_dist':
                 opts.ratchet_pawl_half_dist = float(sp[1])
+            elif option == 'ratchet_pawl_switch':
+                opts.ratchet_pawl_switch = sp[1].lower()
 
             #   charge and multiplicity
             elif option == 'mult':
                 opts.mult = int(sp[1])
             elif option == 'charge':
                 opts.charge = int(sp[1])
+            elif option == 'adapt_spin':
+                opts.adapt_mult = bool(strtobool(sp[1]))
 
             #   oxygen repulsion force
             elif option == 'oxy_repel':
@@ -528,7 +538,7 @@ def get_rem_lines(rem_file_loc, outfile):
 
     #   print rem file to output so user can make sure
     #   it was interpereted correctly
-    outfile.write(' imported rem file \n')
+    outfile.write(' Imported rem file \n')
     for line in open(rem_file_loc, 'r').readlines():
         outfile.write(line)
     outfile.write('\n')
@@ -556,10 +566,14 @@ def get_rem_lines(rem_file_loc, outfile):
     outfile.write(' Total QM charge:           {:10d} \n'.format(opts.charge))
     outfile.write(' QM Multiplicity:           {:10d} \n'.format(opts.mult))
 
+    if opts.adapt_mult:
+        outfile.write(' Adaptive Spin:             {:10d} \n'.format(int(opts.adapt_mult)))
+
     if opts.ratchet_pawl:
         outfile.write(' Ratchet-Pawl:              {:10d} \n'.format(int(opts.ratchet_pawl)))
         outfile.write(' Ratchet-Pawl Force:        {:10.1f} \n'.format(float(opts.ratchet_pawl_force)))
         outfile.write(' Ratchet-Pawl Half-Dist:    {:10.4f} \n'.format(opts.ratchet_pawl_half_dist))
+        outfile.write(' Ratchet-Pawl Switching:    {:>10s} \n'.format(opts.ratchet_pawl_switch))
 
     if opts.jobtype == 'aimd':
         outfile.write(' temperature:               {:>10.2f} K \n'.format(opts.aimd_temp/kelvin) )
@@ -824,7 +838,8 @@ def main(args_in):
         #   add ratchet-pawl force
         if options.ratchet_pawl:
             ratchet_pawl_force = add_rachet_pawl_force(system, args.pawl, pdb.getPositions(True), \
-                options.ratchet_pawl_force, pdb.topology, half_dist=options.ratchet_pawl_half_dist)
+                options.ratchet_pawl_force, pdb.topology, half_dist=options.ratchet_pawl_half_dist,
+                switch_type=options.ratchet_pawl_switch)
 
         #   add oxygen boundry force
         if options.oxy_bound:
@@ -902,6 +917,7 @@ def main(args_in):
 
         simulation.saveState('initial_state.xml')
 
+        spin_mult = options.mult
         #   run simulation
         for n in range(options.aimd_steps):
 
@@ -925,19 +941,33 @@ def main(args_in):
                 qm_atoms = update_mm_forces(qm_atoms, system, simulation.context, pos, pdb.topology, outfile=outfile)
                 
             if len(qm_atoms) > 0:
-                qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile, total_chg=options.charge, spin_mult=options.mult)
-                #qm_energy = energy = np.loadtxt('qm_mm_scratch/GRAD', skiprows=1, max_rows=1)*2625.5009
-                #qm_gradient = np.loadtxt('qm_mm_scratch/GRAD', skiprows=3, max_rows=len(qm_atoms))* 2625.5009  / bohrs.conversion_factor_to(nanometer)
-                update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile)
-            #   call reporter before taking a step. OpenMM calls reporters after taking a step, but this
-            #   will not report the correct force and energy as the new current parameters are only valid 
-            #   for the current positions, not after
+                qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile, total_chg=options.charge, spin_mult=spin_mult)
 
+                #   adaptive spin multiplicity
+                new_mult = determine_mult_from_coords(pos, pdb.topology, spin_mult, qm_atoms)
+                if (options.adapt_mult and new_mult != spin_mult):
+                        new_energy, new_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile, total_chg=options.charge, spin_mult=new_mult)
+                        if new_energy < qm_energy:
+                            outfile.write("\n Step {:d}: Changing spin multiplicity from {:d} to {:d} \n".format(n, spin_mult, new_mult))
+                            outfile.write(" Energy difference: {:.5f} kJ/mol \n\n".format((new_energy - qm_energy)/kilojoules_per_mole))
+                            qm_energy = new_energy
+                            qm_gradient = new_gradient
+                            spin_mult = new_mult
+
+                update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile)
+
+
+            #   additional force updates
             if options.ratchet_pawl:
                 update_rachet_pawl_force(ratchet_pawl_force, simulation.context, pos/nanometers, outfile=outfile)
             if options.oxy_bound:
                 oxygen_force.update(simulation.context, pos, outfile=outfile)
             stats_reporter.report(simulation, qm_atoms)
+
+
+            #   call reporter before taking a step. OpenMM calls reporters after taking a step, but this
+            #   will not report the correct force and energy as the current parameters are only valid 
+            #   for the current positions, not after
             qm_atoms_reporter.report(simulation, qm_atoms)
             
             if n % 10  == 0:

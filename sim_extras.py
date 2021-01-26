@@ -197,6 +197,7 @@ class JobOptions(object):
         self.ratchet_pawl = False
         self.ratchet_pawl_force = 0.0
         self.ratchet_pawl_half_dist = 1000.0
+        self.ratchet_pawl_switch = 'exp'
 
         #   simulated annealing options
         self.annealing = False
@@ -211,6 +212,7 @@ class JobOptions(object):
         #   charge and multiplicity
         self.charge = 0
         self.mult = 1
+        self.adapt_mult = False
 
         #   oxygen-oxygen repulsion force
         self.oxy_repel = False

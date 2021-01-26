@@ -330,7 +330,8 @@ def add_pull_force(coords, system):
     system.addForce(pull_force)
     return pull_force
 
-def add_rachet_pawl_force(system, pair_file_loc, coords, strength, topology, half_dist=1000.0):
+
+def add_rachet_pawl_force(system, pair_file_loc, coords, strength, topology, half_dist=1000.0, switch_type='exp'):
     ''' Applies a ratched-and-pawl force that favors restricts
         the approachment of two atoms and is zero if they are
         moving away.
@@ -364,7 +365,13 @@ def add_rachet_pawl_force(system, pair_file_loc, coords, strength, topology, hal
                 half_dists.append(half_dist)
 
     #   create force object
-    force_string = 'on_off*0.5*k*exp(-a*(r - r_0))*(r - r_max)^2; '
+    force_string = 'on_off*0.5*k*switch*(r - r_max)^2; '
+    if switch_type == 'exp':
+        force_string += 'switch=exp(-a*(r - r_0)); '
+    elif switch_type == 'tanh':
+        force_string += 'switch=(1 - tanh((r - r_0)*a))*0.5; '
+    else:
+        raise ValueError("Invalid switching type; must be 'exp' or 'tanh'")
     force_string += 'on_off = step(r_max - r); ' #    equals 1 if r < r_max, 0 otherwise
     force_string += 'r = distance(p1, p2); '
     custom_force = CustomCompoundBondForce(2, force_string)
@@ -372,12 +379,20 @@ def add_rachet_pawl_force(system, pair_file_loc, coords, strength, topology, hal
     custom_force.addPerBondParameter('r_max')
     custom_force.addPerBondParameter('r_0')
     custom_force.addPerBondParameter('a')
+    custom_force.addPerBondParameter('s_type')
 
     
     for n, pair in enumerate(atom_pairs):
         dist = np.linalg.norm(coords[pair[0]] - coords[pair[1]])
-        a = -np.log(0.5)/half_dists[n]
-        custom_force.addBond(pair, [strengths[n], dist, dist, a])
+        if switch_type == 'exp':
+            a = -np.log(0.5)/half_dists[n]
+            r_0 = dist
+            s_type = 0
+        elif switch_type == 'tanh':
+            a = 50.0
+            r_0 = dist + half_dist
+            s_type = 1
+        custom_force.addBond(pair, [strengths[n], dist, r_0, a, s_type])
 
     system.addForce(custom_force)
     return custom_force
@@ -386,7 +401,7 @@ def update_rachet_pawl_force(force, context, coords, outfile=None):
 
     if outfile:
         print(" Updating Ratchet-Pawl Force", file=outfile)
-        print(" \t idx1  idx2  r_max     curr_k      k", file=outfile)
+        print(" \t idx1  idx2  r_max      curr_k         k", file=outfile)
 
     n_bonds = force.getNumBonds()
     for n in range(n_bonds):
@@ -402,8 +417,12 @@ def update_rachet_pawl_force(force, context, coords, outfile=None):
             r = dist
             r_0 = params[2]
             a = params[3]
-            curr_strength = k*np.exp(-a*(r - r_0))
-            print( "\t{:4d}  {:4d}  {:8.5f}  {:8.5f}  {:8.5f}"\
+            s_type = params[4]
+            if s_type == 0:
+                curr_strength = k*np.exp(-a*(r - r_0))
+            elif s_type == 1:
+                curr_strength = k*(1 - tanh((r - r_0)*a))*0.5
+            print( "\t{:4d}  {:4d}  {:8.5f}  {:10.1f}  {:10.1f}"\
                 .format(pair[0], pair[1], params[1], curr_strength, k), file=outfile)
 
 
