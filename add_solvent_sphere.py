@@ -24,6 +24,103 @@ from sim_extras import *
 from forces import *
 import pdb_to_qc
 
+class WaterFiller():
+    def __init__(self, topology, forcefield, radius=0.3*nanometers, model='lanl2dz'):
+        self.radius = radius
+
+        if model == 'srlc':
+            self.base_water = np.array([[ 0.0000000000, 0.0000000000,  0.1092512612],
+                                        [-0.8012202255, 0.0000000000, -0.4370050449],
+                                        [ 0.8012202255, 0.0000000000, -0.4370050449]])*0.1
+        else:
+            self.base_water = np.array([[ 0.0000000000, 0.0000000000,  0.1215427515],
+                                        [-0.7896370596, 0.0000000000, -0.4431507900],
+                                        [ 0.7896370596, 0.0000000000, -0.4431507900]])*0.1
+
+
+        #   get vdw radii of solute from forcefield
+        system = forcefield.createSystem(topology)
+        nonbonded = None
+        for i in range(system.getNumForces()):
+            if isinstance(system.getForce(i), NonbondedForce):
+                nonbonded = system.getForce(i)
+        if nonbonded is None:
+            raise ValueError('The ForceField does not specify a NonbondedForce')
+        vdw_radii = []
+        for i in range(system.getNumParticles()):
+            params = nonbonded.getParticleParameters(i)
+            if params[2] != 0*kilojoules_per_mole:
+                vdw_radii.append(np.min([params[1]/nanometers, 0.25]))
+            else:
+                vdw_radii.append(0)
+        self.vdw_radii = np.array(vdw_radii)
+
+        self.water_idx = []
+        self.oxygen_idx = []
+        for res in topology.residues():
+            if res.name == 'HOH':
+                water_list = []
+                for atom in res.atoms():
+                    water_list.append(atom.index)
+                    if atom.element.symbol == 'O':
+                        self.oxygen_idx.append(atom.index)
+                self.water_idx.append(water_list)
+        self.top = topology
+
+
+    def fill_void(self, positions, qm_atoms, outfile=sys.stdout):
+        qm_pos = positions[qm_atoms]
+        vdw_radii = self.vdw_radii
+        vdw_dists = (vdw_radii + 0.312)*0.5*nanometers
+        center = np.mean(qm_pos, axis=0)
+        max_extent = np.max(np.linalg.norm(qm_pos - center, axis=1)*nanometers) + self.radius
+
+        max_tries = 2000
+        new_pos = []
+        for n in range(max_tries):
+            r = max_extent * (np.random.rand())**(1/3) / nanometers
+            u = np.random.rand()
+            v = np.random.rand()
+            theta = u * 2.0 * np.pi
+            phi = np.arccos(2.0 * v - 1.0)
+            rand_pos = np.array([r*np.sin(theta)*np.cos(phi), 
+                                 r*np.sin(theta)*np.sin(phi), 
+                                 r*np.cos(theta)])*nanometers
+
+            #   rotate to new random orientation and translate
+            mat = rot.random().as_matrix()
+            rot_water = (np.array(self.base_water) @ mat)*nanometers
+            water = rot_water + rand_pos + center
+
+            dists_from_oxy = np.linalg.norm(positions - water[0], axis=1)*nanometers
+            num_contacts = np.sum(dists_from_oxy < vdw_dists)
+            if n % 1000 == 0:
+                print("Try: ", n, num_contacts)
+            if num_contacts == 0:
+                dist_from_qm = np.linalg.norm(qm_pos - water[0], axis=1)*nanometers
+                closest_qm_dist = np.min(dist_from_qm)
+                if closest_qm_dist <= self.radius:
+                    new_pos = water
+                    break
+
+        if len(new_pos) != 0:
+            oxygen_pos = positions[self.oxygen_idx]
+            max_idx = np.argmax(np.linalg.norm(oxygen_pos - center, axis=1))
+            water_idx_list = self.water_idx[max_idx]
+
+            for n, idx in enumerate(water_idx_list):
+                positions[idx] = new_pos[n]
+
+            atom = list(self.top.atoms())[water_idx_list[0]]
+            
+            print("\n Replacing water position of atoms {:d} - {:d} of residue {:d} "
+                    .format(int(atom.id), int(atom.id) + 2, int(atom.residue.id)), file=outfile)
+            print(" Closest QM atom is {:.5f} Ang. away \n".format(closest_qm_dist*10/nanometers), file=outfile)
+
+            #PDBFile.writeModel(self.top, positions, open('new.pdb', 'w'), keepIds=True)
+
+        exit()
+        return positions
 
 
 def print_pressure(simulation, masses_in_kg):
@@ -208,13 +305,14 @@ if __name__ == "__main__":
         forcefield.registerResidueTemplate(template)
 
     ####   change the center of the water cluster here   ####
-    origin = np.mean(pdb.getPositions(True)[[106, 107, 110, 111]], axis=0)
+    #origin = np.mean(pdb.getPositions(True)[[106, 107, 110, 111]], axis=0)
+    origin = pdb.getPositions(True)[0]
     print(" Center : ", origin)
 
     n_atoms_init = pdb.topology.getNumAtoms()
     print(" Initial number of atoms: {:d}".format(n_atoms_init))
     print(" Adding Solvent")
-    mols = add_solvent_shell(pdb.positions, pdb.topology, forcefield, origin=origin, radius=1.5*nanometers, solventBox=userSolvBox)
+    mols = add_solvent_shell(pdb.positions, pdb.topology, forcefield, origin=origin, radius=5.0*nanometers, solventBox=userSolvBox)
     system = forcefield.createSystem(mols.topology, nonbondedMethod=CutoffNonPeriodic,
             nonbondedCutoff=1*nanometer, constraints=HBonds)
     n_atoms_final = mols.topology.getNumAtoms()
@@ -223,7 +321,7 @@ if __name__ == "__main__":
 
     pdb_file_loc = 'solvated.pdb'
     print(" Writing %s" % pdb_file_loc)
-    PDBFile.writeModel(mols.topology, mols.positions, open(pdb_file_loc, 'w'))
+    PDBFile.writeModel(mols.topology, mols.positions, open(pdb_file_loc, 'w'), keepIds=True)
 
     #   reload printed pdb and get index list of solvent inside sphere
     #   this is because outputed pdb file is out guarenteed to have same atom

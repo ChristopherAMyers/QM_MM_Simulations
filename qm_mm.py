@@ -30,6 +30,7 @@ import pdb_to_qc
 from sim_extras import *
 from forces import *
 from spin_mult import *
+from add_solvent_sphere import WaterFiller
 
 qchem_path = ''
 qc_scratch = '/tmp'
@@ -90,6 +91,9 @@ def parse_idx(idx_file_loc, topology):
     qm_origin_atoms_indices = sorted(qm_origin_atoms_indices)
 
     return (qm_fixed_atoms_indices, qm_origin_atoms_indices)
+
+
+
 
 def get_qm_spheres(originAtoms, qm_atoms, radius_in_ang, xyz_in_ang, topology):          
 
@@ -462,6 +466,8 @@ def get_rem_lines(rem_file_loc, outfile):
         sp_comment = line.split('!')
         if sp_comment[0] != '!':
             sp = line.split()
+            if len(sp) == 0:
+                continue
             option = sp[0].lower()
             if option == 'time_step':
                 opts.time_step = float(sp[1]) * 0.0242 * femtoseconds
@@ -917,6 +923,8 @@ def main(args_in):
 
         simulation.saveState('initial_state.xml')
 
+        water_filler = WaterFiller(pdb.topology, forcefield)
+
         spin_mult = options.mult
         #   run simulation
         for n in range(options.aimd_steps):
@@ -934,12 +942,17 @@ def main(args_in):
             state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True, getForces=True)
             pos = state.getPositions(True)
 
-            # update QM atom list
+        
+            # update QM atom list and water positions
             if n % 10 == 0:
+                if False:
+                    pos = water_filler.fill_void(pos, qm_atoms, outfile=outfile)
+
                 qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pos/angstrom, pdb.topology)
                 qm_atoms = qm_fixed_atoms + qm_sphere_atoms
                 qm_atoms = update_mm_forces(qm_atoms, system, simulation.context, pos, pdb.topology, outfile=outfile)
                 
+
             if len(qm_atoms) > 0:
                 qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile, total_chg=options.charge, spin_mult=spin_mult)
 
