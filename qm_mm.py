@@ -303,7 +303,6 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
         else:
             run(cmd.split())
         end = time.time()
-
         #   forward Q-Chem output to output file and search for completion
         found_thank_you = False
         found_scf_failure = False
@@ -330,7 +329,7 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
     grad_file_loc = os.path.join(qc_scratch, 'save_files/GRAD')
     
     if os.path.isfile(grad_file_loc):
-        shutil.copyfile(grad_file_loc, os.path.join(scratch, 'GRAD'))
+        #shutil.copyfile(grad_file_loc, os.path.join(scratch, 'GRAD'))
         energy = np.loadtxt(grad_file_loc, skiprows=1, max_rows=1)
         gradient = np.loadtxt(grad_file_loc, skiprows=3, max_rows=len(qm_atoms))
 
@@ -802,7 +801,9 @@ def main(args_in):
     #   make sure Q-Chem is available, exit otherwise
     if 'QC' in os.environ:
         qchem_path = os.environ.get('QC')
+        qc_scratch = os.environ.get('QCSCRATCH')
         print(" QC set as ", qchem_path)
+        print(" QCSCRATCH set as ", qc_scratch)
     else:
         print(" Error: environment variable QC not defined. Cannot find Q-Chem directory")
         exit()
@@ -899,9 +900,6 @@ def main(args_in):
 
         #   set up files
         scratch = os.path.join(os.path.curdir, 'qm_mm_scratch/')
-        if 'QCSCRATCH' in os.environ:
-            qc_scratch = os.environ.get('QCSCRATCH')
-            print(" QCSCRATCH set as ", qc_scratch)
         os.makedirs(scratch, exist_ok=True)
         os.makedirs(qc_scratch, exist_ok=True)
         atoms = list(pdb.topology.atoms())
