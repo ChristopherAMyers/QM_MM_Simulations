@@ -149,7 +149,9 @@ def add_bonds(pdb, remove_orig=False):
     bond_list += get_bonds_from_coords('se', 'zn', coords, elements, 2.7)
     bond_list += get_bonds_from_coords('zn', 'n', coords, elements, 2.4)
     bond_list += get_bonds_from_coords('o', 'h', coords, elements, 1.3)
-    
+    bond_list += get_bonds_from_coords('o', 'h', coords, elements, 1.3)
+    bond_list += get_bonds_from_coords('o', 'o', coords, elements, 1.5)
+
 
     atoms = list(pdb.topology.atoms())
     if remove_orig:

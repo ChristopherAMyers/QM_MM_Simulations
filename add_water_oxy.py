@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from simtk.openmm.app import * #pylint: disable=unused-wildcard-import
 from simtk.openmm.app import element
 from simtk.openmm import *
@@ -60,11 +61,18 @@ class SolventAdder(object):
             params = nonbonded.getParticleParameters(i)
             vdw_radii.append(params[1]/angstrom)
 
+        vdw_radii = [np.min([2.5, x]) for x in vdw_radii]
+
         solute_coords = np.array(solute_coords/angstrom)
         all_coords = np.copy(solute_coords)
         all_vdw_radii = np.copy(vdw_radii)
         new_waters = []
         new_o2s = []
+        multi_center = False
+        n_centers = 1
+        if len(np.shape(center_coord)) == 2:
+            multi_center = True
+            n_centers = len(center_coord)
 
         
         for mol_type in ['o2', 'water']:
@@ -94,7 +102,12 @@ class SolventAdder(object):
                 rand_loc = np.array([x, y, z])
 
                 #   place solvent
-                location = rand_loc + center_coord/angstrom
+                if multi_center:
+                    center = center_coord[np.random.randint(n_centers)]
+                else:
+                    center = center_coord
+
+                location = rand_loc + center/angstrom
                 mol = rot_mol + location
 
                 #   determine collisions
@@ -159,18 +172,22 @@ class SolventAdder(object):
 
 if __name__ == "__main__":
 
+    n_configs = 3
+    if len(sys.argv) == 3:
+        n_configs = int(sys.argv[2])
+
     pdb = PDBFile(sys.argv[1])
-    pdb_to_qc.add_bonds(pdb)
+    pdb_to_qc.add_bonds(pdb, remove_orig=True)
     data, bondedToAtom = pdb_to_qc.determine_connectivity(pdb.topology)
-    ff_loc = '/network/rit/lab/ChenRNALab/awesomeSauce/2d_materials/ZnSe/quant_espres/znse_2x2/qm_mm/forcefield'
-    forcefield = ForceField(os.path.join(ff_loc, 'forcefields/forcefield2.xml'))
-    unmatched_residues = forcefield.getUnmatchedResidues(pdb.topology)
+
+    ff_loc = os.path.join(os.path.dirname(__file__), 'forcefields/forcefield2.xml')
+    forcefield = ForceField(ff_loc, 'tip3p.xml')
     [templates, residues] = forcefield.generateTemplatesForUnmatchedResidues(pdb.topology)
     for n, template in enumerate(templates):
         residue = residues[n]
         atom_names = []
         for atom in template.atoms:
-            if residue.name in ['EXT', 'OTH']:
+            if residue.name in ['EXT', 'OTH', 'MTH']:
                 atom.type = 'OTHER-' + atom.element.symbol
             else:
                 atom.type = residue.name + "-" + atom.name.upper()
@@ -179,14 +196,18 @@ if __name__ == "__main__":
         # Register the template with the forcefield.
         template.name += str(n)
         forcefield.registerResidueTemplate(template)
-    system = forcefield.createSystem(pdb.topology)
+
+    [templates, residues] = forcefield.generateTemplatesForUnmatchedResidues(pdb.topology)
+    print(templates)
+    system = forcefield.createSystem(pdb.topology, rigidWater=False)
 
     adder = SolventAdder()
     positions = pdb.getPositions(True)
-    center = np.mean(positions[[106, 107, 110, 111]], axis=0)
+    center = np.mean(positions[[90, 91, 94, 95]], axis=0)
+    center = positions[[90, 91, 94, 95]]
     print(" Center : ", center)
-    for n in range(3):
-        new_top, new_pos = adder.add_solvent(positions, pdb.topology, forcefield, 4.0, center, n_waters=0, n_o2=8)
+    for n in range(n_configs):
+        new_top, new_pos = adder.add_solvent(positions, pdb.topology, forcefield, 2.5, center, n_waters=0, n_o2=4)
         with open('init.{:d}.pdb'.format(n + 1), 'w') as file:
             pdb.writeFile(new_top, new_pos, file)
 

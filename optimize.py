@@ -23,6 +23,7 @@ class GradientMethod(object):
         self._max_step_size = 0.02 # nanometers
         #self._pdb_file = open(outfile_loc, 'w')
         self._pdb_file_loc = outfile_loc
+        self._num_fails = 0
 
     #def __del__(self):
     #    self._pdb_file.close()
@@ -31,7 +32,8 @@ class GradientMethod(object):
         
         dim = simulation.topology.getNumAtoms()
         state = simulation.context.getState(getPositions=True, getForces=True, getEnergy=True)
-        energy = state.getPotentialEnergy()
+        qm_energy = simulation.context.getParameter('qm_energy')
+        energy = state.getPotentialEnergy() + qm_energy * kilojoules_per_mole
         forces = state.getForces(True) / (kilojoules_per_mole / nanometer)
         pos = state.getPositions(True).reshape(dim*3) / nanometer
         max_force_mag = np.max(np.linalg.norm(forces, axis=1))
@@ -40,7 +42,7 @@ class GradientMethod(object):
         outfile.flush()
         print(' -----------------------------------------------------------', file=outfile)
         print(" Performing Conjugate-Gradient Step ", file=outfile)
-        print(" Force Factor: ", 1/np.sqrt(np.sum(forces**2)))
+        #print(" Force Factor: ", 1/np.sqrt(np.sum(forces**2)))
         print(" Maximum force magnitude on atom: ", max_force_mag, file=outfile)
         print(" Energy old:        ", self._energy_old, file=outfile)
         print(" Energy new:        ", energy, file=outfile)
@@ -65,11 +67,15 @@ class GradientMethod(object):
             print(" Polak-Ribiere step factor: ", beta, file=outfile)
         
         #   last step was successfull, try increased stepsize
-        if energy < self._energy_old or (energy - self._energy_old) < 2.0*kilojoules_per_mole:
-            if energy < self._energy_old:
+        if energy < self._energy_old or (energy - self._energy_old) < 2.0*kilojoules_per_mole or self._num_fails >= 10:
+            if self._num_fails >= 10:
+                print(" Number of fails exceeded. Continuing anyway with fixed stepsize", file=outfile)
+                #   decrease stepsize to compensate for later increase
+                self._stepsize = 1.00E-07 / 1.2
+            elif energy < self._energy_old:
                 print(" Energy condition passed ", file=outfile)
             else:
-                print(" Energy condition failed, but continuing b/c diff. is < 2 kJ/mol")
+                print(" Energy condition failed, but continuing b/c diff. is < 2 kJ/mol", file=outfile)
             self._stepsize = self._stepsize * 1.2
             self._step_old = step
             self._pos_old = pos
@@ -91,6 +97,7 @@ class GradientMethod(object):
             print(" Shrinking stepsize by 0.5", file=outfile)
             self._stepsize = self._stepsize * 0.5
             new_pos = self._pos_old + self._stepsize * self._step_old
+            self._num_fails += 1
         print(" Using stepsize of {:15.5E}".format(self._stepsize), file=outfile)
 
         print(' -----------------------------------------------------------', file=outfile)

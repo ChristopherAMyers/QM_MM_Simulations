@@ -61,7 +61,7 @@
         <Atom type="MTH-HC13" charge="+0.2000" sigma="0.120" epsilon="0.0656"/>
         <Atom type="MTH-HN1"  charge="+0.4000" sigma="0.120" epsilon="0.0656"/>
         <Atom type="MTH-HN2"  charge="+0.4000" sigma="0.120" epsilon="0.0656"/>
-        <Atom type="OTHER-O"  charge="+0.0000" sigma="0.304" epsilon="0.0656"/>
+        <Atom type="OTHER-O"  charge="+0.0000" sigma="0.1" epsilon="0.0656"/>
         <Atom type="OTHER-N"  charge="+0.0000" sigma="0.304" epsilon="0.0656"/>
         <Atom type="OTHER-C"  charge="+0.0000" sigma="0.304" epsilon="0.0656"/>
         <Atom type="OTHER-H"  charge="+0.0000" sigma="0.120" epsilon="0.0656"/>
@@ -154,6 +154,11 @@
             <Bond atomName1="N"  atomName2="HN2"/>
             <ExternalBond atomName="N"/>
         </Residue>
+        <Residue name="EXT">
+            <Atom name="O1" type="OTHER-O" charge="+0.00"/>
+            <Atom name="O2" type="OTHER-O" charge="+0.00"/>
+            <Bond atomName1="O1" atomName2="O2"/>
+        </Residue>
     </Residues>
     <HarmonicBondForce>
         <!--Other random types-->
@@ -203,6 +208,9 @@
         <Bond k="200000.00" length="0.10927" type1="MTH-C1"   type2="MTH-HC12"/>
         <Bond k="200000.00" length="0.11259" type1="MTH-C1"   type2="MTH-HC13"/>
         <Bond k="200000.00" length="0.21723" type1="MAT-ZN3"  type2="MTH-N"   />
+
+        <!--O2-->
+        <Bond k="200000.00" length="0.14000" type1="OTHER-O"  type2="OTHER-O"   />
 
 
     </HarmonicBondForce>

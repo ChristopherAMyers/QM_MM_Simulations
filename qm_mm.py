@@ -616,13 +616,16 @@ def get_integrator(opts):
             return integrator
         else:
             return VerletIntegrator(opts.time_step)
-    elif opts.jobtype == 'grad':
+    elif opts.jobtype == 'friction':
+        #   Langevin integrator without the random noise
         integrator = CustomIntegrator(opts.time_step)
-        integrator.addGlobalVariable("step_size", opts.time_step / nanometers)
-        integrator.addUpdateContextState()
-        integrator.addConstrainPositions()
-        integrator.addComputePerDof("x", "x + step_size*step_size*f")
+        integrator.addGlobalVariable("step_size", opts.time_step)
+        integrator.addComputePerDof("v", "v + dt*f/m")
+        integrator.addComputePerDof("x", "x + 0.5*dt*v")
+        integrator.addComputePerDof("v", "0.2*v")
+        integrator.addComputePerDof("x", "x + 0.5*dt*v")
         return integrator
+
     else:
         if True:
             integrator = CustomIntegrator(opts.time_step)
@@ -641,59 +644,6 @@ def get_integrator(opts):
             integrator.addComputePerDof("x", "x")
             return integrator
 
-            integrator.addUpdateContextState()
-            integrator.addConstrainPositions()
-
-            integrator.addComputeGlobal("energy_new", "energy")
-            integrator.addComputeSum("fnorm2", "f^2")
-            integrator.addComputePerDof("dir", "f/sqrt(fnorm2 + delta(fnorm2))")
-            integrator.addComputeGlobal("delta_energy", "energy_new-energy_old")
-            integrator.addComputeGlobal("accept", "step(-delta_energy) * delta(energy - energy_new)")
-            integrator.addComputeGlobal("accept", "1")
-            #integrator.addComputeGlobal("step_size", "step_size * (1.2*accept + 0.5*(1-accept))")
-            integrator.addComputeGlobal("energy_old", "energy*accept + (1-accept)*energy_old")
-            integrator.addComputePerDof("dir_old",    "dir*accept + (1-accept)*dir_old")
-            integrator.addComputePerDof("x_old", "    x*accept + (1-accept)*x_old")
-            integrator.addComputePerDof("x", "accept*(x + step_size*dir) + (1-accept)*(x_old + step_size*dir_old)")
-
-        else:
-            integrator = CustomIntegrator(opts.time_step)
-            #integrator.addComputePerDof("v", "0.0")
-            #integrator.addComputePerDof("x", "x + 0.5*dt*dt*f/m")
-            #integrator.addComputePerDof("x", "x + dt*f")
-            #return integrator
-            """
-            Construct a simple gradient descent minimization integrator.
-            An adaptive step size is used.
-            """
-            #timestep = 1.0 * unit.femtoseconds
-            integrator.addGlobalVariable("step_size", opts.time_step / nanometers)
-            integrator.addGlobalVariable("energy_old", 0)
-            integrator.addGlobalVariable("energy_new", 0)
-            integrator.addGlobalVariable("delta_energy", 0)
-            integrator.addGlobalVariable("accept", 0)
-            integrator.addGlobalVariable("fnorm2", 0)
-            integrator.addPerDofVariable("x_old", 0)
-
-            integrator.addUpdateContextState()
-            integrator.addConstrainPositions()
-            # Store old energy and positions.
-            integrator.addComputeGlobal("energy_old", "energy")
-            integrator.addComputePerDof("x_old", "x")
-            # Compute sum of squared norm.
-            integrator.addComputeSum("fnorm2", "f^2")
-            # Take step.
-            integrator.addComputePerDof("x", "x+step_size*f/sqrt(fnorm2 + delta(fnorm2))")
-            integrator.addConstrainPositions()
-            # Ensure we only keep steps that go downhill in energy.
-            integrator.addComputeGlobal("energy_new", "energy")
-            integrator.addComputeGlobal("delta_energy", "energy_new-energy_old")
-            # Accept also checks for NaN
-            integrator.addComputeGlobal("accept", "step(-delta_energy) * delta(energy - energy_new)")
-            integrator.addComputePerDof("x", "accept*x + (1-accept)*x_old")
-
-            # Update step size.
-            integrator.addComputeGlobal("step_size", "step_size * (1.2*accept + 0.5*(1-accept))")
 
         return integrator
    
@@ -814,6 +764,7 @@ def main(args_in):
         pdb_to_qc.add_bonds(pdb, remove_orig=True)
         data, bondedToAtom = pdb_to_qc.determine_connectivity(pdb.topology)
 
+
         ff_loc = os.path.join(os.path.dirname(__file__), 'forcefields/forcefield2.xml')
         forcefield = ForceField(ff_loc, 'tip3p.xml')
         [templates, residues] = forcefield.generateTemplatesForUnmatchedResidues(pdb.topology)
@@ -830,12 +781,15 @@ def main(args_in):
             # Register the template with the forcefield.
             template.name += str(n)
             forcefield.registerResidueTemplate(template)
+
+
         integrator = get_integrator(options)
         qm_fixed_atoms, qm_origin_atoms = parse_idx(args.idx, pdb.topology)
 
         qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pdb.getPositions()/angstrom, pdb.topology)
         qm_atoms = qm_fixed_atoms + qm_sphere_atoms
         system = forcefield.createSystem(pdb.topology, rigidWater=False)
+
         #   re-map nonbonded forces so QM only interacts with MM through vdW
         charges = add_nonbonded_force(qm_atoms, system, pdb.topology.bonds(), outfile=outfile)
 
@@ -971,6 +925,7 @@ def main(args_in):
             #   additional force updates
             if options.ratchet_pawl:
                 update_rachet_pawl_force(ratchet_pawl_force, simulation.context, pos/nanometers, outfile=outfile)
+            print(options.oxy_bound)
             if options.oxy_bound:
                 oxygen_force.update(simulation.context, pos, outfile=outfile)
             stats_reporter.report(simulation, qm_atoms)
