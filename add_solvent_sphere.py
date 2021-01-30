@@ -94,8 +94,6 @@ class WaterFiller():
 
             dists_from_oxy = np.linalg.norm(positions - water[0], axis=1)*nanometers
             num_contacts = np.sum(dists_from_oxy < vdw_dists)
-            if n % 1000 == 0:
-                print("Try: ", n, num_contacts)
             if num_contacts == 0:
                 dist_from_qm = np.linalg.norm(qm_pos - water[0], axis=1)*nanometers
                 closest_qm_dist = np.min(dist_from_qm)
@@ -119,7 +117,7 @@ class WaterFiller():
 
             #PDBFile.writeModel(self.top, positions, open('new.pdb', 'w'), keepIds=True)
 
-        exit()
+        #exit()
         return positions
 
 

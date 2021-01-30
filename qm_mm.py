@@ -276,6 +276,65 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, spin_mult=
 
         return input_file_loc
 
+def get_qm_force(coords, charges, elements, qm_atoms, output_file, topology, opts, total_chg=0, rem_lines=[], step_number=0, copy_input=False, outfile=sys.stdout, spin_mult=1):
+
+    qm_energy, qm_gradient = calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg, rem_lines, step_number, copy_input, outfile, spin_mult)
+
+
+    #   adaptive spin multiplicity for O2
+    if (opts.adapt_mult or opts.mc_spin) and (step_number % 10 == 0):
+        #   spin mult based on number of O2 molecules
+        if opts.adapt_mult:
+            new_mult = determine_mult_from_coords(coords*10*nanometers, topology, spin_mult, qm_atoms)
+            if new_mult != spin_mult:
+                new_energy, new_gradient = calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg, rem_lines, step_number, copy_input, outfile, new_mult)
+
+            if new_energy < qm_energy:
+                outfile.write("\n Step {:d}: Changing spin multiplicity from {:d} to {:d} \n".format(n, spin_mult, new_mult))
+                outfile.write(" Energy difference: {:.5f} kJ/mol \n\n".format((new_energy - qm_energy)/kilojoules_per_mole))
+                qm_energy = new_energy
+                qm_gradient = new_gradient
+                #   change spin mult of system to the new multiplicity
+                opts.mult = new_mult
+
+        #   marcov chain spin flip
+        elif opts.mc_spin:
+            up_or_down = np.random.randint(0, 2)
+            if up_or_down == 0:
+                new_mult = spin_mult - 2
+            else:
+                new_mult = spin_mult + 2
+
+            new_energy, new_gradient = calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg, rem_lines, step_number, copy_input, outfile, new_mult)
+            energy_diff = (new_energy - qm_energy)/kilojoules_per_mole
+
+            print(" Appempted new spin multiplicity at step {:d}".format(step_number), file=outfile)
+            print(" Old spin multiplicity: {:d}".format(spin_mult), file=outfile)
+            print(" New spin multiplicity: {:d}".format(new_mult), file=outfile)
+            print(" Energy difference: {:15.5f} kJ/mol".format(energy_diff), file=outfile)
+
+
+            accept = False
+            if energy_diff < 0:
+                print(" Accepted new multiplicity", file=outfile)
+                accept = True
+            else:
+                y = np.random.rand()
+                kT = opts.aimd_temp/kelvin * 0.00831446261815324
+                if y < np.exp(-energy_diff/kT):
+                    accept = True
+                    print(" Accepted new multiplicity from Boltzmann probability", file=outfile)
+                else:
+                    print(" Denied new multiplicity from Boltzmann probability", file=outfile)
+            
+            if accept:
+                qm_energy = new_energy
+                qm_gradient = new_gradient
+                opts.mult = new_mult
+
+    return qm_energy, qm_gradient
+
+
 def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False, outfile=sys.stdout, spin_mult=1):
     global scratch, qc_scratch, n_procs
     redo = True
@@ -516,6 +575,8 @@ def get_rem_lines(rem_file_loc, outfile):
                 opts.charge = int(sp[1])
             elif option == 'adapt_spin':
                 opts.adapt_mult = bool(strtobool(sp[1]))
+            elif option == 'mc_spin':
+                opts.mc_spin = bool(strtobool(sp[1]))
 
             #   oxygen repulsion force
             elif option == 'oxy_repel':
@@ -573,6 +634,8 @@ def get_rem_lines(rem_file_loc, outfile):
 
     if opts.adapt_mult:
         outfile.write(' Adaptive Spin:             {:10d} \n'.format(int(opts.adapt_mult)))
+    if opts.mc_spin:
+        outfile.write(' MCMC Spin:                 {:10d} \n'.format(int(opts.mc_spin)))
 
     if opts.ratchet_pawl:
         outfile.write(' Ratchet-Pawl:              {:10d} \n'.format(int(opts.ratchet_pawl)))
@@ -764,6 +827,11 @@ def main(args_in):
         pdb_to_qc.add_bonds(pdb, remove_orig=True)
         data, bondedToAtom = pdb_to_qc.determine_connectivity(pdb.topology)
 
+        for b in pdb.topology.bonds():
+            a1 = b.atom1
+            if a1.residue.id == '48':
+                print(b)
+
 
         ff_loc = os.path.join(os.path.dirname(__file__), 'forcefields/forcefield2.xml')
         forcefield = ForceField(ff_loc, 'tip3p.xml')
@@ -771,15 +839,18 @@ def main(args_in):
         for n, template in enumerate(templates):
             residue = residues[n]
             atom_names = []
+            print(template.bonds)
             for atom in template.atoms:
                 if residue.name in ['EXT', 'OTH', 'MTH']:
                     atom.type = 'OTHER-' + atom.element.symbol
+                    print(atom)
                 else:
                     atom.type = residue.name + "-" + atom.name.upper()
                 atom_names.append(atom.name)
 
             # Register the template with the forcefield.
             template.name += str(n)
+            print(template.name)
             forcefield.registerResidueTemplate(template)
 
 
@@ -897,7 +968,7 @@ def main(args_in):
         
             # update QM atom list and water positions
             if n % 10 == 0:
-                if False:
+                if True:
                     pos = water_filler.fill_void(pos, qm_atoms, outfile=outfile)
 
                 qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pos/angstrom, pdb.topology)
@@ -906,9 +977,13 @@ def main(args_in):
                 
 
             if len(qm_atoms) > 0:
-                qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile, total_chg=options.charge, spin_mult=spin_mult)
+
+                qm_energy, qm_gradient = get_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, pdb.topology, options, rem_lines=rem_lines, step_number=n, outfile=outfile, total_chg=options.charge, spin_mult=options.mult)
+
+                #qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile, total_chg=options.charge, spin_mult=spin_mult)
 
                 #   adaptive spin multiplicity
+                '''
                 new_mult = determine_mult_from_coords(pos, pdb.topology, spin_mult, qm_atoms)
                 if (options.adapt_mult and new_mult != spin_mult):
                         new_energy, new_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile, total_chg=options.charge, spin_mult=new_mult)
@@ -918,7 +993,7 @@ def main(args_in):
                             qm_energy = new_energy
                             qm_gradient = new_gradient
                             spin_mult = new_mult
-
+                '''
                 update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile)
 
 

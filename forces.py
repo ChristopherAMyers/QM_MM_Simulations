@@ -354,6 +354,8 @@ def add_rachet_pawl_force(system, pair_file_loc, coords, strength, topology, hal
     with open(pair_file_loc, 'r') as file:
         for line in file.readlines():
             sp = line.split()
+            if len(sp) == 0:
+                continue
             p1 = index_dict[int(sp[0])]
             p2 = index_dict[int(sp[1])]
             atom_pairs.append([p1, p2])

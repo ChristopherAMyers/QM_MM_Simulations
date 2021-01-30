@@ -148,9 +148,6 @@ def add_bonds(pdb, remove_orig=False):
     bond_list += get_bonds_from_coords('c', 'c', coords, elements, 1.8)
     bond_list += get_bonds_from_coords('se', 'zn', coords, elements, 2.7)
     bond_list += get_bonds_from_coords('zn', 'n', coords, elements, 2.4)
-    bond_list += get_bonds_from_coords('o', 'h', coords, elements, 1.3)
-    bond_list += get_bonds_from_coords('o', 'h', coords, elements, 1.3)
-    bond_list += get_bonds_from_coords('o', 'o', coords, elements, 1.5)
 
 
     atoms = list(pdb.topology.atoms())
@@ -158,6 +155,27 @@ def add_bonds(pdb, remove_orig=False):
         pdb.topology._bonds = []
     for bond in bond_list:
         pdb.topology.addBond(atoms[bond[0]], atoms[bond[1]])
+
+
+    #   special bonds
+    for res in pdb.topology.residues():
+        #   water
+        if res.name == 'HOH':
+            oxygen = None
+            hydro = []
+            for atom in res.atoms():
+                if atom.element.symbol == 'O':
+                    oxygen = atom
+                else:
+                    hydro.append(atom)
+            pdb.topology.addBond(oxygen, hydro[0])
+            pdb.topology.addBond(oxygen, hydro[1])
+        elif res.name == 'EXT':
+            atoms = list(res.atoms())
+            if len(atoms) == 2 and atoms[0].element.symbol == 'O' and atoms[1].element.symbol == 'O':
+                pdb.topology.addBond(atoms[0], atoms[1])
+            
+
 
 def pdb_to_qc(pdb, file_out_loc, bondedToAtom, qc_forcefield):
 

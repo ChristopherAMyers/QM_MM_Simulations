@@ -213,6 +213,7 @@ class JobOptions(object):
         self.charge = 0
         self.mult = 1
         self.adapt_mult = False
+        self.mc_spin = False
 
         #   oxygen-oxygen repulsion force
         self.oxy_repel = False

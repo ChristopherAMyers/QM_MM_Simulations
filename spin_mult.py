@@ -13,8 +13,6 @@ femtoseconds = unit.femtoseconds
 from mdtraj.reporters import HDF5Reporter
 import numpy as np
 
-def 
-
 
 def determine_mult_from_coords(coords, topology, current_mult, qm_atoms, bond_dist=1.8*angstrom):
     
