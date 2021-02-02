@@ -25,7 +25,7 @@ from forces import *
 import pdb_to_qc
 
 class WaterFiller():
-    def __init__(self, topology, forcefield, radius=0.3*nanometers, model='lanl2dz'):
+    def __init__(self, topology, forcefield, simulation, radius=0.3*nanometers, model='lanl2dz'):
         self.radius = radius
 
         if model == 'srlc':
@@ -67,8 +67,13 @@ class WaterFiller():
                 self.water_idx.append(water_list)
         self.top = topology
 
+        self._simulation = simulation
+
 
     def fill_void(self, positions, qm_atoms, outfile=sys.stdout):
+        if len(self.water_idx) == 0:
+            return positions
+
         qm_pos = positions[qm_atoms]
         vdw_radii = self.vdw_radii
         vdw_dists = (vdw_radii + 0.312)*0.5*nanometers
@@ -110,14 +115,15 @@ class WaterFiller():
                 positions[idx] = new_pos[n]
 
             atom = list(self.top.atoms())[water_idx_list[0]]
-            
-            print("\n Replacing water position of atoms {:d} - {:d} of residue {:d} "
-                    .format(int(atom.id), int(atom.id) + 2, int(atom.residue.id)), file=outfile)
+            step = self._simulation.currentStep
+
+            print("\n Step {:d}: Replacing water position of atoms {:d} - {:d} of residue {:d} "
+                    .format(step, int(atom.id), int(atom.id) + 2, int(atom.residue.id)), file=outfile)
             print(" Closest QM atom is {:.5f} Ang. away \n".format(closest_qm_dist*10/nanometers), file=outfile)
 
-            #PDBFile.writeModel(self.top, positions, open('new.pdb', 'w'), keepIds=True)
-
-        #exit()
+            #   update positions in context
+            self._simulation.context.setPositions(positions)
+            
         return positions
 
 

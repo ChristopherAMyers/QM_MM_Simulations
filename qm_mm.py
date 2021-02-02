@@ -5,6 +5,7 @@ from simtk.openmm.openmm import * #pylint: disable=unused-wildcard-import
 from simtk.unit import * #pylint: disable=unused-wildcard-import
 import argparse
 import numpy as np
+from numpy.linalg import norm
 import sys
 import itertools
 from multiprocessing import cpu_count
@@ -258,16 +259,6 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, spin_mult=
             file.write(line)
         file.write('$end \n\n')
 
-        #   cdft
-        cdft_lines = '''
-        $cdft
-        3
-        1 28 33
-        $end
-
-        '''
-        file.write(cdft_lines)
-
         #   write external charges
         file.write('$external_charges \n')
         for line in chg_lines:
@@ -380,6 +371,8 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
         if found_scf_failure and failures == 1:
             redo = True
             use_rem_lines.append('scf_algorithm DIIS_GDM')
+            if spin_mult == 1:
+                use_rem_lines.append('unrestricted False')
         elif found_thank_you or failures > 1:
             redo = False
 
@@ -827,30 +820,21 @@ def main(args_in):
         pdb_to_qc.add_bonds(pdb, remove_orig=True)
         data, bondedToAtom = pdb_to_qc.determine_connectivity(pdb.topology)
 
-        for b in pdb.topology.bonds():
-            a1 = b.atom1
-            if a1.residue.id == '48':
-                print(b)
-
-
         ff_loc = os.path.join(os.path.dirname(__file__), 'forcefields/forcefield2.xml')
         forcefield = ForceField(ff_loc, 'tip3p.xml')
         [templates, residues] = forcefield.generateTemplatesForUnmatchedResidues(pdb.topology)
         for n, template in enumerate(templates):
             residue = residues[n]
             atom_names = []
-            print(template.bonds)
             for atom in template.atoms:
                 if residue.name in ['EXT', 'OTH', 'MTH']:
                     atom.type = 'OTHER-' + atom.element.symbol
-                    print(atom)
                 else:
                     atom.type = residue.name + "-" + atom.name.upper()
                 atom_names.append(atom.name)
 
             # Register the template with the forcefield.
             template.name += str(n)
-            print(template.name)
             forcefield.registerResidueTemplate(template)
 
 
@@ -946,7 +930,7 @@ def main(args_in):
 
         simulation.saveState('initial_state.xml')
 
-        water_filler = WaterFiller(pdb.topology, forcefield)
+        water_filler = WaterFiller(pdb.topology, forcefield, simulation)
 
         spin_mult = options.mult
         #   run simulation
@@ -961,11 +945,9 @@ def main(args_in):
                 integrator.setTemperature(current_temp)
                 outfile.write("\n Current temperature: {:10.5f} K \n".format(current_temp / kelvin))
 
-
             state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True, getForces=True)
             pos = state.getPositions(True)
 
-        
             # update QM atom list and water positions
             if n % 10 == 0:
                 if True:
@@ -974,26 +956,10 @@ def main(args_in):
                 qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pos/angstrom, pdb.topology)
                 qm_atoms = qm_fixed_atoms + qm_sphere_atoms
                 qm_atoms = update_mm_forces(qm_atoms, system, simulation.context, pos, pdb.topology, outfile=outfile)
-                
 
             if len(qm_atoms) > 0:
 
                 qm_energy, qm_gradient = get_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, pdb.topology, options, rem_lines=rem_lines, step_number=n, outfile=outfile, total_chg=options.charge, spin_mult=options.mult)
-
-                #qm_energy, qm_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile, total_chg=options.charge, spin_mult=spin_mult)
-
-                #   adaptive spin multiplicity
-                '''
-                new_mult = determine_mult_from_coords(pos, pdb.topology, spin_mult, qm_atoms)
-                if (options.adapt_mult and new_mult != spin_mult):
-                        new_energy, new_gradient = calc_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, rem_lines=rem_lines, step_number=n, outfile=outfile, total_chg=options.charge, spin_mult=new_mult)
-                        if new_energy < qm_energy:
-                            outfile.write("\n Step {:d}: Changing spin multiplicity from {:d} to {:d} \n".format(n, spin_mult, new_mult))
-                            outfile.write(" Energy difference: {:.5f} kJ/mol \n\n".format((new_energy - qm_energy)/kilojoules_per_mole))
-                            qm_energy = new_energy
-                            qm_gradient = new_gradient
-                            spin_mult = new_mult
-                '''
                 update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile)
 
 
@@ -1016,7 +982,8 @@ def main(args_in):
 
             if options.jobtype == 'opt':
                 opt.step(simulation, outfile=outfile)
-          
+
+
             simulation.step(1)
 
 
