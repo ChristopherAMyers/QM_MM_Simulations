@@ -71,7 +71,7 @@ class RandomKicksForce():
 
 
 class BoundryForce():
-    def __init__(self, simulation, topology, positions, qm_atoms, max_dist=0.4*nanometers, scale=10000.0):
+    def __init__(self, system, topology, positions, qm_atoms, max_dist=0.4*nanometers, scale=10000.0):
         '''
             Adds a force that keeps oxygen molecules within a spicific distance
             from at least one material atom. Applies only to QM atoms
