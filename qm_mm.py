@@ -37,7 +37,7 @@ qchem_path = ''
 qc_scratch = '/tmp'
 
 #   set available CPU resources
-if 'SLURM_NTASKS_PER_NODE' in os.environ.keys():
+if 'SLURM_NTASKS' in os.environ.keys():
     n_procs = int(os.environ['SLURM_NTASKS'])
 else:
     #   if not running a slurm job, use number of cores
@@ -945,7 +945,6 @@ def main(args_in):
         water_filler = WaterFiller(pdb.topology, forcefield, simulation)
 
         spin_mult = options.mult
-        return simulation
         #   run simulation
         for n in range(options.aimd_steps):
 
