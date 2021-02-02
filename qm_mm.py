@@ -38,11 +38,11 @@ qc_scratch = '/tmp'
 
 #   set available CPU resources
 if 'SLURM_NTASKS_PER_NODE' in os.environ.keys():
-    n_procs = int(os.environ['SLURM_NTASKS_PER_NODE'])
+    n_procs = int(os.environ['SLURM_NTASKS'])
 else:
     #   if not running a slurm job, use number of cores
     n_procs = cpu_count()
-print("SLURM: ", 'SLURM_NTASKS_PER_NODE' in os.environ.keys(), n_procs)
+print("SLURM: ", 'SLURM_NTASKS' in os.environ.keys(), n_procs)
 
 
 def parse_args(args_in):
