@@ -56,7 +56,7 @@ def parse_args(args_in):
     parser.add_argument('-repf',  help='file to print forces to')
     parser.add_argument('-repv',  help='file to print velocities to')
     parser.add_argument('-pawl',  help='list of atom ID pairs to apply ratchet-pawl force between')
-    parser.add_argument('-nt', help='number of threads to use in Q-Chem calculations', dtype=int)
+    parser.add_argument('-nt', help='number of threads to use in Q-Chem calculations', type=int)
     return parser.parse_args(args_in)
 
 def parse_idx(idx_file_loc, topology):

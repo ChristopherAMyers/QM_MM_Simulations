@@ -218,3 +218,7 @@ class JobOptions(object):
         #   oxygen-oxygen repulsion force
         self.oxy_repel = False
         self.oxy_repel_dist = 0.25 * nanometers
+
+        #   rangom gaussian kicks
+        self.random_kicks = False
+        self.random_kicks_scale = 0.20
