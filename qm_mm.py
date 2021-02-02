@@ -35,7 +35,13 @@ from add_solvent_sphere import WaterFiller
 
 qchem_path = ''
 qc_scratch = '/tmp'
-n_procs = cpu_count()
+
+#   set available CPU resources
+if 'SLURM_NTASKS_PER_NODE' in os.environ.keys():
+    n_procs = int(os.environ['SLURM_NTASKS_PER_NODE'])
+else:
+    #   if not running a slurm job, use number of cores
+    n_procs = cpu_count()
 
 
 def parse_args(args_in):
@@ -281,7 +287,7 @@ def get_qm_force(coords, charges, elements, qm_atoms, output_file, topology, opt
                 new_energy, new_gradient = calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg, rem_lines, step_number, copy_input, outfile, new_mult)
 
             if new_energy < qm_energy:
-                outfile.write("\n Step {:d}: Changing spin multiplicity from {:d} to {:d} \n".format(n, spin_mult, new_mult))
+                outfile.write("\n Step {:d}: Changing spin multiplicity from {:d} to {:d} \n".format(step_number, spin_mult, new_mult))
                 outfile.write(" Energy difference: {:.5f} kJ/mol \n\n".format((new_energy - qm_energy)/kilojoules_per_mole))
                 qm_energy = new_energy
                 qm_gradient = new_gradient
