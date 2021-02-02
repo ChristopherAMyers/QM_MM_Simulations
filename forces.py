@@ -43,10 +43,35 @@ def add_oxygen_repulsion(system, topology, boundary=0.25):
 
     system.addForce(customForce)
 
+class RandomKicksForce():
+    def __init__(self, simulation, topology, temperature, scale=0.2):
+        kB = BOLTZMANN_CONSTANT_kB * AVOGADRO_CONSTANT_NA/1000 #Boltzmann constant in kJ/mole/K
+        kB = kB/unit
+        self._kB_m = np.array([x.element.mass/dalton for x in topology.atoms()])*kB
+        self._simulation = simulation
+        self.temperature = temperature/kelvin
+        self.scale = scale
+
+    def update(self, temperature=None):
+        temp = self.temperature
+        if temperature:
+            temp = temperature/kelvin
+        
+        state = self._simulation.getState(getVelocities=True)
+        velocities = state.getVelocities(True)
+
+        kicks = np.sqrt(self._kB_m * temp) * np.random.normal(scale=len(velocities)) * self.scale
+        new_vel = velocities + kicks*(nanometers/picosecond)
+
+        self._simulation.context.setVelocities(new_vel)
+
+    def set_temperature(self, temperature):
+        self.temperature = temperature
+
 
 
 class BoundryForce():
-    def __init__(self, system, topology, positions, qm_atoms, max_dist=0.4*nanometers, scale=10000.0):
+    def __init__(self, simulation, topology, positions, qm_atoms, max_dist=0.4*nanometers, scale=10000.0):
         '''
             Adds a force that keeps oxygen molecules within a spicific distance
             from at least one material atom. Applies only to QM atoms

@@ -42,6 +42,7 @@ if 'SLURM_NTASKS_PER_NODE' in os.environ.keys():
 else:
     #   if not running a slurm job, use number of cores
     n_procs = cpu_count()
+print("SLURM: ", 'SLURM_NTASKS_PER_NODE' in os.environ.keys(), n_procs)
 
 
 def parse_args(args_in):
@@ -55,6 +56,7 @@ def parse_args(args_in):
     parser.add_argument('-repf',  help='file to print forces to')
     parser.add_argument('-repv',  help='file to print velocities to')
     parser.add_argument('-pawl',  help='list of atom ID pairs to apply ratchet-pawl force between')
+    parser.add_argument('-nt', help='number of threads to use in Q-Chem calculations', dtype=int)
     return parser.parse_args(args_in)
 
 def parse_idx(idx_file_loc, topology):
@@ -684,7 +686,7 @@ def get_integrator(opts):
         integrator.addGlobalVariable("step_size", opts.time_step)
         integrator.addComputePerDof("v", "v + dt*f/m")
         integrator.addComputePerDof("x", "x + 0.5*dt*v")
-        integrator.addComputePerDof("v", "0.2*v")
+        integrator.addComputePerDof("v", "0.9*v")
         integrator.addComputePerDof("x", "x + 0.5*dt*v")
         return integrator
 
@@ -820,6 +822,10 @@ def main(args_in):
         print(" Error: environment variable QC not defined. Cannot find Q-Chem directory")
         exit()
 
+
+    if args.nt:
+        n_procs = args.nt
+
     with open(args.out, 'w') as outfile:
         rem_lines, options = get_rem_lines(args.rem, outfile)
         pdb = PDBFile(args.pdb)
@@ -939,6 +945,7 @@ def main(args_in):
         water_filler = WaterFiller(pdb.topology, forcefield, simulation)
 
         spin_mult = options.mult
+        return simulation
         #   run simulation
         for n in range(options.aimd_steps):
 
