@@ -111,7 +111,10 @@ class StatsReporter(object):
 
             #   calculate temperatures from kinetic energies
             temp_mm = np.sum(v2[mm_atoms]*masses[mm_atoms])/(len(mm_atoms) * k * 3)
-            temp_qm = np.sum(v2[qm_atoms]*masses[qm_atoms])/(len(qm_atoms) * k * 3)
+            if len(qm_atoms) > 0:
+                temp_qm = np.sum(v2[qm_atoms]*masses[qm_atoms])/(len(qm_atoms) * k * 3)
+            else:
+                temp_qm = 0.0
             temp_all = np.sum(v2*masses)/(len(v2) * k * 3)
 
             #   rescale temperature if too high
@@ -222,3 +225,7 @@ class JobOptions(object):
         #   rangom gaussian kicks
         self.random_kicks = False
         self.random_kicks_scale = 0.20
+
+        #   initial ionization
+        self.ionization = False
+        self.ionization_num = 1

@@ -7,7 +7,6 @@ import argparse
 import numpy as np
 from numpy.linalg import norm
 import sys
-import itertools
 from multiprocessing import cpu_count
 from subprocess import run
 import time
@@ -16,7 +15,7 @@ from scipy import optimize
 from optimize import GradientMethod
 from mdtraj.reporters import HDF5Reporter
 from distutils.util import strtobool
-from code import interact
+from random import shuffle
 
 # pylint: disable=no-member
 import simtk.unit as unit
@@ -136,11 +135,6 @@ def find_all_qm_atoms(mat_idx_list, bondedToAtom, topology):
         for bonded_to in bondedToAtom[idx]:
             if atoms[bonded_to].element.symbol not in ['Se', 'Zn']:
                 pass
-
-def determine_mult(topology, coords, current_mult):
-    '''
-        determine system spin multiplicity based on number of O2 molecules
-    '''
 
 def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
     #   set the force constants for atoms included
@@ -303,6 +297,8 @@ def get_qm_force(coords, charges, elements, qm_atoms, output_file, topology, opt
                 new_mult = spin_mult - 2
             else:
                 new_mult = spin_mult + 2
+            new_mult = max(1, new_mult)
+            
 
             new_energy, new_gradient = calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg, rem_lines, step_number, copy_input, outfile, new_mult)
             energy_diff = (new_energy - qm_energy)/kilojoules_per_mole
@@ -585,6 +581,18 @@ def get_rem_lines(rem_file_loc, outfile):
             elif option == 'oxy_repel_dist':
                 opts.oxy_repel_dist = float(sp[1])
 
+            #   random kicks
+            elif option == 'random_kicks':
+                opts.random_kicks = bool(strtobool(sp[1]))
+            elif option == 'random_kicks_scale':
+                opts.random_kicks_scale = float(sp[1])
+
+            #   initial ionization
+            elif option == 'ionization':
+                opts.ionization = bool(strtobool(sp[1]))
+            elif option == 'ionization_num':
+                opts.ionization_num = int(sp[1])
+
             #   random number seeds
             elif option == 'aimd_temp_seed':
                 seed = int(sp[1])
@@ -666,6 +674,14 @@ def get_rem_lines(rem_file_loc, outfile):
     if opts.oxy_repel:
         outfile.write(' Oxy - Oxy Repulsion:       {:10d} \n'.format(int(opts.oxy_repel)))
         outfile.write(' Oxy - Oxy Distance:        {:10.4f} \n'.format(float(opts.oxy_repel_dist)))
+
+    if opts.random_kicks:
+        outfile.write(' Random Thermal Kicks:      {:10d} \n'.format(int(opts.random_kicks)))
+        outfile.write(' Random Kicks Scale:        {:10.5f} \n'.format(opts.random_kicks_scale))
+
+    if opts.ionization:
+        outfile.write(' Initial Ionization:        {:10d} \n'.format(int(opts.ionization)))
+        outfile.write(' No. of ionized H2O pairs:  {:10d} \n'.format(opts.ionization_num))
 
     outfile.write('--------------------------------------------\n')
     outfile.flush()
@@ -805,6 +821,62 @@ def print_initial_forces(simulation, qm_atoms, topology, outfile):
     print(" or an inproper force field parameterization.", file=outfile)
 
 
+def ionize(topology, coords, qm_atoms, num):
+
+    #   extract which residues are QM waters
+    qm_water_residues = set()
+    for res in topology.residues():
+        if res.name == 'HOH':
+            for atom in res.atoms():
+                if atom.index in qm_atoms:
+                    qm_water_residues.add(res)
+                    break
+
+    for n in range(num):
+        water_residues = list(qm_water_residues)
+        idx_list = np.arange(len(qm_water_residues))
+        shuffle(idx_list)
+        res1 = water_residues[idx_list[0]]
+        res2 = water_residues[idx_list[1]]
+        qm_water_residues.remove(res1)
+        qm_water_residues.remove(res2)        
+
+        #   A single hydrogen is going to be moved from res1 to res2.
+        #   The oxygen of res2 will act as the center of
+        O = np.empty(3)
+        H1 = np.empty(3)
+        H2 = np.empty(3)
+        for atom in res2.atoms():
+            if atom.element.symbol == 'O':
+                O = coords[atom.index]/nanometers
+                print("O: ", atom.id, O)
+            elif atom.name == 'H1':
+                H1 = coords[atom.index]/nanometers
+                print("H1: ", atom.id, H1)
+            else:
+                H2 = coords[atom.index]/nanometers
+                print("H2: ", atom.id, H2)
+
+        #   the new hydrogen is now positioned first in the plane of the
+        #   water molecule, and then extruded slightly out of the plane to
+        #   create the tetrahedral shape
+
+        z_length = 0.05                              # length to extrude out of water plane
+        xy_length = sqrt(0.1**2 - z_length**2)                # distance from oxygen atom to shift in plane
+        center = (H1 + H2)/2                            # center of hydrogen atoms
+        center_to_O = (O - center)/norm(O - center)     # unit vec from center to oxygen
+        new_xy = O + center_to_O*xy_length              # position above oxygen in plane of water
+        center_to_H1 = (H1 - center)/norm(H1 - center)  # unit vec form center to H1
+        normal = np.cross(center_to_H1, center_to_O)       # unit normal to plane of water
+        normal = normal/norm(normal)
+        new_xyz = new_xy + normal*z_length              # now shift out of plane by small amount
+                                                        # to make tetrahedral
+        
+        for atom in res1.atoms():
+            if atom.name == 'H1':
+                coords[atom.index] = new_xyz*nanometers
+
+
 def main(args_in):
     global scratch, n_procs, qc_scratch, qchem_path
     oxygen_force = None
@@ -853,6 +925,7 @@ def main(args_in):
         integrator = get_integrator(options)
         qm_fixed_atoms, qm_origin_atoms = parse_idx(args.idx, pdb.topology)
 
+        #   set initial number of QM atoms
         qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pdb.getPositions()/angstrom, pdb.topology)
         qm_atoms = qm_fixed_atoms + qm_sphere_atoms
         system = forcefield.createSystem(pdb.topology, rigidWater=False)
@@ -862,6 +935,10 @@ def main(args_in):
 
         #   "external" force for updating QM forces and MM electrostatics
         ext_force = add_ext_force_all(system, charges)
+
+        if options.ionization:
+            ionize(pdb.topology, pdb.positions, qm_atoms, options.ionization_num)
+            PDBFile.writeModel(pdb.topology, pdb.positions, file=open('ionized.pdb', 'w'), keepIds=True)
 
         #   add ratchet-pawl force
         if options.ratchet_pawl:
@@ -884,10 +961,6 @@ def main(args_in):
                     if not isinstance(force, CustomNonbondedForce):
                         system.removeForce(i)
                         break
-        
-        #   add pulling force
-        if False:
-            pull_force = add_ext_force_all(pdb.positions, system)
 
         #   initialize simulation and set positions
         simulation = Simulation(pdb.topology, system, integrator)
@@ -913,6 +986,10 @@ def main(args_in):
 
         #   remove bonded forces between QM and MM system
         adjust_forces(system, simulation.context, pdb.topology, qm_atoms, outfile=outfile)
+
+        #   random kicks force
+        if options.random_kicks:
+            kicks = RandomKicksForce(simulation, pdb.topology, options.aimd_temp, scale=options.random_kicks_scale)
 
         #   output files and reporters
         stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qm_atoms, vel_file_loc=args.repv, force_file_loc=args.repf)
@@ -943,8 +1020,6 @@ def main(args_in):
         simulation.saveState('initial_state.xml')
 
         water_filler = WaterFiller(pdb.topology, forcefield, simulation)
-
-        spin_mult = options.mult
         #   run simulation
         for n in range(options.aimd_steps):
 
@@ -956,19 +1031,22 @@ def main(args_in):
                 current_temp = options.aimd_temp  + temp_diff * np.sin(options.time_step * n * omega)**2
                 integrator.setTemperature(current_temp)
                 outfile.write("\n Current temperature: {:10.5f} K \n".format(current_temp / kelvin))
+                if options.random_kicks:
+                    kicks.set_temperature(current_temp)
 
             state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True, getForces=True)
             pos = state.getPositions(True)
 
             # update QM atom list and water positions
             if n % 10 == 0:
-                if True:
+                if len(qm_atoms) > 0:
                     pos = water_filler.fill_void(pos, qm_atoms, outfile=outfile)
 
                 qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pos/angstrom, pdb.topology)
                 qm_atoms = qm_fixed_atoms + qm_sphere_atoms
                 qm_atoms = update_mm_forces(qm_atoms, system, simulation.context, pos, pdb.topology, outfile=outfile)
 
+            qm_atoms_reporter.report(simulation, qm_atoms)
             if len(qm_atoms) > 0:
 
                 qm_energy, qm_gradient = get_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, pdb.topology, options, rem_lines=rem_lines, step_number=n, outfile=outfile, total_chg=options.charge, spin_mult=options.mult)
@@ -987,13 +1065,17 @@ def main(args_in):
             #   call reporter before taking a step. OpenMM calls reporters after taking a step, but this
             #   will not report the correct force and energy as the current parameters are only valid 
             #   for the current positions, not after
-            qm_atoms_reporter.report(simulation, qm_atoms)
+            
             
             if n % 10  == 0:
                 simulation.saveState('simulation.xml')
 
             if options.jobtype == 'opt':
                 opt.step(simulation, outfile=outfile)
+
+            #   update current velocity with random kicks
+            if options.random_kicks:
+                kicks.update(outfile=outfile)
 
 
             simulation.step(1)

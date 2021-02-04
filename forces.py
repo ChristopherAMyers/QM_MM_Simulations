@@ -46,24 +46,39 @@ def add_oxygen_repulsion(system, topology, boundary=0.25):
 class RandomKicksForce():
     def __init__(self, simulation, topology, temperature, scale=0.2):
         kB = BOLTZMANN_CONSTANT_kB * AVOGADRO_CONSTANT_NA/1000 #Boltzmann constant in kJ/mole/K
-        kB = kB/unit
-        self._kB_m = np.array([x.element.mass/dalton for x in topology.atoms()])*kB
+        self.kB = kB/kB.unit
+        self._kB_m = self.kB/np.array([x.element.mass/dalton for x in topology.atoms()])
         self._simulation = simulation
         self.temperature = temperature/kelvin
         self.scale = scale
 
-    def update(self, temperature=None):
+    def update(self, temperature=None, outfile=None):
         temp = self.temperature
         if temperature:
             temp = temperature/kelvin
         
-        state = self._simulation.getState(getVelocities=True)
+        state = self._simulation.context.getState(getVelocities=True)
         velocities = state.getVelocities(True)
 
-        kicks = np.sqrt(self._kB_m * temp) * np.random.normal(scale=len(velocities)) * self.scale
+        rands = np.random.normal(size=(len(velocities), 3)) 
+        kicks = np.sqrt(self._kB_m * temp)[:, None] * rands* self.scale
         new_vel = velocities + kicks*(nanometers/picosecond)
 
         self._simulation.context.setVelocities(new_vel)
+
+        if outfile:
+            max_vel = np.max(np.linalg.norm(kicks, axis=1))
+            max_idx = np.argmax(np.linalg.norm(kicks, axis=1))
+            kT_m = self._kB_m[max_idx] * temp
+            rand_norm = np.linalg.norm(rands[max_idx])
+            print(max_idx, np.argmax(np.linalg.norm(rands, axis=1)))
+            print(self.kB/self._kB_m[max_idx])
+            print(kicks[max_idx])
+            print(rands[max_idx])
+            print(self.scale)
+            print(" Applying random thermal kicks", file=outfile)
+            print(" Largest velocity kick: {:10.5f} with kT/m {:10.5f} and rand_f {:10.5f}".format(max_vel, kT_m, rand_norm), file=outfile)
+
 
     def set_temperature(self, temperature):
         self.temperature = temperature
@@ -296,11 +311,14 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
     coords = coords/nanometers
 
     new_atoms = set()
+    atom_lst = list(topology.atoms())
     for force in system.getForces():
         #   remove bond from dynamic qm_atoms pairs
         if isinstance(force, HarmonicBondForce):
             for n in range(force.getNumBonds()):
                 a, b, r, k = force.getBondParameters(n)
+                if a == 786 or b == 786:
+                    dist = np.linalg.norm(coords[a] - coords[b])
                 if a in qm_atoms and b in qm_atoms:
                     force.setBondParameters(n, a, b, r, k*0.000)
                 else:
@@ -308,7 +326,7 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
                     #   k=0 identifies that the bond was a QM bond.
                     #   if while QM, the two atoms have stretched
                     #   too far, leave as QM atoms
-                    if k == 0 and dist > r/nanometer*1.3:
+                    if dist > r/nanometer*1.3:
                         new_atoms.add(a)
                         new_atoms.add(b)
                     else:
@@ -326,6 +344,32 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
                     force.setAngleParameters(n, a, b, c, t, 836.8*kilojoules_per_mole)
             force.updateParametersInContext(context)
 
+    #   also check that any QM atom is not to close to an MM atom
+    #   if so, add the MM atoms back to the list
+    for atom in topology.atoms():
+        if atom.index in qm_atoms or atom.index in new_atoms:
+            this_coord = coords[atom.index]
+            distances = np.linalg.norm(this_coord- coords, axis=1)
+            for n in range(len(coords)):
+                if n == atom.index: continue
+                if n in new_atoms: continue
+                if n in qm_atoms: continue
+                if distances[n] < 0.13:
+                    print("FOUND: ", atom.id, n)
+                    new_atoms.add(n)
+
+    #   for all atoms in the new QM list, add all other atoms in their residues
+    #   to the QM list.
+    for res in topology.residues():
+        add_to_list = False
+        for atom in res.atoms():
+            if atom.index in new_atoms:
+                add_to_list = True
+                break
+        if add_to_list:
+            for atom in res.atoms():
+                new_atoms.add(atom.index)
+
     #   now that the new atoms are added, continue with nonbonded force
     new_qm_atoms = sorted(list(set(list(new_atoms) + qm_atoms)))
     for force in system.getForces():
@@ -339,6 +383,8 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
                     params[-1] = 0
                 force.setParticleParameters(n, params)
             force.updateParametersInContext(context)
+
+
     return new_qm_atoms
 
 def add_pull_force(coords, system):
