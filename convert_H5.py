@@ -3,12 +3,14 @@ import mdtraj as md
 import argparse
 import os, sys
 
-def convert(input_file_loc, out_file_loc, n_skip=None):
+def convert(input_file_loc, out_file_loc, n_skip=None, keep_frame=None):
     print(" Reading in trajectory file...", end='', flush=True)
     #   separate out traj object to work better with pylint
     tmp_traj = md.Trajectory.load(input_file_loc)
     n_frames_in =  tmp_traj.n_frames
-    if n_skip and isinstance(skip, int):
+    if keep_frame:
+        tmp_traj.xyz = tmp_traj.xyz[keep_frame - 1]
+    elif n_skip and isinstance(skip, int):
         tmp_traj.xyz = tmp_traj.xyz[::skip]
     traj = md.Trajectory(tmp_traj.xyz, tmp_traj.topology)
     print("Done")
@@ -78,7 +80,10 @@ if __name__ == "__main__":
     in_file = sys.argv[1]
     out_file = sys.argv[2]
     skip = None
+    keep_frame = None
     if '-skip' in sys.argv:
         skip = int(sys.argv[sys.argv.index('-skip') + 1])
+    if '-n' in sys.argv:
+        keep_frame = int(sys.argv[sys.argv.index('-n') + 1])
     
-    convert(in_file, out_file, skip)
+    convert(in_file, out_file, skip, keep_frame)

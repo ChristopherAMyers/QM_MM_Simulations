@@ -200,7 +200,10 @@ class JobOptions(object):
         self.aimd_temp_seed = int(urandom(4).hex(), 16) - 2147483647
         self.aimd_langevin_seed = int(urandom(4).hex(), 16) - 2147483647
 
-        self.qm_mm_radius = 5 * angstroms
+        #   adaptive QM atoms
+        self.qm_mm_radius = 3.0 * angstroms
+        self.qm_mm_update = True
+        self.qm_mm_update_freq = 10
         
         #   ratchet and pawl force options
         self.ratchet_pawl = False

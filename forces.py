@@ -442,16 +442,17 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
             bond_force.setBondParameters(n, a, b, r, 462750.4*kilojoules_per_mole/nanometer**2)
     bond_force.updateParametersInContext(context)
 
-    if isinstance(force, HarmonicAngleForce):
-        for n in range(force.getNumAngles()):
-            a, b, c, t, k = force.getAngleParameters(n)
-            in_qm_atoms = [x in qm_atoms for x in [a, b, c]]
-            num_qm_atoms = np.sum(in_qm_atoms)
-            if num_qm_atoms > 0:
-                force.setAngleParameters(n, a, b, c, t, k*0.000)
-            else:
-                force.setAngleParameters(n, a, b, c, t, 836.8*kilojoules_per_mole)
-        force.updateParametersInContext(context)
+    for force in system.getForces():
+        if isinstance(force, HarmonicAngleForce):
+            for n in range(force.getNumAngles()):
+                a, b, c, t, k = force.getAngleParameters(n)
+                in_qm_atoms = [x in new_qm_atoms for x in [a, b, c]]
+                num_qm_atoms = np.sum(in_qm_atoms)
+                if num_qm_atoms > 0:
+                    force.setAngleParameters(n, a, b, c, t, k*0.000)
+                else:
+                    force.setAngleParameters(n, a, b, c, t, 836.8*kilojoules_per_mole)
+            force.updateParametersInContext(context)
 
 
     return new_qm_atoms

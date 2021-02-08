@@ -278,7 +278,7 @@ def get_qm_force(coords, charges, elements, qm_atoms, output_file, topology, opt
 
 
     #   adaptive spin multiplicity for O2
-    if (opts.adapt_mult or opts.mc_spin) and (step_number % 10 == 0):
+    if (opts.adapt_mult or opts.mc_spin) and (step_number % opts.qm_mm_update_freq == 0 and opts.qm_mm_update):
         #   spin mult based on number of O2 molecules
         if opts.adapt_mult:
             new_mult = determine_mult_from_coords(coords*10*nanometers, topology, spin_mult, qm_atoms)
@@ -539,8 +539,14 @@ def get_rem_lines(rem_file_loc, outfile):
                 opts.aimd_thermostat = sp[1]
             elif option == 'aimd_langevin_timescale':
                 opts.aimd_langevin_timescale = float(sp[1]) * femtoseconds
+
+            #   adaptive QM atoms
             elif option == 'qm_mm_radius':
                 opts.qm_mm_radius = float(sp[1]) * angstroms
+            elif option == 'qm_mm_update':
+                opts.qm_mm_update = strtobool(sp[1])
+            elif option == 'qm_mm_update_freq':
+                opts.qm_mm_update_freq = int(sp[1])
 
             #   temperature anealing
             elif option == 'annealing':
@@ -645,10 +651,12 @@ def get_rem_lines(rem_file_loc, outfile):
     outfile.write(' jobtype:                   {:>10s} \n'.format(opts.jobtype) )
     outfile.write(' integrator:                {:>10s} \n'.format(opts.integrator) )
     outfile.write(' time step:                 {:>10.2f} fs \n'.format(opts.time_step/femtoseconds) )
-    outfile.write(' QM/MM radius:              {:>10.2f} Ang. \n'.format(opts.qm_mm_radius/angstroms) )
     outfile.write(' number of steps:           {:>10d} \n'.format(opts.aimd_steps) )
     outfile.write(' Total QM charge:           {:10d} \n'.format(opts.charge))
     outfile.write(' QM Multiplicity:           {:10d} \n'.format(opts.mult))
+    outfile.write(' QM/MM radius:              {:>10.2f} Ang. \n'.format(opts.qm_mm_radius/angstroms) )
+    outfile.write(' QM/MM update:              {:10d}. \n'.format(opts.qm_mm_update) )
+    outfile.write(' QM/MM update frequency:    {:10d} steps. \n'.format(opts.qm_mm_update_freq) )
 
     if opts.adapt_mult:
         outfile.write(' Adaptive Spin:             {:10d} \n'.format(int(opts.adapt_mult)))
@@ -1054,7 +1062,7 @@ def main(args_in):
             pos = state.getPositions(True)
 
             # update QM atom list and water positions
-            if n % 10 == 0:
+            if n % options.qm_mm_update_freq == 0 and options.qm_mm_update:
                 #if len(qm_atoms) > 0:
                 #    pos = water_filler.fill_void(pos, qm_atoms, outfile=outfile)
 
