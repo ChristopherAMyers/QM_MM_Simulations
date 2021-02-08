@@ -1,7 +1,8 @@
+from numpy.lib.function_base import angle
 from simtk.openmm.app import * #pylint: disable=unused-wildcard-import
 from simtk.openmm import * #pylint: disable=unused-wildcard-import
 from openmmtools.integrators import VelocityVerletIntegrator
-from simtk.openmm.openmm import * #pylint: disable=unused-wildcard-import
+from simtk.openmm.openmm import *  #pylint: disable=unused-wildcard-import
 from simtk.unit import * #pylint: disable=unused-wildcard-import
 import argparse
 import numpy as np
@@ -32,6 +33,7 @@ from forces import *
 from spin_mult import *
 from add_solvent_sphere import WaterFiller
 
+
 qchem_path = ''
 qc_scratch = '/tmp'
 
@@ -55,6 +57,7 @@ def parse_args(args_in):
     parser.add_argument('-repf',  help='file to print forces to')
     parser.add_argument('-repv',  help='file to print velocities to')
     parser.add_argument('-pawl',  help='list of atom ID pairs to apply ratchet-pawl force between')
+    parser.add_argument('-hugs',  help='list of atom ID pairs to apply hugs force between')
     parser.add_argument('-nt', help='number of threads to use in Q-Chem calculations', type=int)
     return parser.parse_args(args_in)
 
@@ -593,6 +596,12 @@ def get_rem_lines(rem_file_loc, outfile):
             elif option == 'ionization_num':
                 opts.ionization_num = int(sp[1])
 
+            #   hugs force
+            elif option == 'hugs':
+                opts.hugs = bool(strtobool(sp[1]))
+            elif option == 'hugs_switch_time':
+                opts.hugs_switch_time = float(sp[1]) * femtoseconds
+
             #   random number seeds
             elif option == 'aimd_temp_seed':
                 seed = int(sp[1])
@@ -682,6 +691,11 @@ def get_rem_lines(rem_file_loc, outfile):
     if opts.ionization:
         outfile.write(' Initial Ionization:        {:10d} \n'.format(int(opts.ionization)))
         outfile.write(' No. of ionized H2O pairs:  {:10d} \n'.format(opts.ionization_num))
+
+    if opts.hugs:
+        outfile.write(' Hugs Force:                {:10d} \n'.format(int(opts.hugs)))
+        outfile.write(' Hugs Switch Time:          {:>10f} fs \n'.format(opts.hugs_switch_time/femtoseconds))
+
 
     outfile.write('--------------------------------------------\n')
     outfile.flush()
@@ -954,6 +968,9 @@ def main(args_in):
         if options.oxy_repel:
             add_oxygen_repulsion(system, pdb.topology, options.oxy_repel_dist)
 
+        if options.hugs:
+            hugs = HugsForce(system, pdb.topology, args.hugs, options.time_step, options.hugs_switch_time)
+
         #   debug only: turns off forces except one
         if False:
             while system.getNumForces() > 1:
@@ -979,10 +996,10 @@ def main(args_in):
 
         #   turn on to freeze mm atoms in place
         if False:
-            for n in range(system.getNumParticles()):
-                if n not in qm_atoms:
-                    print("FREEZE: ", n)
-                    system.setParticleMass(n, 0*dalton)
+            for atom in pdb.topology.atoms():
+                if int(atom.id) in [417, 1526]:
+                    print("FREEZE: ", atom.id, file=outfile)
+                    system.setParticleMass(atom.index, 0*dalton)
 
         #   remove bonded forces between QM and MM system
         adjust_forces(system, simulation.context, pdb.topology, qm_atoms, outfile=outfile)
@@ -994,7 +1011,7 @@ def main(args_in):
         #   output files and reporters
         stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qm_atoms, vel_file_loc=args.repv, force_file_loc=args.repf)
         simulation.reporters.append(HDF5Reporter('output.h5', 1))
-        qm_atoms_reporter = QMatomsReporter('qm_atoms.txt')
+        qm_atoms_reporter = QMatomsReporter('qm_atoms.txt', pdb.topology)
 
         #   set up files
         scratch = os.path.join(os.path.curdir, 'qm_mm_scratch/')
@@ -1009,7 +1026,7 @@ def main(args_in):
         if options.jobtype == 'opt':
             opt = GradientMethod(options.time_step*0.001)
 
-        if options.jobtype != 'opt' and not args.state:
+        if options.jobtype != 'opt' and not args.state and options.jobtype != 'friction':
             print(" Setting initial velocities to temperature of {:5f} K: ".format(options.aimd_temp/kelvin), file=outfile)
             simulation.context.setVelocitiesToTemperature(options.aimd_temp, options.aimd_temp_seed)
 
@@ -1018,7 +1035,6 @@ def main(args_in):
         sys.stdout.flush()
 
         simulation.saveState('initial_state.xml')
-
         water_filler = WaterFiller(pdb.topology, forcefield, simulation)
         #   run simulation
         for n in range(options.aimd_steps):
@@ -1039,8 +1055,8 @@ def main(args_in):
 
             # update QM atom list and water positions
             if n % 10 == 0:
-                if len(qm_atoms) > 0:
-                    pos = water_filler.fill_void(pos, qm_atoms, outfile=outfile)
+                #if len(qm_atoms) > 0:
+                #    pos = water_filler.fill_void(pos, qm_atoms, outfile=outfile)
 
                 qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pos/angstrom, pdb.topology)
                 qm_atoms = qm_fixed_atoms + qm_sphere_atoms
@@ -1059,6 +1075,8 @@ def main(args_in):
             print(options.oxy_bound)
             if options.oxy_bound:
                 oxygen_force.update(simulation.context, pos, outfile=outfile)
+            if options.hugs:
+                hugs.update(simulation.context, outfile=outfile)
             stats_reporter.report(simulation, qm_atoms)
 
 
@@ -1077,7 +1095,25 @@ def main(args_in):
             if options.random_kicks:
                 kicks.update(outfile=outfile)
 
+            state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True, getForces=True)
+            pos = state.getPositions(True)
+            forces = state.getForces(True)
 
+            O1 = pos[414]
+            O2 = pos[415]
+            Zn = pos[94]
+            OZ1 = Zn - O1
+            OZ2 = Zn - O2
+            FO1 = forces[414]
+            FO2 = forces[415]
+            
+            angle1 = acos(dot(OZ1, FO1)/(norm(OZ1)*norm(FO1)))
+            angle2 = acos(dot(OZ2, FO2)/(norm(OZ2)*norm(FO2)))
+            print("FORCES 1: ", norm(FO1), angle1*180/np.pi/radian, file=outfile)
+            print("FORCES 1: ", norm(FO2), angle2*180/np.pi/radian, file=outfile)
+
+
+            
             simulation.step(1)
 
 

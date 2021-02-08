@@ -1,4 +1,4 @@
-from simtk.openmm.openmm import * #pylint: disable=unused-wildcard-import
+from simtk.openmm.openmm import *  #pylint: disable=unused-wildcard-import
 from simtk.unit import * #pylint: disable=unused-wildcard-import
 import numpy as np
 import os
@@ -83,7 +83,64 @@ class RandomKicksForce():
     def set_temperature(self, temperature):
         self.temperature = temperature
 
+class HugsForce():
+    def __init__(self, system, topology, hugs_file_loc, time_step, switch_time):
+        if os.path.isfile(hugs_file_loc):
+            force_string = 'scale*0.5*k*(r - r0)^2'
+            custom_force = CustomBondForce(force_string)
+            custom_force.addPerBondParameter('k')
+            custom_force.addPerBondParameter('r0')
+            custom_force.addPerBondParameter('scale')
 
+            self._p1 = []
+            self._p2 = []
+            self._k = []
+            self._r0 = []
+            self.switch_time = switch_time
+
+
+            idx = {}
+            for atom in topology.atoms():
+                idx[int(atom.id)] = atom.index
+
+            with open(hugs_file_loc, 'r') as file:
+                for n, line in enumerate(file.readlines()):
+                    sp = line.split()
+                    if len(sp) == 0: continue
+                    if len(sp) >= 4:
+                        self._p1.append(idx[int(sp[0])])
+                        self._p2.append(idx[int(sp[1])])
+                        self._k.append(float(sp[2]))
+                        self._r0.append(float(sp[3]))
+
+
+                    else:
+                        raise ValueError("Invalid number of elements in hugs file line %d" % n)
+
+            for n in range(len(self._p1)):
+                custom_force.addBond(self._p1[n], self._p2[n], [self._k[n], self._r0[n], 1])
+
+            system.addForce(custom_force)
+
+            self.force_obj = custom_force
+            self.time_step = time_step
+            self._total_time = 0 * femtoseconds
+
+        else:
+            raise FileNotFoundError("Hugs force file not found")
+
+    def update(self, context, outfile=sys.stdout):
+        self._total_time += self.time_step
+        if self._total_time < self.switch_time:
+
+            switch = np.sin(self._total_time/self.switch_time * np.pi/2)**2
+
+            print("Updating hugs force: surrent switch vale: {:8.5f}".format(switch), file=outfile)
+
+            for n in range(len(self._p1)):
+                params = [self._k[n], self._r0[n], switch]
+                self.force_obj.setBondParameters(n, self._p1[n], self._p2[n], params)
+            self.force_obj.updateParametersInContext(context)
 
 class BoundryForce():
     def __init__(self, system, topology, positions, qm_atoms, max_dist=0.4*nanometers, scale=10000.0):
@@ -182,10 +239,10 @@ class BoundryForce():
             
             self.force_obj.setParticleParameters(n, idx, [self.scale, self.max_dist, x, y, z])
 
-
         if outfile:
             print(' ------------------------------------------------------------ \n', file=outfile)
 
+        self.force_obj.updateParametersInContext(context)
         
 
 def add_ext_qm_force(qm_atoms, system):
@@ -273,6 +330,8 @@ def add_nonbonded_force(qm_atoms, system, bonds, outfile=sys.stdout):
                 #    eps *= 0
 
                 if n in qm_atoms:
+                    if n == 414:
+                        print("414: ", chg, sig, eps)
                     qm_charges.append(chg / elementary_charge)
                     customForce.addParticle([chg, sig, eps, 1])
                 else:
@@ -311,14 +370,13 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
     coords = coords/nanometers
 
     new_atoms = set()
-    atom_lst = list(topology.atoms())
+    bond_force = None
     for force in system.getForces():
         #   remove bond from dynamic qm_atoms pairs
         if isinstance(force, HarmonicBondForce):
+            bond_force = force
             for n in range(force.getNumBonds()):
                 a, b, r, k = force.getBondParameters(n)
-                if a == 786 or b == 786:
-                    dist = np.linalg.norm(coords[a] - coords[b])
                 if a in qm_atoms and b in qm_atoms:
                     force.setBondParameters(n, a, b, r, k*0.000)
                 else:
@@ -333,17 +391,6 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
                         force.setBondParameters(n, a, b, r, 462750.4*kilojoules_per_mole/nanometer**2)
             force.updateParametersInContext(context)
 
-        if isinstance(force, HarmonicAngleForce):
-            for n in range(force.getNumAngles()):
-                a, b, c, t, k = force.getAngleParameters(n)
-                in_qm_atoms = [x in qm_atoms for x in [a, b, c]]
-                num_qm_atoms = np.sum(in_qm_atoms)
-                if num_qm_atoms > 0:
-                    force.setAngleParameters(n, a, b, c, t, k*0.000)
-                else:
-                    force.setAngleParameters(n, a, b, c, t, 836.8*kilojoules_per_mole)
-            force.updateParametersInContext(context)
-
     #   also check that any QM atom is not to close to an MM atom
     #   if so, add the MM atoms back to the list
     for atom in topology.atoms():
@@ -355,7 +402,8 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
                 if n in new_atoms: continue
                 if n in qm_atoms: continue
                 if distances[n] < 0.13:
-                    print("FOUND: ", atom.id, n)
+                    print("FOUND: ", atom.id, list(topology.atoms())[n].id)
+                    print()
                     new_atoms.add(n)
 
     #   for all atoms in the new QM list, add all other atoms in their residues
@@ -385,6 +433,27 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
             force.updateParametersInContext(context)
 
 
+    #   re-update bonds and angles with new QM list
+    for n in range(bond_force.getNumBonds()):
+        a, b, r, k = bond_force.getBondParameters(n)
+        if a in new_qm_atoms and b in new_qm_atoms:
+            bond_force.setBondParameters(n, a, b, r, k*0.000)
+        else:
+            bond_force.setBondParameters(n, a, b, r, 462750.4*kilojoules_per_mole/nanometer**2)
+    bond_force.updateParametersInContext(context)
+
+    if isinstance(force, HarmonicAngleForce):
+        for n in range(force.getNumAngles()):
+            a, b, c, t, k = force.getAngleParameters(n)
+            in_qm_atoms = [x in qm_atoms for x in [a, b, c]]
+            num_qm_atoms = np.sum(in_qm_atoms)
+            if num_qm_atoms > 0:
+                force.setAngleParameters(n, a, b, c, t, k*0.000)
+            else:
+                force.setAngleParameters(n, a, b, c, t, 836.8*kilojoules_per_mole)
+        force.updateParametersInContext(context)
+
+
     return new_qm_atoms
 
 def add_pull_force(coords, system):
@@ -400,7 +469,6 @@ def add_pull_force(coords, system):
     pull_force.addParticle(98, -norm*force_mag)
     system.addForce(pull_force)
     return pull_force
-
 
 def add_rachet_pawl_force(system, pair_file_loc, coords, strength, topology, half_dist=1000.0, switch_type='exp'):
     ''' Applies a ratched-and-pawl force that favors restricts

@@ -61,7 +61,7 @@
         <Atom type="MTH-HC13" charge="+0.2000" sigma="0.120" epsilon="0.0656"/>
         <Atom type="MTH-HN1"  charge="+0.4000" sigma="0.120" epsilon="0.0656"/>
         <Atom type="MTH-HN2"  charge="+0.4000" sigma="0.120" epsilon="0.0656"/>
-        <Atom type="OTHER-O"  charge="+0.0000" sigma="0.1" epsilon="0.0656"/>
+        <Atom type="OTHER-O"  charge="+0.0000" sigma="0.25" epsilon="0.0656"/>
         <Atom type="OTHER-N"  charge="+0.0000" sigma="0.304" epsilon="0.0656"/>
         <Atom type="OTHER-C"  charge="+0.0000" sigma="0.304" epsilon="0.0656"/>
         <Atom type="OTHER-H"  charge="+0.0000" sigma="0.120" epsilon="0.0656"/>

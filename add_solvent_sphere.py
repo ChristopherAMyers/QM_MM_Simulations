@@ -24,8 +24,9 @@ from sim_extras import *
 from forces import *
 import pdb_to_qc
 
+
 class WaterFiller():
-    def __init__(self, topology, forcefield, simulation, radius=0.3*nanometers, model='lanl2dz'):
+    def __init__(self, topology, forcefield, simulation=None, radius=0.3*nanometers, model='lanl2dz'):
         self.radius = radius
 
         if model == 'srlc':
@@ -115,17 +116,62 @@ class WaterFiller():
                 positions[idx] = new_pos[n]
 
             atom = list(self.top.atoms())[water_idx_list[0]]
-            step = self._simulation.currentStep
+            if self._simulation:
+                step = self._simulation.currentStep
+            else:
+                step = 0
 
             print("\n Step {:d}: Replacing water position of atoms {:d} - {:d} of residue {:d} "
                     .format(step, int(atom.id), int(atom.id) + 2, int(atom.residue.id)), file=outfile)
             print(" Closest QM atom is {:.5f} Ang. away \n".format(closest_qm_dist*10/nanometers), file=outfile)
 
-            #   update positions in context
-            self._simulation.context.setPositions(positions)
+            #   update positions in context, if a simulation was given
+            if self._simulation:
+                self._simulation.context.setPositions(positions)
             
         return positions
 
+def parse_idx(idx_file_loc, topology):
+    qm_fixed_atoms = []
+    qm_origin_atoms = []
+    with open(idx_file_loc, 'r') as file:
+        for line in file.readlines():
+            sp = line.split()
+            #   assume that just a column of numbers is used
+            if len(sp) == 1:
+                if '*' in line: 
+                    num = list(filter(str.isdigit, sp[0]))
+                    idx = ''.join(num)
+                    qm_origin_atoms.append(int(idx))
+                else: 
+                    qm_fixed_atoms.append(int(sp[0]))
+            #   assume that the output from pymol is used
+            elif len(sp) == 3 and "cmd.identify" in line:
+                if '*' in line:
+                    num = list(filter(str.isdigit, line))
+                    idx = ''.join(num)
+                    qm_origin_atoms.append(int(idx))
+                else:
+                    idx = sp[-1].split('`')[-1].split(')')[0]
+                    qm_fixed_atoms.append(int(idx))
+            else:
+                print("ERROR: Can't determin index format")
+    qm_fixed_atoms = sorted(qm_fixed_atoms + qm_origin_atoms)
+    qm_origin_atoms = sorted(qm_origin_atoms)
+
+    qm_fixed_atoms_indices = []
+    qm_origin_atoms_indices = []
+    for atom in topology.atoms():
+        if int(atom.id) in qm_fixed_atoms:
+            qm_fixed_atoms_indices.append(atom.index)
+    for atom in topology.atoms():
+        if int(atom.id) in qm_origin_atoms:
+            qm_origin_atoms_indices.append(atom.index)
+    
+    qm_fixed_atoms_indices = sorted(qm_fixed_atoms_indices)
+    qm_origin_atoms_indices = sorted(qm_origin_atoms_indices)
+
+    return (qm_fixed_atoms_indices, qm_origin_atoms_indices)
 
 def print_pressure(simulation, masses_in_kg):
     state = simulation.context.getState(getPositions=True, getForces=True, getVelocities=True, getEnergy=True)
@@ -290,6 +336,9 @@ if __name__ == "__main__":
     if( (len(sys.argv) - 1) == 2):
         userSpecSolv = True
         userSolvBox = sys.argv[2]
+    ids_file = None
+    if '-ids' in sys.argv:
+        ids_file = sys.argv[sys.argv.index('-ids') + 1]
     pdb_to_qc.add_bonds(pdb, remove_orig=True)
     forcefield = ForceField('/network/rit/lab/ChenRNALab/awesomeSauce/2d_materials/ZnSe/quant_espres/znse_2x2/qm_mm/forcefield/forcefields/forcefield2.xml', 'amber14/tip3pfb.xml')
     unmatched_residues = forcefield.getUnmatchedResidues(pdb.topology)
@@ -323,9 +372,18 @@ if __name__ == "__main__":
     print(" Final number of atoms:   {:d}".format(n_atoms_final))
     print(" Number of solvent atoms: {:d}".format(n_atoms_final - n_atoms_init))
 
+
     pdb_file_loc = 'solvated.pdb'
     print(" Writing %s" % pdb_file_loc)
     PDBFile.writeModel(mols.topology, mols.positions, open(pdb_file_loc, 'w'), keepIds=True)
+
+    if ids_file:
+        qm_atoms = parse_idx(ids_file, mols.topology)[0]
+        water_filler = WaterFiller(mols.topology, forcefield)
+        for n in range(40):
+            print(n)
+            mols.positions = water_filler.fill_void(np.array(mols.positions/nanometers)*nanometers, qm_atoms)
+        PDBFile.writeModel(mols.topology, mols.positions, open('voids_filled.pdb', 'w'), keepIds=True)
 
     #   reload printed pdb and get index list of solvent inside sphere
     #   this is because outputed pdb file is out guarenteed to have same atom

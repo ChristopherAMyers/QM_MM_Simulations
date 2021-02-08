@@ -20,16 +20,22 @@ class QMatomsReporter(object):
     Prints out the current lsit of QM atoms to file
     This reporter is NOT suited as an OpenMM reporter
     """
-    def __init__(self, file):
+    def __init__(self, file, topology):
         self._out = open(file, 'w')
+        self._atoms = list(topology.atoms())
 
     def __del__(self):
         self._out.close()
 
     def report(self, simulation, qm_atoms):
+        ids = []
+        for atom in self._atoms:
+            if atom.index in qm_atoms:
+                ids.append(int(atom.id))
+        ids = sorted(ids)
         self._out.write(" Step {:d}: ".format(simulation.currentStep))
-        for atom in qm_atoms:
-            self._out.write('{:d} '.format(atom))
+        for id in ids:
+            self._out.write('{:d} '.format(id))
         self._out.write('\n')
         self._out.flush()
      
@@ -229,3 +235,6 @@ class JobOptions(object):
         #   initial ionization
         self.ionization = False
         self.ionization_num = 1
+
+        self.hugs = False
+        self.hugs_switch_time = 0*femtoseconds
