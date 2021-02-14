@@ -55,7 +55,11 @@ class StatsReporter(object):
         self._options = copy.copy(options)
         self._vel_file=None
         self._force_file=None
+        self._last_pos = np.array([])
+        self._increased_step_size = False
+        self._smallest_force = 1E8
         
+
         if vel_file_loc:
             self._vel_file = open(vel_file_loc, 'w')
         if force_file_loc:
@@ -65,7 +69,7 @@ class StatsReporter(object):
         if self._jobtype == 'aimd':
             self._out.write(' Step Pot-Energy QM-Energy MM-Temp(K) QM-Temp(K) All-Temp(K) Time-Elapsed(s) Time-Remaining qm_atoms\n')
         else:
-            self._out.write(' Step Pot-Energy QM-Energy Time-Elapsed(s) Time-Remaining Time-Step  RMS-Forces  Max-Forces  Max-Index\n')
+            self._out.write(' Step Pot-Energy QM-Energy Time-Elapsed(s) Time-Remaining Time-Step Max-Disp RMS-Forces  Max-Forces  Max-ID\n')
 
 
     def __del__(self):
@@ -102,13 +106,16 @@ class StatsReporter(object):
         qm_energy -= self._init_qm_energy*0
         pot_energy -= self._init_pot_energy*0
 
+        system = simulation.context.getSystem()
+        masses = np.array([system.getParticleMass(n)/dalton for n in range(system.getNumParticles())])
+
         #   aimd and optimization jobs have diffeent stats
         if self._jobtype == 'aimd':
             #   calculate kinetic energies
-            system = simulation.context.getSystem()
+            
             vel = state.getVelocities(True).in_units_of(meters/second)
             v2 = np.linalg.norm(vel, axis=1)**2
-            masses = np.array([system.getParticleMass(n)/dalton for n in range(len(vel))])*(1.67377E-27)
+            masses = masses * 1.67377E-27
             k = 1.380649E-23
             mm_atoms = []
             for x in range(len(v2)):
@@ -124,7 +131,7 @@ class StatsReporter(object):
             temp_all = np.sum(v2*masses)/(len(v2) * k * 3)
 
             #   rescale temperature if too high
-            if temp_all > (100 + self._options.aimd_temp/kelvin):
+            if temp_all > (100 + self._options.aimd_temp/kelvin) and False:
                 scale = np.sqrt(self._options.aimd_temp/temp_qm)
                 new_vel = vel
                 new_vel[qm_atoms] = new_vel[qm_atoms]*scale
@@ -154,9 +161,28 @@ class StatsReporter(object):
             rms_forces = np.sqrt(np.mean(force_norms**2))
             max_forces = np.max(force_norms)
             max_force_idx = np.argmax(force_norms)
-            timestep = simulation.integrator.getGlobalVariable(0)
-            self._out.write(' {:4d}  {:10.1f}  {:10.3f}  {:10.1f}  {:10s}  {:10.6f}  {:10.3f}  {:10.3f}  {:4d}\n'
-                .format(step, pot_energy, qm_energy, elapsed_seconds, time_rem, timestep, rms_forces, max_forces, max_force_idx))
+            max_force_id = int(list(simulation.topology.atoms())[max_force_idx].id)
+            self._smallest_force = min(self._smallest_force, max_forces)
+
+            #stepsize = simulation.integrator.getStepSize()/picoseconds
+            #   increase stepsize for friction calculations
+            max_disp = 0.0
+            pos = state.getPositions(True)/angstroms
+            if len(self._last_pos) > 0:
+                max_disp = np.max(np.linalg.norm(pos - self._last_pos, axis=1))
+
+                if self._smallest_force > 1000:
+                    stepsize = min(np.sqrt(0.005/max_forces), 0.003)*picoseconds
+                    simulation.integrator.setStepSize(stepsize)
+                
+                elif max_disp < 0.01 and not self._increased_step_size and self._jobtype == 'friction':
+                    simulation.integrator.setStepSize(self._options.time_step)
+                    self._increased_step_size = True
+
+            self._last_pos = pos
+            stepsize = simulation.integrator.getStepSize()
+            self._out.write(' {:4d}  {:10.1f}  {:10.1f}  {:10.1f}  {:10s} {:8.6f} {:10.6f}  {:10.3f}  {:10.3f}  {:4d}\n'
+                .format(step, pot_energy, qm_energy, elapsed_seconds, time_rem, stepsize/picoseconds, max_disp, rms_forces, max_forces, max_force_id))
 
         self._out.flush()
 
@@ -239,5 +265,9 @@ class JobOptions(object):
         self.ionization = False
         self.ionization_num = 1
 
+        #   hugs force
         self.hugs = False
         self.hugs_switch_time = 0*femtoseconds
+
+        #   constraints
+        self.constrain_qmmm_bonds = True

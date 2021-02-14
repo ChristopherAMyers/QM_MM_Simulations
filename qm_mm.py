@@ -59,7 +59,9 @@ def parse_args(args_in):
     parser.add_argument('-pawl',  help='list of atom ID pairs to apply ratchet-pawl force between')
     parser.add_argument('-hugs',  help='list of atom ID pairs to apply hugs force between')
     parser.add_argument('-nt', help='number of threads to use in Q-Chem calculations', type=int)
+    parser.add_argument('-freeze', help='file of atom indicies to freeze coordinates')
     return parser.parse_args(args_in)
+
 
 def parse_idx(idx_file_loc, topology):
     qm_fixed_atoms = []
@@ -103,9 +105,6 @@ def parse_idx(idx_file_loc, topology):
 
     return (qm_fixed_atoms_indices, qm_origin_atoms_indices)
 
-
-
-
 def get_qm_spheres(originAtoms, qm_atoms, radius_in_ang, xyz_in_ang, topology):          
 
     '''Finds all atoms within a given radius of each atom in 
@@ -139,6 +138,21 @@ def find_all_qm_atoms(mat_idx_list, bondedToAtom, topology):
             if atoms[bonded_to].element.symbol not in ['Se', 'Zn']:
                 pass
 
+def fix_qm_mm_bonds(system, qm_atoms, outfile=sys.stdout):
+
+    print(" Adding QM/MM Bond constraints ", file=outfile)
+    print(" {:>10s}  {:>10s}  {:10s} ".format('Index 1', 'Index 2', 'R (Ang.)'), file=outfile)
+    for force in system.getForces():
+        if  isinstance(force, HarmonicBondForce):
+            for n in range(force.getNumBonds()):
+                a, b, r, k = force.getBondParameters(n)
+                if (a in qm_atoms and b not in qm_atoms) or \
+                   (b in qm_atoms and a not in qm_atoms):
+                   system.addConstraint(a, b, r)
+                   print(" {:10d}  {:10d}  {:>6.3f} ".format(a, b, r/angstroms), file=outfile)
+    print("\n", file=outfile)
+
+
 def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
     #   set the force constants for atoms included
     #   in QM portion to zero
@@ -155,9 +169,6 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
         if  isinstance(force, HarmonicBondForce):
             for n in range(force.getNumBonds()):
                 a, b, r, k = force.getBondParameters(n)
-                #force.setBondParameters(n, a, b, r, k*0.000)
-                #if 952 in [a, b]:
-                #    print(a, b, r, k, atoms[a].name, atoms[b].name, atoms[a].residue.id, atoms[b].residue.id)
                 if a in qm_atoms and b in qm_atoms:
                     force.setBondParameters(n, a, b, r, k*0.000)
                     num_bonds_removed += 1
@@ -306,7 +317,7 @@ def get_qm_force(coords, charges, elements, qm_atoms, output_file, topology, opt
             new_energy, new_gradient = calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg, rem_lines, step_number, copy_input, outfile, new_mult)
             energy_diff = (new_energy - qm_energy)/kilojoules_per_mole
 
-            print(" Appempted new spin multiplicity at step {:d}".format(step_number), file=outfile)
+            print(" Attempted new spin multiplicity at step {:d}".format(step_number), file=outfile)
             print(" Old spin multiplicity: {:d}".format(spin_mult), file=outfile)
             print(" New spin multiplicity: {:d}".format(new_mult), file=outfile)
             print(" Energy difference: {:15.5f} kJ/mol".format(energy_diff), file=outfile)
@@ -331,7 +342,6 @@ def get_qm_force(coords, charges, elements, qm_atoms, output_file, topology, opt
                 opts.mult = new_mult
 
     return qm_energy, qm_gradient
-
 
 def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False, outfile=sys.stdout, spin_mult=1):
     global scratch, qc_scratch, n_procs
@@ -386,11 +396,16 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
     gradient = []
     energy = 0.0
     grad_file_loc = os.path.join(qc_scratch, 'save_files/GRAD')
+    bohr_to_nm = bohrs.conversion_factor_to(nanometer)
     
     if os.path.isfile(grad_file_loc):
         #shutil.copyfile(grad_file_loc, os.path.join(scratch, 'GRAD'))
         energy = np.loadtxt(grad_file_loc, skiprows=1, max_rows=1)
         gradient = np.loadtxt(grad_file_loc, skiprows=3, max_rows=len(qm_atoms))
+
+        #   convert gradient to kJ/mol/nm and energy to kJ/mol
+        gradient = (gradient * 2625.5009 * kilojoules_per_mole / nanometer / bohr_to_nm)
+        energy = energy * 2625.5009 * kilojoules_per_mole
 
     if found_thank_you:
         outfile.write(' -----------------------------------------------------------\n')
@@ -409,8 +424,9 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
         outfile.write('                     {:13s}  {:13s}  {:13s} \n'.format('X', 'Y', 'Z'))
         outfile.write(' -----------------------------------------------------------\n')
         for n, grad in enumerate(gradient):
-            outfile.write('    {:3d}  {:2s}  {:13.8f}  {:13.8f}  {:13.8f} \n'
-            .format(n + 1, elements[qm_atoms[n]], grad[0], grad[1], grad[2]))
+            u = grad.unit
+            outfile.write('    {:3d}  {:2s}  {:13.2f}  {:13.2f}  {:13.2f} \n'
+            .format(n + 1, elements[qm_atoms[n]], grad[0]/u, grad[1]/u, grad[2]/u))
         outfile.write(' -----------------------------------------------------------\n')
     else:
         outfile.write(' Gradient fle NOT found \n')
@@ -421,9 +437,7 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
     #   debug only: save all generated input files
     #shutil.copyfile(os.path.join(scratch, 'input'), os.path.join(scratch, 'input_{:d}'.format(step_number)))
 
-    #   convert gradient to kJ/mol/nm and energy to kJ/mol
-    gradient = (gradient * 2625.5009 * kilojoules_per_mole / nanometer / bohrs.conversion_factor_to(nanometer))
-    energy = energy * 2625.5009 * kilojoules_per_mole
+
     return (energy, gradient)
 
 def update_qm_force(context, gradient, ext_force, qm_coords_in_nm, qm_atoms, qm_energy=0.0):
@@ -519,6 +533,19 @@ def get_rem_lines(rem_file_loc, outfile):
                 rem_lines_in.append(line.replace('=', ' '))
 
     opts = JobOptions()
+
+    if opts.jobtype == 'aimd':
+        if opts.aimd_thermostat:
+            opts.integrator = 'Langevin'
+        else:
+            opts.integrator = 'Verlet'
+    elif opts.jobtype.lower() == 'grad':
+        opts.integrator = 'Steepest-Descent'
+        opts.time_step = 1.0 * femtoseconds
+    else:
+        opts.integrator = 'Conjugate-Gradient'
+        opts.time_step = 1.0 * femtoseconds
+
     for line in rem_lines_in:
         line = line.lower()
         sp_comment = line.split('!')
@@ -539,6 +566,8 @@ def get_rem_lines(rem_file_loc, outfile):
                 opts.aimd_thermostat = sp[1]
             elif option == 'aimd_langevin_timescale':
                 opts.aimd_langevin_timescale = float(sp[1]) * femtoseconds
+            elif option == 'constrain_qmmm_bonds':
+                opts.constrain_qmmm_bonds = strtobool(sp[1])
 
             #   adaptive QM atoms
             elif option == 'qm_mm_radius':
@@ -633,17 +662,7 @@ def get_rem_lines(rem_file_loc, outfile):
         outfile.write(line)
     outfile.write('\n')
 
-    if opts.jobtype == 'aimd':
-        if opts.aimd_thermostat:
-            opts.integrator = 'Langevin'
-        else:
-            opts.integrator = 'Verlet'
-    elif opts.jobtype.lower() == 'grad':
-        opts.integrator = 'Steepest-Descent'
-        opts.time_step = 1.0 * femtoseconds
-    else:
-        opts.integrator = 'Conjugate-Gradient'
-        opts.time_step = 1.0 * femtoseconds
+
     
     outfile.write('--------------------------------------------\n')
     outfile.write('              Script Options                \n')
@@ -657,6 +676,7 @@ def get_rem_lines(rem_file_loc, outfile):
     outfile.write(' QM/MM radius:              {:>10.2f} Ang. \n'.format(opts.qm_mm_radius/angstroms) )
     outfile.write(' QM/MM update:              {:10d}. \n'.format(opts.qm_mm_update) )
     outfile.write(' QM/MM update frequency:    {:10d} steps. \n'.format(opts.qm_mm_update_freq) )
+    outfile.write(' Constrain QM/MM bonds:     {:10d} \n'.format(opts.constrain_qmmm_bonds))
 
     if opts.adapt_mult:
         outfile.write(' Adaptive Spin:             {:10d} \n'.format(int(opts.adapt_mult)))
@@ -722,9 +742,10 @@ def get_integrator(opts):
         #   Langevin integrator without the random noise
         integrator = CustomIntegrator(opts.time_step)
         integrator.addGlobalVariable("step_size", opts.time_step)
+        #integrator.addGlobalVariable("scale", 1.0)
         integrator.addComputePerDof("v", "v + dt*f/m")
         integrator.addComputePerDof("x", "x + 0.5*dt*v")
-        integrator.addComputePerDof("v", "0.9*v")
+        integrator.addComputePerDof("v", "0.7*v")
         integrator.addComputePerDof("x", "x + 0.5*dt*v")
         return integrator
 
@@ -842,7 +863,6 @@ def print_initial_forces(simulation, qm_atoms, topology, outfile):
     print(" Larger forces may indicate poor initial coordinates", file=outfile)
     print(" or an inproper force field parameterization.", file=outfile)
 
-
 def ionize(topology, coords, qm_atoms, num):
 
     #   extract which residues are QM waters
@@ -933,7 +953,7 @@ def main(args_in):
             residue = residues[n]
             atom_names = []
             for atom in template.atoms:
-                if residue.name in ['EXT', 'OTH', 'MTH']:
+                if residue.name in ['EXT', 'OTH']:
                     atom.type = 'OTHER-' + atom.element.symbol
                 else:
                     atom.type = residue.name + "-" + atom.name.upper()
@@ -986,6 +1006,17 @@ def main(args_in):
                     if not isinstance(force, CustomNonbondedForce):
                         system.removeForce(i)
                         break
+        #   turn on to freeze mm atoms in place
+        if args.freeze:
+            fix_idx = np.loadtxt(args.freeze, dtype=int)
+            for atom in pdb.topology.atoms():
+                if int(atom.id) in fix_idx:
+                    print("FREEZE: ", atom.id, file=outfile)
+                    system.setParticleMass(atom.index, 0*dalton)
+
+        #   add constraints
+        if options.constrain_qmmm_bonds:
+            fix_qm_mm_bonds(system, qm_atoms, outfile)
 
         #   initialize simulation and set positions
         simulation = Simulation(pdb.topology, system, integrator)
@@ -1002,12 +1033,7 @@ def main(args_in):
             print(" {:s}".format(os.path.abspath(args.pdb)), file=outfile)
             simulation.context.setPositions(pdb.positions)
 
-        #   turn on to freeze mm atoms in place
-        if False:
-            for atom in pdb.topology.atoms():
-                if int(atom.id) in [417, 1526]:
-                    print("FREEZE: ", atom.id, file=outfile)
-                    system.setParticleMass(atom.index, 0*dalton)
+
 
         #   remove bonded forces between QM and MM system
         adjust_forces(system, simulation.context, pdb.topology, qm_atoms, outfile=outfile)
@@ -1037,6 +1063,9 @@ def main(args_in):
         if options.jobtype != 'opt' and not args.state and options.jobtype != 'friction':
             print(" Setting initial velocities to temperature of {:5f} K: ".format(options.aimd_temp/kelvin), file=outfile)
             simulation.context.setVelocitiesToTemperature(options.aimd_temp, options.aimd_temp_seed)
+        else:
+            print(" Setting initial velocities to Zero: ", file=outfile)
+            simulation.context.setVelocities([Vec3(0, 0, 0)*nanometers/picosecond]*pdb.topology.getNumAtoms())
 
         #   for sanity checking
         print(' Integrator: ', type(integrator))
@@ -1107,13 +1136,13 @@ def main(args_in):
             pos = state.getPositions(True)
             forces = state.getForces(True)
 
-            O1 = pos[414]
-            O2 = pos[415]
-            Zn = pos[94]
+            O1 = pos[397]
+            O2 = pos[398]
+            Zn = pos[93]
             OZ1 = Zn - O1
             OZ2 = Zn - O2
-            FO1 = forces[414]
-            FO2 = forces[415]
+            FO1 = forces[397]
+            FO2 = forces[398]
             
             angle1 = acos(dot(OZ1, FO1)/(norm(OZ1)*norm(FO1)))
             angle2 = acos(dot(OZ2, FO2)/(norm(OZ2)*norm(FO2)))
@@ -1123,6 +1152,7 @@ def main(args_in):
 
             
             simulation.step(1)
+            
 
 
     return simulation

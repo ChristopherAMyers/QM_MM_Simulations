@@ -28,10 +28,21 @@
         <Type name="MTH-HN2"  class="lig"  element="H"  mass="1.007947"/>
 
         <Type name="OTHER-H"  class="other"   element="H"  mass="1.007947"/>
-        <Type name="OTHER-O"  class="other"   element="O"  mass="1.007947"/>
-        <Type name="OTHER-N"  class="other"   element="N"  mass="1.007947"/>
-        <Type name="OTHER-C"  class="other"   element="C"  mass="1.007947"/>
-        <Type name="OTHER-Zn" class="other"   element="Zn" mass="15.999"/>
+        <Type name="OTHER-O"  class="other"   element="O"  mass="15.999"/>
+        <Type name="OTHER-N"  class="other"   element="N"  mass="14.00672"/>
+        <Type name="OTHER-C"  class="other"   element="C"  mass="12.01078"/>
+        <Type name="OTHER-Zn" class="other"   element="Zn" mass="65.38"/>
+        <Type name="OTHER-Se" class="other"   element="Se" mass="78.96"/>
+
+        <!--Hydronium-->
+        <Type name="H3O-O" class="h3o"   element="O"  mass="15.999"/>
+        <Type name="H3O-H" class="h3o"   element="H"  mass="1.007947"/>
+
+        <!--Peroxide-->
+        <Type name="HOOH-O" class="h3o"   element="O"  mass="15.999"/>
+        <Type name="HOOH-H" class="h3o"   element="H"  mass="1.007947"/>
+
+
     </AtomTypes>
     <!---->
     <NonbondedForce coulomb14scale="0.833333" lj14scale="0.5">
@@ -65,10 +76,22 @@
         <Atom type="OTHER-N"  charge="+0.0000" sigma="0.304" epsilon="0.0656"/>
         <Atom type="OTHER-C"  charge="+0.0000" sigma="0.304" epsilon="0.0656"/>
         <Atom type="OTHER-H"  charge="+0.0000" sigma="0.120" epsilon="0.0656"/>
+        <Atom type="OTHER-Se" charge="-0.7500" sigma="0.380" epsilon="0.913"/>
+        <Atom type="OTHER-Zn" charge="+0.5000" sigma="0.278" epsilon="0.389"/>
         <Atom type="HOH-O"  charge="+0.0000" sigma="0.304" epsilon="0.0656"/>
         <Atom type="HOH-H1"  charge="+0.0000" sigma="0.120" epsilon="0.0656"/>
         <Atom type="HOH-H2"  charge="+0.0000" sigma="0.120" epsilon="0.0656"/>
-        <Atom type="OTHER-Zn" charge="+0.0000" sigma="0.278" epsilon="0.0656"/>
+
+
+        <!--Hydronium-->
+        <Atom type="H3O-O"  charge="+0.0000" sigma="0.354" epsilon="0.0656"/>
+        <Atom type="H3O-H"  charge="+0.0000" sigma="0.120" epsilon="0.0000"/>
+
+        <!--Peroxide-->
+        <Atom type="HOOH-O"  charge="+0.0000" sigma="0.354" epsilon="0.0656"/>
+        <Atom type="HOOH-H"  charge="+0.0000" sigma="0.120" epsilon="0.0000"/>
+
+
     
     </NonbondedForce>
     
@@ -159,6 +182,26 @@
             <Atom name="O2" type="OTHER-O" charge="+0.00"/>
             <Bond atomName1="O1" atomName2="O2"/>
         </Residue>
+        <!--Hydronium-->
+        <Residue name="H3O">
+            <Atom name="O"   type="H3O-O" charge="-0.72"/>
+            <Atom name="HO1" type="H3O-H" charge="+0.24"/>
+            <Atom name="HO2" type="H3O-H" charge="+0.24"/>
+            <Atom name="HO3" type="H3O-H" charge="+0.24"/>
+            <Bond atomName1="O" atomName2="HO1"/>
+            <Bond atomName1="O" atomName2="HO2"/>
+            <Bond atomName1="O" atomName2="HO3"/>
+        </Residue>
+        <!--PEROXIDE-->
+        <Residue name="POX">
+            <Atom name="O1"   type="HOOH-O" charge="-0.50"/>
+            <Atom name="O2"   type="HOOH-O" charge="+0.50"/>
+            <Atom name="H1"   type="HOOH-H" charge="+0.50"/>
+            <Atom name="H2"   type="HOOH-H" charge="-0.50"/>
+            <Bond atomName1="O1" atomName2="H1"/>
+            <Bond atomName1="O2" atomName2="H2"/>
+            <Bond atomName1="O1" atomName2="O2"/>
+        </Residue>
     </Residues>
     <HarmonicBondForce>
         <!--Other random types-->
@@ -212,6 +255,12 @@
         <!--O2-->
         <Bond k="200000.00" length="0.14000" type1="OTHER-O"  type2="OTHER-O"   />
 
+         <!--Hydronium, uses tip3p bonds-->
+        <Bond k="462750.4" length="0.09572" type1="H3O-O"  type2="H3O-H"   />
+
+        <!--Peroxide, calcualted with PBE0/lanl2dz-->
+        <Bond k="462750.4" length="0.0979" type1="HOOH-O"  type2="HOOH-H"   />
+        <Bond k="462750.4" length="0.1510" type1="HOOH-O"  type2="HOOH-O"   />  
 
     </HarmonicBondForce>
     <HarmonicAngleForce>
@@ -318,6 +367,12 @@
         <Angle k="1000.00" angle=" 2.00313" type1="MAT-ZN3"  type2="MTH-N"     type3="MTH-C1"  />
         <Angle k="1000.00" angle=" 1.89516" type1="MAT-ZN3"  type2="MTH-N"     type3="MTH-HN1" />
         <Angle k="1000.00" angle=" 1.70142" type1="MAT-ZN3"  type2="MTH-N"     type3="MTH-HN2" />
+
+        <!--Hydronium, uses tip3p like angles -->
+        <Angle k="836.8" angle="1.9635" type1="H3O-H"  type2="H3O-O"     type3="H3O-H" />
+
+        <!--Peroxide, calcualted with PBE0/lanl2dz-->
+        <Angle k="836.8" angle="1.716985" type1="HOOH-H"  type2="HOOH-O"     type3="HOOH-O" />
 
     </HarmonicAngleForce>
     <PeriodicTorsionForce>
@@ -459,7 +514,7 @@
 
 
         <!--MTHhylamine ligands-->
-                <Proper k1="10.00" periodicity1="1" phase1=" -0.13857" type1="MAT-SE1"  type2="MAT-ZN2"   type3="MTH-N"     type4="MTH-C1"  />
+        <Proper k1="10.00" periodicity1="1" phase1=" -0.13857" type1="MAT-SE1"  type2="MAT-ZN2"   type3="MTH-N"     type4="MTH-C1"  />
         <Proper k1="10.00" periodicity1="1" phase1=" -2.13684" type1="MAT-SE1"  type2="MAT-ZN2"   type3="MTH-N"     type4="MTH-HN1" />
         <Proper k1="10.00" periodicity1="1" phase1=" -4.22132" type1="MAT-SE1"  type2="MAT-ZN2"   type3="MTH-N"     type4="MTH-HN2" />
         <Proper k1="10.00" periodicity1="1" phase1=" -2.47564" type1="MAT-SE4"  type2="MAT-ZN2"   type3="MTH-N"     type4="MTH-C1"  />
@@ -521,6 +576,9 @@
         <Improper k1="10.00" periodicity1="1" phase1=" -2.51702" type1="MTH-N"    type2="MTH-HN1"   type3="MTH-HN2"   type4="MTH-C1"  />
         <Improper k1="10.00" periodicity1="1" phase1=" -3.72467" type1="MTH-N"    type2="MTH-HN1"   type3="MAT-ZN3"   type4="MTH-C1"  />
         <Improper k1="10.00" periodicity1="1" phase1=" -2.55174" type1="MTH-N"    type2="MTH-HN2"   type3="MAT-ZN3"   type4="MTH-C1"  />
+
+        <!--Peroxide, calcualted with PBE0/lanl2dz-->
+        <Proper k1="10.00" periodicity1="1" phase1="0" type1="HOOH-H"  type2="HOOH-O"   type3="HOOH-O"   type4="HOOH-H"   />
 
     </PeriodicTorsionForce>
 

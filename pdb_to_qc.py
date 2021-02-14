@@ -160,7 +160,7 @@ def add_bonds(pdb, remove_orig=False):
     #   special bonds
     for res in pdb.topology.residues():
         #   water
-        if res.name == 'HOH':
+        if res.name in ['HOH', 'H3O']:
             oxygen = None
             hydro = []
             for atom in res.atoms():
@@ -168,8 +168,17 @@ def add_bonds(pdb, remove_orig=False):
                     oxygen = atom
                 else:
                     hydro.append(atom)
-            pdb.topology.addBond(oxygen, hydro[0])
-            pdb.topology.addBond(oxygen, hydro[1])
+            for h in hydro:
+                pdb.topology.addBond(oxygen, h)
+
+        elif res.name == 'POX':
+            atoms = {}
+            for a in res.atoms():
+                atoms[a.name] = a
+            pdb.topology.addBond(atoms['H1'], atoms['O1'])
+            pdb.topology.addBond(atoms['H2'], atoms['O2'])
+            pdb.topology.addBond(atoms['O1'], atoms['O2'])
+
         elif res.name == 'EXT':
             atoms = list(res.atoms())
             if len(atoms) == 2 and atoms[0].element.symbol == 'O' and atoms[1].element.symbol == 'O':

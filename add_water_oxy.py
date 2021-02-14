@@ -206,10 +206,11 @@ if __name__ == "__main__":
     center = np.mean(positions[[90, 91, 94, 95]], axis=0)
     center = positions[[90, 91, 94, 95]]
     center = positions[[90, 94]]    #for O2
-    center = positions[[98, 105]]     #   for waters
+    center = positions[[90, 91, 93, 94, 95, 96]]    #for no ligands
+    #center = positions[[98, 105]]     #   for waters
     print(" Center : ", center)
     for n in range(n_configs):
-        new_top, new_pos = adder.add_solvent(positions, pdb.topology, forcefield, 3.0, center, n_waters=1, n_o2=0)
+        new_top, new_pos = adder.add_solvent(positions, pdb.topology, forcefield, 3.0, center, n_waters=0, n_o2=4)
         with open('init.{:d}.pdb'.format(n + 1), 'w') as file:
             pdb.writeFile(new_top, new_pos, file)
 
