@@ -171,7 +171,7 @@ class StatsReporter(object):
             if len(self._last_pos) > 0:
                 max_disp = np.max(np.linalg.norm(pos - self._last_pos, axis=1))
 
-                if self._smallest_force > 1000:
+                if self._smallest_force > 2500:
                     stepsize = min(np.sqrt(0.005/max_forces), 0.003)*picoseconds
                     simulation.integrator.setStepSize(stepsize)
                 

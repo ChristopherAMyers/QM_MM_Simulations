@@ -163,12 +163,12 @@ class BoundryForce():
                     strength of the force to be applied (kJ/mol/nanometers^2)
         '''
         
-        force_string = 'on_off*scale*r^2; '
+        force_string = 'on_off*scale*(r - max_dist)^2; '
         force_string += 'on_off = step(r - max_dist); '
         force_string += 'r = sqrt((x - x_0)^2 + (y - y_0)^2 + (z - z_0)^2)'
         force_obj = CustomExternalForce(force_string)
-        force_obj.addPerParticleParameter('scale')
-        force_obj.addPerParticleParameter('max_dist')
+        force_obj.addGlobalParameter('scale', scale)
+        force_obj.addGlobalParameter('max_dist', max_dist/nanometers)
         force_obj.addPerParticleParameter('x_0')
         force_obj.addPerParticleParameter('y_0')
         force_obj.addPerParticleParameter('z_0')
@@ -177,7 +177,7 @@ class BoundryForce():
         self.material_idx = []
         self.material_atoms = []
         self.scale = scale
-        self.max_dist = max_dist
+        self.max_dist = max_dist/nanometers
         self.topology = topology
 
         #   extract atoms used in this force
@@ -195,7 +195,7 @@ class BoundryForce():
             distances = np.linalg.norm(positions[oxy] - material_pos, axis=1)
             min_idx = np.argmin(distances)
             x, y, z = material_pos[min_idx]
-            force_obj.addParticle(oxy, [scale, max_dist/nanometers, x, y, z])
+            force_obj.addParticle(oxy, [x, y, z])
 
         system.addForce(force_obj)
         self.force_obj = force_obj
@@ -236,8 +236,9 @@ class BoundryForce():
                 min_dist = distances.min() *10
                 print(' {:4s} id {:5s} res {:5s} | {:4s} id {:5s} res {:5s} | {:8.3f} '. \
                     format(oxy.name, oxy.id, oxy.residue.id, mat.name, mat.id, mat.residue.id, min_dist), file=outfile)
+
             
-            self.force_obj.setParticleParameters(n, idx, [self.scale, self.max_dist, x, y, z])
+            self.force_obj.setParticleParameters(n, idx, [x, y, z])
 
         if outfile:
             print(' ------------------------------------------------------------ \n', file=outfile)
@@ -434,13 +435,14 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
 
 
     #   re-update bonds and angles with new QM list
-    for n in range(bond_force.getNumBonds()):
-        a, b, r, k = bond_force.getBondParameters(n)
-        if a in new_qm_atoms and b in new_qm_atoms:
-            bond_force.setBondParameters(n, a, b, r, k*0.000)
-        else:
-            bond_force.setBondParameters(n, a, b, r, 462750.4*kilojoules_per_mole/nanometer**2)
-    bond_force.updateParametersInContext(context)
+    if bond_force:
+        for n in range(bond_force.getNumBonds()):
+            a, b, r, k = bond_force.getBondParameters(n)
+            if a in new_qm_atoms and b in new_qm_atoms:
+                bond_force.setBondParameters(n, a, b, r, k*0.000)
+            else:
+                bond_force.setBondParameters(n, a, b, r, 462750.4*kilojoules_per_mole/nanometer**2)
+        bond_force.updateParametersInContext(context)
 
     for force in system.getForces():
         if isinstance(force, HarmonicAngleForce):
