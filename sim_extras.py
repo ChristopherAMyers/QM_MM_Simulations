@@ -271,3 +271,6 @@ class JobOptions(object):
 
         #   constraints
         self.constrain_qmmm_bonds = True
+
+        #   QM fragments
+        self.qm_fragments = False

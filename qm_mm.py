@@ -1,8 +1,6 @@
-from numpy.lib.function_base import angle
 from simtk.openmm.app import * #pylint: disable=unused-wildcard-import
 from simtk.openmm import * #pylint: disable=unused-wildcard-import
-from openmmtools.integrators import VelocityVerletIntegrator
-from simtk.openmm.openmm import *  #pylint: disable=unused-wildcard-import
+from simtk.openmm.openmm import * 
 from simtk.unit import * #pylint: disable=unused-wildcard-import
 import argparse
 import numpy as np
@@ -17,6 +15,7 @@ from optimize import GradientMethod
 from mdtraj.reporters import HDF5Reporter
 from distutils.util import strtobool
 from random import shuffle
+from cmd_line_args import parse_cmd_line_args
 
 # pylint: disable=no-member
 import simtk.unit as unit
@@ -34,6 +33,7 @@ from spin_mult import *
 from add_solvent_sphere import WaterFiller
 
 
+scratch = os.path.join(os.path.curdir, 'qm_mm_scratch/')
 qchem_path = ''
 qc_scratch = '/tmp'
 
@@ -49,8 +49,8 @@ print("SLURM: ", 'SLURM_NTASKS' in os.environ.keys(), n_procs)
 def parse_args(args_in):
     parser = argparse.ArgumentParser('')
     parser.add_argument('-pdb',   required=True, help='pdb molecule file to use')
-    parser.add_argument('-rem',   required=True, help='rem arguments to use with Q-Chem')
-    parser.add_argument('-idx',   required=True, help='list of atoms to treat as QM')
+    parser.add_argument('-rem',   required=False, help='rem arguments to use with Q-Chem')
+    parser.add_argument('-idx',   required=False, help='list of atoms to treat as QM')
     parser.add_argument('-out',   help='output file', default='output.txt')
     parser.add_argument('-pos',   help='set positions using this pdb file')
     parser.add_argument('-state', help='start simulation from simulation state xml file')
@@ -58,8 +58,9 @@ def parse_args(args_in):
     parser.add_argument('-repv',  help='file to print velocities to')
     parser.add_argument('-pawl',  help='list of atom ID pairs to apply ratchet-pawl force between')
     parser.add_argument('-hugs',  help='list of atom ID pairs to apply hugs force between')
-    parser.add_argument('-nt', help='number of threads to use in Q-Chem calculations', type=int)
+    parser.add_argument('-nt',    help='number of threads to use in Q-Chem calculations', type=int)
     parser.add_argument('-freeze', help='file of atom indicies to freeze coordinates')
+    parser.add_argument('-ipt',   help='condensed input file')
     return parser.parse_args(args_in)
 
 
@@ -252,6 +253,13 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, spin_mult=
             file.write('    jobtype     {:s} \n'.format(jobtype))
         file.write('    sym_ignore  true \n')
         file.write('$end \n\n')
+
+        #   write additional q-chem options, if present
+        other_file = os.path.join(scratch, 'other')
+        if os.path.isfile(other_file):
+            with open(other_file, 'r') as other_file:
+                for line in other_file.readlines():
+                    file.write(line)
 
         #   mm_atoms are represented as external charges
         mol_lines = []
@@ -637,6 +645,10 @@ def get_rem_lines(rem_file_loc, outfile):
             elif option == 'hugs_switch_time':
                 opts.hugs_switch_time = float(sp[1]) * femtoseconds
 
+            #   QM fragments
+            elif option == 'qm_fragments':
+                opts.qm_fragments = strtobool(sp[1])
+
             #   random number seeds
             elif option == 'aimd_temp_seed':
                 seed = int(sp[1])
@@ -723,6 +735,9 @@ def get_rem_lines(rem_file_loc, outfile):
     if opts.hugs:
         outfile.write(' Hugs Force:                {:10d} \n'.format(int(opts.hugs)))
         outfile.write(' Hugs Switch Time:          {:>10f} fs \n'.format(opts.hugs_switch_time/femtoseconds))
+
+    if opts.qm_fragments:
+        outfile.write(' QM Fragments:              {:10d} \n'.format(int(opts.qm_fragments)))
 
 
     outfile.write('--------------------------------------------\n')
@@ -919,12 +934,10 @@ def ionize(topology, coords, qm_atoms, num):
                 coords[atom.index] = new_xyz*nanometers
 
 
-def main(args_in):
+def main(args):
     global scratch, n_procs, qc_scratch, qchem_path
     oxygen_force = None
     ratchet_pawl_force = None
-
-    args = parse_args(args_in)
 
     #   make sure Q-Chem is available, exit otherwise
     if 'QC' in os.environ:
@@ -936,11 +949,11 @@ def main(args_in):
         print(" Error: environment variable QC not defined. Cannot find Q-Chem directory")
         exit()
 
-
     if args.nt:
         n_procs = args.nt
 
     with open(args.out, 'w') as outfile:
+
         rem_lines, options = get_rem_lines(args.rem, outfile)
         pdb = PDBFile(args.pdb)
         pdb_to_qc.add_bonds(pdb, remove_orig=True)
@@ -1048,7 +1061,6 @@ def main(args_in):
         qm_atoms_reporter = QMatomsReporter('qm_atoms.txt', pdb.topology)
 
         #   set up files
-        scratch = os.path.join(os.path.curdir, 'qm_mm_scratch/')
         os.makedirs(scratch, exist_ok=True)
         os.makedirs(qc_scratch, exist_ok=True)
         atoms = list(pdb.topology.atoms())
@@ -1159,7 +1171,10 @@ def main(args_in):
               
 if __name__ == "__main__":
 
-    simulation = main(sys.argv[1:])
+    #tmp_args = parse_args(sys.argv[1:])
+    arg_list = parse_cmd_line_args(scratch)
+    prog_args = parse_args(arg_list)
+    simulation = main(prog_args)
 
     ''' DEBUGGING ONLY  '''
     '''
