@@ -32,6 +32,7 @@ def parse_cmd_line_args(scratch_dir):
         FileSections('$hugs', '$end', 'idx', '-idx'),
         FileSections('$pawl', '$end', 'idx', '-idx'),
         FileSections('$freeze', '$end', 'idx', '-idx'),
+        FileSections('$fragments', '$end', 'frags', '-frags'),
         FileSections('$other', '$end', 'other')
     ]
 

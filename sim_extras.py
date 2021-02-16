@@ -175,7 +175,8 @@ class StatsReporter(object):
                     stepsize = min(np.sqrt(0.005/max_forces), 0.003)*picoseconds
                     simulation.integrator.setStepSize(stepsize)
                 
-                elif max_disp < 0.01 and not self._increased_step_size and self._jobtype == 'friction':
+                #elif max_disp < 0.01 and not self._increased_step_size and self._jobtype == 'friction':
+                else:
                     simulation.integrator.setStepSize(self._options.time_step)
                     self._increased_step_size = True
 

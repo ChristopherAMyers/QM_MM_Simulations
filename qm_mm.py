@@ -16,6 +16,7 @@ from mdtraj.reporters import HDF5Reporter
 from distutils.util import strtobool
 from random import shuffle
 from cmd_line_args import parse_cmd_line_args
+from qm_fragments import QM_Fragments
 
 # pylint: disable=no-member
 import simtk.unit as unit
@@ -36,6 +37,7 @@ from add_solvent_sphere import WaterFiller
 scratch = os.path.join(os.path.curdir, 'qm_mm_scratch/')
 qchem_path = ''
 qc_scratch = '/tmp'
+qm_fragments = None
 
 #   set available CPU resources
 if 'SLURM_NTASKS' in os.environ.keys():
@@ -61,6 +63,7 @@ def parse_args(args_in):
     parser.add_argument('-nt',    help='number of threads to use in Q-Chem calculations', type=int)
     parser.add_argument('-freeze', help='file of atom indicies to freeze coordinates')
     parser.add_argument('-ipt',   help='condensed input file')
+    parser.add_argument('-frags',   help='QM fragments file')
     return parser.parse_args(args_in)
 
 
@@ -279,6 +282,8 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, spin_mult=
         #   write molecule section
         file.write('$molecule \n')
         file.write('    {:d}  {:d} \n'.format(int(total_chg), spin_mult))
+        if qm_fragments:
+            mol_lines = qm_fragments.convert_molecule_lines(total_chg, spin_mult, mol_lines, qm_atoms)
         for line in mol_lines:
             file.write(line)
         file.write('$end \n\n')
@@ -352,7 +357,7 @@ def get_qm_force(coords, charges, elements, qm_atoms, output_file, topology, opt
     return qm_energy, qm_gradient
 
 def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0, rem_lines=[], step_number=0, copy_input=False, outfile=sys.stdout, spin_mult=1):
-    global scratch, qc_scratch, n_procs
+    global scratch, qc_scratch, n_procs, qm_fragments
     redo = True
     failures = 0
     use_rem_lines = copy.copy(rem_lines)
@@ -410,6 +415,11 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
         #shutil.copyfile(grad_file_loc, os.path.join(scratch, 'GRAD'))
         energy = np.loadtxt(grad_file_loc, skiprows=1, max_rows=1)
         gradient = np.loadtxt(grad_file_loc, skiprows=3, max_rows=len(qm_atoms))
+
+        if qm_fragments:
+            frag_gradient = np.copy(gradient)
+            for n, idx in enumerate(qm_fragments.gradient_order):
+                gradient[n] = frag_gradient[idx]
 
         #   convert gradient to kJ/mol/nm and energy to kJ/mol
         gradient = (gradient * 2625.5009 * kilojoules_per_mole / nanometer / bohr_to_nm)
@@ -935,7 +945,7 @@ def ionize(topology, coords, qm_atoms, num):
 
 
 def main(args):
-    global scratch, n_procs, qc_scratch, qchem_path
+    global scratch, n_procs, qc_scratch, qchem_path, qm_fragments
     oxygen_force = None
     ratchet_pawl_force = None
 
@@ -984,6 +994,10 @@ def main(args):
         qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pdb.getPositions()/angstrom, pdb.topology)
         qm_atoms = qm_fixed_atoms + qm_sphere_atoms
         system = forcefield.createSystem(pdb.topology, rigidWater=False)
+
+        #   QM fragment molecules
+        if options.qm_fragments:
+            qm_fragments = QM_Fragments(args.frags, pdb.topology)
 
         #   re-map nonbonded forces so QM only interacts with MM through vdW
         charges = add_nonbonded_force(qm_atoms, system, pdb.topology.bonds(), outfile=outfile)
