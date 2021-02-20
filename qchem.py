@@ -16,8 +16,15 @@ nanometer = nanometers = unit.nanometer
 femtoseconds = unit.femtoseconds
 # pylint: enable=no-member
 
+class LinkAtom():
+    def __init__(self, file_loc, topology):
+        
+        if os.path.isfile(file_loc):
+            pass
+
+
 class QChemRunner():
-    def __init__(self, rem_lines, topology, charges, options, outfile, scratch, fragments_file=None):
+    def __init__(self, rem_lines, topology, charges, options, outfile, scratch, fragments_file=None, link_atoms_file = None):
 
         self._rem_lines = rem_lines
         self._topology = topology
@@ -26,6 +33,7 @@ class QChemRunner():
         self._charges = copy.copy(charges)
         self._elements = [x.element.symbol for x in topology.atoms()]
         self._scratch = scratch
+        self._link_atoms_file = link_atoms_file
 
         if fragments_file:
             self._use_qm_fragments = True
@@ -123,7 +131,7 @@ class QChemRunner():
             if failures > 0 or (step_number % 10 == 0):
                 scf_read = False
 
-            input_file_loc = self._create_qc_input(coords, qm_atoms, use_rem_lines, self._options.total_charge, spin_mult=spin_mult, scf_read=scf_read)
+            input_file_loc = self._create_qc_input(coords, qm_atoms, use_rem_lines, self._options.charge, spin_mult=spin_mult, scf_read=scf_read)
             output_file_loc = os.path.join(self._scratch, 'output')
             cmd = os.path.join(self._qchem_path, 'bin/qchem') + ' -save -nt {:d}  {:s}  {:s} save_files'.format(self._n_procs, input_file_loc, output_file_loc)
 
@@ -219,7 +227,7 @@ class QChemRunner():
 
     def get_qm_force(self, coords, qm_atoms, step_number, copy_input=False):
         outfile = self._outfile
-        spin_mult = self._options.spin_mult
+        spin_mult = self._options.mult
 
 
         qm_energy, qm_gradient = self._calc_qm_force(coords, qm_atoms, step_number, copy_input, spin_mult)

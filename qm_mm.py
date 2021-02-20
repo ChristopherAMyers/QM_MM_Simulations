@@ -17,6 +17,7 @@ from distutils.util import strtobool
 from random import shuffle
 from cmd_line_args import parse_cmd_line_args
 from qm_fragments import QM_Fragments
+from qchem import QChemRunner
 
 # pylint: disable=no-member
 import simtk.unit as unit
@@ -994,7 +995,6 @@ def main(args):
             template.name += str(n)
             forcefield.registerResidueTemplate(template)
 
-
         integrator = get_integrator(options)
         qm_fixed_atoms, qm_origin_atoms = parse_idx(args.idx, pdb.topology)
 
@@ -1009,6 +1009,9 @@ def main(args):
 
         #   re-map nonbonded forces so QM only interacts with MM through vdW
         charges = add_nonbonded_force(qm_atoms, system, pdb.topology.bonds(), outfile=outfile)
+
+        #   setup Q-Chem Runner for submitting and running QM part of the simulation
+        qchem = QChemRunner(rem_lines, pdb.topology, charges, options, outfile, scratch, args.frags)
 
         #   "external" force for updating QM forces and MM electrostatics
         ext_force = add_ext_force_all(system, charges)
@@ -1138,7 +1141,10 @@ def main(args):
             qm_atoms_reporter.report(simulation, qm_atoms)
             if len(qm_atoms) > 0:
 
-                qm_energy, qm_gradient = get_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, pdb.topology, options, rem_lines=rem_lines, step_number=n, outfile=outfile, total_chg=options.charge, spin_mult=options.mult)
+                #qm_energy, qm_gradient = get_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, pdb.topology, options, rem_lines=rem_lines, step_number=n, outfile=outfile, total_chg=options.charge, spin_mult=options.mult)
+
+                qm_energy, qm_gradient = qchem.get_qm_force(pos/angstroms, qm_atoms, n)
+
                 update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile)
 
 
