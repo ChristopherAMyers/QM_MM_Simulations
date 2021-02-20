@@ -74,7 +74,7 @@ class WaterFiller():
     def fill_void(self, positions, qm_atoms, outfile=sys.stdout):
         if len(self.water_idx) == 0:
             return positions
-
+            
         qm_pos = positions[qm_atoms]
         vdw_radii = self.vdw_radii
         vdw_dists = (vdw_radii + 0.312)*0.5*nanometers
@@ -103,6 +103,7 @@ class WaterFiller():
             if num_contacts == 0:
                 dist_from_qm = np.linalg.norm(qm_pos - water[0], axis=1)*nanometers
                 closest_qm_dist = np.min(dist_from_qm)
+                closest_idx = np.argmin(dist_from_qm)
                 if closest_qm_dist <= self.radius:
                     new_pos = water
                     break
@@ -123,7 +124,7 @@ class WaterFiller():
 
             print("\n Step {:d}: Replacing water position of atoms {:d} - {:d} of residue {:d} "
                     .format(step, int(atom.id), int(atom.id) + 2, int(atom.residue.id)), file=outfile)
-            print(" Closest QM atom is {:.5f} Ang. away \n".format(closest_qm_dist*10/nanometers), file=outfile)
+            print(" Closest QM {:d} atom is {:.5f} Ang. away \n".format(qm_atoms[closest_idx], closest_qm_dist*10/nanometers), file=outfile)
 
             #   update positions in context, if a simulation was given
             if self._simulation:
@@ -162,7 +163,7 @@ def parse_idx(idx_file_loc, topology):
     qm_fixed_atoms_indices = []
     qm_origin_atoms_indices = []
     for atom in topology.atoms():
-        if int(atom.id) in qm_fixed_atoms:
+        if int(atom.id) in qm_fixed_atoms and atom.residue.name != 'HOH':
             qm_fixed_atoms_indices.append(atom.index)
     for atom in topology.atoms():
         if int(atom.id) in qm_origin_atoms:
@@ -358,8 +359,8 @@ if __name__ == "__main__":
         forcefield.registerResidueTemplate(template)
 
     ####   change the center of the water cluster here   ####
-    origin = np.mean(pdb.getPositions(True)[[90, 91, 94, 95]], axis=0)
-    #origin = pdb.getPositions(True)[0]
+    origin = np.mean(pdb.getPositions(True)[[90, 91, 94, 95]], axis=0)  #   for the corner
+    #origin = pdb.getPositions(True)[41] # Zn on right side
     print(" Center : ", origin)
 
     n_atoms_init = pdb.topology.getNumAtoms()

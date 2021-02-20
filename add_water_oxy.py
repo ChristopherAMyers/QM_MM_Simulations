@@ -79,12 +79,12 @@ class SolventAdder(object):
             if mol_type == 'water':
                 mol_coords = self._water_coords
                 mol_vdw_radii = self._water_vdw_radii
-                max_tries = n_waters*1000
+                max_tries = n_waters*10000
                 max_mols = n_waters
             else:
                 mol_coords = self._o2_coords
                 mol_vdw_radii = self._o2_vdw_radii
-                max_tries = n_o2*1000
+                max_tries = n_o2*10000
                 max_mols = n_o2
 
             n_accepted = 0
@@ -115,7 +115,7 @@ class SolventAdder(object):
                 for i, atom in enumerate(mol):
                     sigma = mol_vdw_radii[i]
                     dists = np.linalg.norm(all_coords - atom, axis=1)
-                    n_intersects = np.sum(dists < (all_vdw_radii + sigma)/2)
+                    n_intersects = np.sum(dists < (all_vdw_radii + sigma*0.5)/2)
                     if n_intersects != 0:
                         #where = np.where(dists < all_vdw_radii)[0]
                         #print(where, dists[where], all_vdw_radii[where], rand_dist)
@@ -204,13 +204,12 @@ if __name__ == "__main__":
     adder = SolventAdder()
     positions = pdb.getPositions(True)
     center = np.mean(positions[[90, 91, 94, 95]], axis=0)
-    center = positions[[90, 91, 94, 95]]
-    center = positions[[90, 94]]    #for O2
-    center = positions[[90, 91, 93, 94, 95, 96]]    #for no ligands
-    #center = positions[[98, 105]]     #   for waters
+    center = positions[[98, 105]]   #   nitrogen atoms
+    center = positions[[90]]        #   corner Se atom
+    center = positions[[94, 95]]    #   corner Zn atoms
     print(" Center : ", center)
     for n in range(n_configs):
-        new_top, new_pos = adder.add_solvent(positions, pdb.topology, forcefield, 3.0, center, n_waters=0, n_o2=4)
+        new_top, new_pos = adder.add_solvent(positions, pdb.topology, forcefield, 2.5, center, n_waters=1, n_o2=0)
         with open('init.{:d}.pdb'.format(n + 1), 'w') as file:
             pdb.writeFile(new_top, new_pos, file)
 

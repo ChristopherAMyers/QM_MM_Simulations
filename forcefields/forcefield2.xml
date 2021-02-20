@@ -42,6 +42,10 @@
         <Type name="HOOH-O" class="h3o"   element="O"  mass="15.999"/>
         <Type name="HOOH-H" class="h3o"   element="H"  mass="1.007947"/>
 
+        <!--Hydroxide-->
+        <Type name="OH-O" class="oh"   element="O"  mass="15.999"/>
+        <Type name="OH-H" class="oh"   element="H"  mass="1.007947"/>
+
 
     </AtomTypes>
     <!---->
@@ -85,11 +89,15 @@
 
         <!--Hydronium-->
         <Atom type="H3O-O"  charge="+0.0000" sigma="0.354" epsilon="0.0656"/>
-        <Atom type="H3O-H"  charge="+0.0000" sigma="0.120" epsilon="0.0000"/>
+        <Atom type="H3O-H"  charge="+0.0000" sigma="0.120" epsilon="0.0200"/>
 
         <!--Peroxide-->
         <Atom type="HOOH-O"  charge="+0.0000" sigma="0.354" epsilon="0.0656"/>
         <Atom type="HOOH-H"  charge="+0.0000" sigma="0.120" epsilon="0.0000"/>
+
+        <!--Hydroxide-->
+        <Atom type="OH-O"  charge="+0.0000" sigma="0.354" epsilon="0.0656"/>
+        <Atom type="OH-H"  charge="+0.0000" sigma="0.120" epsilon="0.0000"/>
 
 
     
@@ -202,6 +210,12 @@
             <Bond atomName1="O2" atomName2="H2"/>
             <Bond atomName1="O1" atomName2="O2"/>
         </Residue>
+        <!--Hydroxide-->
+        <Residue name="OH">
+            <Atom name="O"   type="OH-O" charge="-1.15741914"/>
+            <Atom name="H"   type="OH-H" charge="+0.15741914"/>
+            <Bond atomName1="O" atomName2="H"/>
+        </Residue>
     </Residues>
     <HarmonicBondForce>
         <!--Other random types-->
@@ -255,7 +269,10 @@
         <!--O2-->
         <Bond k="200000.00" length="0.14000" type1="OTHER-O"  type2="OTHER-O"   />
 
-         <!--Hydronium, uses tip3p bonds-->
+        <!--Hydroxide-->
+        <Bond k="462750.4" length="0.098014" type1="OH-O"  type2="OH-H"   />
+
+        <!--Hydronium, uses tip3p bonds-->
         <Bond k="462750.4" length="0.09572" type1="H3O-O"  type2="H3O-H"   />
 
         <!--Peroxide, calcualted with PBE0/lanl2dz-->

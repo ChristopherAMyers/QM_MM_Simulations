@@ -365,6 +365,9 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
     If bonds have stretched too far, it leaves them as
     QM atoms and returns a new list of qm_atoms
     """
+    atoms = list(topology.atoms())
+    res_names = [x.residue.name for x in atoms]
+    
 
     if not is_quantity(coords):
         raise ValueError('coords must have units')
@@ -385,7 +388,7 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
                     #   k=0 identifies that the bond was a QM bond.
                     #   if while QM, the two atoms have stretched
                     #   too far, leave as QM atoms
-                    if dist > r/nanometer*1.3:
+                    if dist > r/nanometer*1.3 and "HOH" in [res_names[a], res_names[b]]:
                         new_atoms.add(a)
                         new_atoms.add(b)
                     else:
@@ -394,7 +397,7 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
 
     #   also check that any QM atom is not to close to an MM atom
     #   if so, add the MM atoms back to the list
-    for atom in topology.atoms():
+    for atom in atoms:
         if atom.index in qm_atoms or atom.index in new_atoms:
             this_coord = coords[atom.index]
             distances = np.linalg.norm(this_coord- coords, axis=1)
@@ -403,8 +406,6 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
                 if n in new_atoms: continue
                 if n in qm_atoms: continue
                 if distances[n] < 0.13:
-                    print("FOUND: ", atom.id, list(topology.atoms())[n].id)
-                    print()
                     new_atoms.add(n)
 
     #   for all atoms in the new QM list, add all other atoms in their residues
@@ -455,6 +456,11 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
                 else:
                     force.setAngleParameters(n, a, b, c, t, 836.8*kilojoules_per_mole)
             force.updateParametersInContext(context)
+
+    #   print out the newly added QM atoms:
+    for new_atom in new_qm_atoms:
+        if new_atom not in qm_atoms:
+            print(" Added atom id {:d} to qm_atoms list".format(int(atoms[new_atom].id)), file=outfile)
 
 
     return new_qm_atoms

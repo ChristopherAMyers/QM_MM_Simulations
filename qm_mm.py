@@ -124,8 +124,10 @@ def get_qm_spheres(originAtoms, qm_atoms, radius_in_ang, xyz_in_ang, topology):
                 for atom in list(residue.atoms()):
                     if atom.index in qm_atoms: continue
                     if atom.index in originAtoms: continue
-                    if np.linalg.norm(xyz_in_ang[int(i)] - xyz_in_ang[atom.index]) < radius_in_ang:
+                    dist = np.linalg.norm(xyz_in_ang[int(i)] - xyz_in_ang[atom.index])
+                    if dist < radius_in_ang:
                         isQuantum = True
+   
                         break
                 if isQuantum:
                     for atom in list(residue.atoms()):
@@ -142,7 +144,7 @@ def find_all_qm_atoms(mat_idx_list, bondedToAtom, topology):
             if atoms[bonded_to].element.symbol not in ['Se', 'Zn']:
                 pass
 
-def fix_qm_mm_bonds(system, qm_atoms, outfile=sys.stdout):
+def fix_qm_mm_bonds(system, qm_atoms, pos, outfile=sys.stdout):
 
     print(" Adding QM/MM Bond constraints ", file=outfile)
     print(" {:>10s}  {:>10s}  {:10s} ".format('Index 1', 'Index 2', 'R (Ang.)'), file=outfile)
@@ -152,8 +154,9 @@ def fix_qm_mm_bonds(system, qm_atoms, outfile=sys.stdout):
                 a, b, r, k = force.getBondParameters(n)
                 if (a in qm_atoms and b not in qm_atoms) or \
                    (b in qm_atoms and a not in qm_atoms):
-                   system.addConstraint(a, b, r)
-                   print(" {:10d}  {:10d}  {:>6.3f} ".format(a, b, r/angstroms), file=outfile)
+                   dist = np.linalg.norm(pos[a]/nanometers - pos[b]/nanometers)*nanometers
+                   system.addConstraint(a, b, dist)
+                   print(" {:10d}  {:10d}  {:>6.3f} ".format(a, b, dist/angstroms), file=outfile)
     print("\n", file=outfile)
 
 
@@ -235,7 +238,7 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
     
     return qm_bonds, qm_angles
 
-def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, spin_mult=1, rem_lines=[], step_number=0, ghost_atoms=[], jobtype=None):
+def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, spin_mult=1, rem_lines=[], scf_read=True, ghost_atoms=[], jobtype=None):
     global scratch
     input_file_loc = os.path.join(scratch, 'input')
     with open(input_file_loc, 'w') as file:
@@ -247,7 +250,7 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, spin_mult=
             file.write(line)
 
         #   use the previous jobs orbitals as an initial guess
-        if step_number % 10 != 0:
+        if scf_read:
             file.write('    scf_guess read \n')
         if not jobtype:
             file.write('    jobtype     force \n')
@@ -363,7 +366,12 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
     use_rem_lines = copy.copy(rem_lines)
     while redo:
         outfile.flush()
-        input_file_loc = create_qc_input(coords, charges, elements, qm_atoms, total_chg=total_chg, spin_mult=spin_mult, rem_lines=use_rem_lines, step_number=step_number)
+
+        scf_read = True
+        if failures > 0 or (step_number % 10 == 0):
+            scf_read = False
+
+        input_file_loc = create_qc_input(coords, charges, elements, qm_atoms, total_chg=total_chg, spin_mult=spin_mult, rem_lines=use_rem_lines, scf_read=scf_read)
         output_file_loc = os.path.join(scratch, 'output')
         cmd = os.path.join(qchem_path, 'bin/qchem') + ' -save -nt {:d}  {:s}  {:s} save_files'.format(n_procs, input_file_loc, output_file_loc)
 
@@ -385,24 +393,23 @@ def calc_qm_force(coords, charges, elements, qm_atoms, output_file, total_chg=0,
         end = time.time()
         #   forward Q-Chem output to output file and search for completion
         found_thank_you = False
-        found_scf_failure = False
         with open(output_file_loc, 'r', errors='ignore') as file:
             for line in file.readlines():
                 if "Thank you" in line:
                     found_thank_you = True
-                if "SCF failed to converge" in line:
-                    found_scf_failure = True
                 outfile.write(line)
 
         if not found_thank_you:
             failures += 1
 
         #   if SCF failed, try once more with different algorithm 
-        if found_scf_failure and failures == 1:
+        if failures == 1 and not found_thank_you:
             redo = True
-            use_rem_lines.append('scf_algorithm DIIS_GDM')
             if spin_mult == 1:
+                use_rem_lines.append('scf_algorithm RCA')
                 use_rem_lines.append('unrestricted False')
+            else:
+                use_rem_lines.append('scf_algorithm DIIS_GDM')
         elif found_thank_you or failures > 1:
             redo = False
 
@@ -552,17 +559,7 @@ def get_rem_lines(rem_file_loc, outfile):
 
     opts = JobOptions()
 
-    if opts.jobtype == 'aimd':
-        if opts.aimd_thermostat:
-            opts.integrator = 'Langevin'
-        else:
-            opts.integrator = 'Verlet'
-    elif opts.jobtype.lower() == 'grad':
-        opts.integrator = 'Steepest-Descent'
-        opts.time_step = 1.0 * femtoseconds
-    else:
-        opts.integrator = 'Conjugate-Gradient'
-        opts.time_step = 1.0 * femtoseconds
+
 
     for line in rem_lines_in:
         line = line.lower()
@@ -685,6 +682,17 @@ def get_rem_lines(rem_file_loc, outfile):
     outfile.write('\n')
 
 
+    if opts.jobtype == 'aimd':
+        if opts.aimd_thermostat:
+            opts.integrator = 'Langevin'
+        else:
+            opts.integrator = 'Verlet'
+    elif opts.jobtype.lower() == 'grad':
+        opts.integrator = 'Steepest-Descent'
+    else:
+        opts.integrator = 'Conjugate-Gradient'
+
+
     
     outfile.write('--------------------------------------------\n')
     outfile.write('              Script Options                \n')
@@ -770,7 +778,7 @@ def get_integrator(opts):
         #integrator.addGlobalVariable("scale", 1.0)
         integrator.addComputePerDof("v", "v + dt*f/m")
         integrator.addComputePerDof("x", "x + 0.5*dt*v")
-        integrator.addComputePerDof("v", "0.7*v")
+        integrator.addComputePerDof("v", "0.9*v")
         integrator.addComputePerDof("x", "x + 0.5*dt*v")
         return integrator
 
@@ -1043,7 +1051,7 @@ def main(args):
 
         #   add constraints
         if options.constrain_qmmm_bonds:
-            fix_qm_mm_bonds(system, qm_atoms, outfile)
+            fix_qm_mm_bonds(system, qm_atoms, pdb.positions, outfile)
 
         #   initialize simulation and set positions
         simulation = Simulation(pdb.topology, system, integrator)
@@ -1125,6 +1133,8 @@ def main(args):
                 qm_atoms = qm_fixed_atoms + qm_sphere_atoms
                 qm_atoms = update_mm_forces(qm_atoms, system, simulation.context, pos, pdb.topology, outfile=outfile)
 
+
+
             qm_atoms_reporter.report(simulation, qm_atoms)
             if len(qm_atoms) > 0:
 
@@ -1162,21 +1172,6 @@ def main(args):
             pos = state.getPositions(True)
             forces = state.getForces(True)
 
-            O1 = pos[397]
-            O2 = pos[398]
-            Zn = pos[93]
-            OZ1 = Zn - O1
-            OZ2 = Zn - O2
-            FO1 = forces[397]
-            FO2 = forces[398]
-            
-            angle1 = acos(dot(OZ1, FO1)/(norm(OZ1)*norm(FO1)))
-            angle2 = acos(dot(OZ2, FO2)/(norm(OZ2)*norm(FO2)))
-            print("FORCES 1: ", norm(FO1), angle1*180/np.pi/radian, file=outfile)
-            print("FORCES 1: ", norm(FO2), angle2*180/np.pi/radian, file=outfile)
-
-
-            
             simulation.step(1)
             
 
