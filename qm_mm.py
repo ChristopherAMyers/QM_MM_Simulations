@@ -239,7 +239,7 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
     return qm_bonds, qm_angles
 
 def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, spin_mult=1, rem_lines=[], scf_read=True, ghost_atoms=[], jobtype=None):
-    global scratch
+    global scratch, qm_fragments
     input_file_loc = os.path.join(scratch, 'input')
     with open(input_file_loc, 'w') as file:
         #   copy over rem job lines
