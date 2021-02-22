@@ -62,42 +62,42 @@
         <Atom type="ETH-C1"   charge="-0.2000" sigma="0.340" epsilon="0.288"/>
         <Atom type="ETH-C2"   charge="-0.5500" sigma="0.340" epsilon="0.288"/>
         <Atom type="LIG-N"    charge="-0.8000" sigma="0.308" epsilon="0.711"/>
-        <Atom type="ETH-HC11" charge="+0.2000" sigma="0.120" epsilon="0.0656"/>
-        <Atom type="ETH-HC12" charge="+0.2000" sigma="0.120" epsilon="0.0656"/>
-        <Atom type="ETH-HC21" charge="+0.2000" sigma="0.120" epsilon="0.0656"/>
-        <Atom type="ETH-HC22" charge="+0.2000" sigma="0.120" epsilon="0.0656"/>
-        <Atom type="ETH-HC23" charge="+0.2000" sigma="0.120" epsilon="0.0656"/>
-        <Atom type="ETH-HN1"  charge="+0.4000" sigma="0.120" epsilon="0.0656"/>
-        <Atom type="ETH-HN2"  charge="+0.4000" sigma="0.120" epsilon="0.0656"/>
+        <Atom type="ETH-HC11" charge="+0.2000" sigma="0.240" epsilon="0.0656"/>
+        <Atom type="ETH-HC12" charge="+0.2000" sigma="0.240" epsilon="0.0656"/>
+        <Atom type="ETH-HC21" charge="+0.2000" sigma="0.240" epsilon="0.0656"/>
+        <Atom type="ETH-HC22" charge="+0.2000" sigma="0.240" epsilon="0.0656"/>
+        <Atom type="ETH-HC23" charge="+0.2000" sigma="0.240" epsilon="0.0656"/>
+        <Atom type="ETH-HN1"  charge="+0.4000" sigma="0.240" epsilon="0.0656"/>
+        <Atom type="ETH-HN2"  charge="+0.4000" sigma="0.240" epsilon="0.0656"/>
         <Atom type="MTH-C1"   charge="-0.3500" sigma="0.340" epsilon="0.288"/>
         <Atom type="LIG-N"    charge="-0.8000" sigma="0.308" epsilon="0.711"/>
-        <Atom type="MTH-HC11" charge="+0.2000" sigma="0.120" epsilon="0.0656"/>
-        <Atom type="MTH-HC12" charge="+0.2000" sigma="0.120" epsilon="0.0656"/>
-        <Atom type="MTH-HC13" charge="+0.2000" sigma="0.120" epsilon="0.0656"/>
-        <Atom type="MTH-HN1"  charge="+0.4000" sigma="0.120" epsilon="0.0656"/>
-        <Atom type="MTH-HN2"  charge="+0.4000" sigma="0.120" epsilon="0.0656"/>
+        <Atom type="MTH-HC11" charge="+0.2000" sigma="0.240" epsilon="0.0656"/>
+        <Atom type="MTH-HC12" charge="+0.2000" sigma="0.240" epsilon="0.0656"/>
+        <Atom type="MTH-HC13" charge="+0.2000" sigma="0.240" epsilon="0.0656"/>
+        <Atom type="MTH-HN1"  charge="+0.4000" sigma="0.240" epsilon="0.0656"/>
+        <Atom type="MTH-HN2"  charge="+0.4000" sigma="0.240" epsilon="0.0656"/>
         <Atom type="OTHER-O"  charge="+0.0000" sigma="0.25" epsilon="0.0656"/>
         <Atom type="OTHER-N"  charge="+0.0000" sigma="0.304" epsilon="0.0656"/>
         <Atom type="OTHER-C"  charge="+0.0000" sigma="0.304" epsilon="0.0656"/>
-        <Atom type="OTHER-H"  charge="+0.0000" sigma="0.120" epsilon="0.0656"/>
+        <Atom type="OTHER-H"  charge="+0.0000" sigma="0.240" epsilon="0.0656"/>
         <Atom type="OTHER-Se" charge="-0.7500" sigma="0.380" epsilon="0.913"/>
         <Atom type="OTHER-Zn" charge="+0.5000" sigma="0.278" epsilon="0.389"/>
         <Atom type="HOH-O"  charge="+0.0000" sigma="0.304" epsilon="0.0656"/>
-        <Atom type="HOH-H1"  charge="+0.0000" sigma="0.120" epsilon="0.0656"/>
-        <Atom type="HOH-H2"  charge="+0.0000" sigma="0.120" epsilon="0.0656"/>
+        <Atom type="HOH-H1"  charge="+0.0000" sigma="0.240" epsilon="0.0656"/>
+        <Atom type="HOH-H2"  charge="+0.0000" sigma="0.240" epsilon="0.0656"/>
 
 
         <!--Hydronium-->
         <Atom type="H3O-O"  charge="+0.0000" sigma="0.354" epsilon="0.0656"/>
-        <Atom type="H3O-H"  charge="+0.0000" sigma="0.120" epsilon="0.0200"/>
+        <Atom type="H3O-H"  charge="+0.0000" sigma="0.240" epsilon="0.0200"/>
 
         <!--Peroxide-->
         <Atom type="HOOH-O"  charge="+0.0000" sigma="0.354" epsilon="0.0656"/>
-        <Atom type="HOOH-H"  charge="+0.0000" sigma="0.120" epsilon="0.0000"/>
+        <Atom type="HOOH-H"  charge="+0.0000" sigma="0.240" epsilon="0.0000"/>
 
         <!--Hydroxide-->
         <Atom type="OH-O"  charge="+0.0000" sigma="0.354" epsilon="0.0656"/>
-        <Atom type="OH-H"  charge="+0.0000" sigma="0.120" epsilon="0.0000"/>
+        <Atom type="OH-H"  charge="+0.0000" sigma="0.240" epsilon="0.0000"/>
 
 
     
@@ -544,7 +544,7 @@
         <Proper k1="10.00" periodicity1="1" phase1=" -4.31683" type1="MAT-ZN2"  type2="MAT-SE2"   type3="MAT-ZN3"   type4="LIG-N"   />
         <Proper k1="10.00" periodicity1="1" phase1=" -2.29405" type1="MAT-ZN3"  type2="MAT-SE4"   type3="MAT-ZN2"   type4="LIG-N"   />
         <Proper k1="10.00" periodicity1="1" phase1=" -0.55178" type1="MAT-ZN4"  type2="MAT-SE4"   type3="MAT-ZN2"   type4="LIG-N"   />
-        <Proper k1="10.00" periodicity1="1" phase1=" -1.81209" type1="MAT-ZN4"  type2="MAT-SE3"   type3="MAT-ZN3"   type4="LIG-N"   />
+        <Proper k1="10.00" periodicity1="1" phase1=" -1.82409" type1="MAT-ZN4"  type2="MAT-SE3"   type3="MAT-ZN3"   type4="LIG-N"   />
         <Proper k1="10.00" periodicity1="1" phase1=" -5.07556" type1="LIG-N"    type2="MAT-ZN2"   type3="MAT-SE2"   type4="MAT-ZN1" />
         <Proper k1="10.00" periodicity1="1" phase1=" -0.42153" type1="LIG-N"    type2="MAT-ZN2"   type3="MAT-SE2"   type4="MAT-ZN3" />
         <Proper k1="10.00" periodicity1="1" phase1=" -4.78732" type1="MTH-C1"   type2="LIG-N"     type3="MAT-ZN2"   type4="MAT-SE2" />
