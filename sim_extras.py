@@ -275,3 +275,6 @@ class JobOptions(object):
 
         #   QM fragments
         self.qm_fragments = False
+
+        #   link atoms
+        self.link_atoms = False

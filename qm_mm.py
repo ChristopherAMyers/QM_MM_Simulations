@@ -65,6 +65,7 @@ def parse_args(args_in):
     parser.add_argument('-freeze', help='file of atom indicies to freeze coordinates')
     parser.add_argument('-ipt',   help='condensed input file')
     parser.add_argument('-frags',   help='QM fragments file')
+    parser.add_argument('-link',   help='QM/MM link atom ids file')
     return parser.parse_args(args_in)
 
 
@@ -657,6 +658,10 @@ def get_rem_lines(rem_file_loc, outfile):
             elif option == 'qm_fragments':
                 opts.qm_fragments = strtobool(sp[1])
 
+            #   QM / MM Janus Link atoms
+            elif option == 'link_atoms':
+                opts.link_atoms = strtobool(sp[1])
+
             #   random number seeds
             elif option == 'aimd_temp_seed':
                 seed = int(sp[1])
@@ -758,6 +763,8 @@ def get_rem_lines(rem_file_loc, outfile):
     if opts.qm_fragments:
         outfile.write(' QM Fragments:              {:10d} \n'.format(int(opts.qm_fragments)))
 
+    if opts.link_atoms:
+        outfile.write(' QM/MM Link Atoms:          {:10d} \n'.format(int(opts.link_atoms)))    
 
     outfile.write('--------------------------------------------\n')
     outfile.flush()
@@ -981,9 +988,12 @@ def main(args):
         ff_loc = os.path.join(os.path.dirname(__file__), 'forcefields/forcefield2.xml')
         forcefield = ForceField(ff_loc, 'tip3p.xml')
         [templates, residues] = forcefield.generateTemplatesForUnmatchedResidues(pdb.topology)
+        #return (templates, residues)
         for n, template in enumerate(templates):
             residue = residues[n]
             atom_names = []
+            
+            
             for atom in template.atoms:
                 if residue.name in ['EXT', 'OTH']:
                     atom.type = 'OTHER-' + atom.element.symbol
@@ -1011,7 +1021,7 @@ def main(args):
         charges = add_nonbonded_force(qm_atoms, system, pdb.topology.bonds(), outfile=outfile)
 
         #   setup Q-Chem Runner for submitting and running QM part of the simulation
-        qchem = QChemRunner(rem_lines, pdb.topology, charges, options, outfile, scratch, args.frags)
+        qchem = QChemRunner(rem_lines, pdb.topology, charges, options, outfile, scratch, args.frags, args.link)
 
         #   "external" force for updating QM forces and MM electrostatics
         ext_force = add_ext_force_all(system, charges)
@@ -1135,7 +1145,7 @@ def main(args):
                 qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pos/angstrom, pdb.topology)
                 qm_atoms = qm_fixed_atoms + qm_sphere_atoms
                 qm_atoms = update_mm_forces(qm_atoms, system, simulation.context, pos, pdb.topology, outfile=outfile)
-
+                exit()
 
 
             qm_atoms_reporter.report(simulation, qm_atoms)
@@ -1189,7 +1199,7 @@ if __name__ == "__main__":
     #tmp_args = parse_args(sys.argv[1:])
     arg_list = parse_cmd_line_args(scratch)
     prog_args = parse_args(arg_list)
-    simulation = main(prog_args)
+    (templates, residues) = main(prog_args)
 
     ''' DEBUGGING ONLY  '''
     '''

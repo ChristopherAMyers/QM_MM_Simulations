@@ -16,11 +16,6 @@ nanometer = nanometers = unit.nanometer
 femtoseconds = unit.femtoseconds
 # pylint: enable=no-member
 
-class LinkAtom():
-    def __init__(self, file_loc, topology):
-        
-        if os.path.isfile(file_loc):
-            pass
 
 
 class QChemRunner():
@@ -34,6 +29,12 @@ class QChemRunner():
         self._elements = [x.element.symbol for x in topology.atoms()]
         self._scratch = scratch
         self._link_atoms_file = link_atoms_file
+
+        self._link_atom_idx = []
+        self._atom_ids = []
+
+        if link_atoms_file:
+            self._set_link_atom_idx(link_atoms_file, outfile)
 
         if fragments_file:
             self._use_qm_fragments = True
@@ -59,7 +60,29 @@ class QChemRunner():
             #   if not running a slurm job, use number of cores
             self._n_procs = cpu_count()
 
-    def _create_qc_input(self, coords, qm_atoms, rem_lines, total_chg, spin_mult=1, scf_read=True, ghost_atoms=[], jobtype=None):
+    def _set_link_atom_idx(self, file_loc, outfile):
+        
+        self._link_atom_idx = []
+        self._atom_ids = []
+
+        #   import file of link atom id's
+        with open(file_loc, 'r') as file:
+            for line in file:
+                sp = line.split()
+                if len(sp) == 0: continue
+                self._atom_ids.append(int(sp[0]))
+
+        #   convert atom ids to indicies
+        for atom in self._topology.atoms():
+            if int(atom.id) in self._atom_ids:
+                self._link_atom_idx.append(atom.index)
+
+        print(" Using Janus link atoms for QM/MM Bonds", file=outfile)
+        print(" Atom ids used as link atoms: ", file=outfile)
+        for n in self._atom_ids:
+            print(" {:d} ".format(n), file=outfile)
+
+    def _create_qc_input(self, coords, qm_atoms, rem_lines, total_chg, spin_mult=1, scf_read=True, jobtype=None):
         input_file_loc = os.path.join(self._scratch, 'input')
         with open(input_file_loc, 'w') as file:
             #   copy over rem job lines
@@ -87,29 +110,42 @@ class QChemRunner():
                     for line in other_file.readlines():
                         file.write(line)
 
+            ghost_atoms = self._link_atom_idx
+
             #   mm_atoms are represented as external charges
             mol_lines = []
             chg_lines = []
+            ghost_lines = []
             for n, coord in enumerate(coords):
                 if n in qm_atoms:
                     mol_lines.append('    {:2s}  {:15.8f}  {:15.8f}  {:15.8f} \n'
-                    .format(self._elements[n], coord[0], coord[1], coord[2]))
-                elif n in ghost_atoms:
-                    mol_lines.append('    {:2s}  {:15.8f}  {:15.8f}  {:15.8f} \n'
-                    .format('@H', coord[0], coord[1], coord[2]))
+                        .format(self._elements[n], coord[0], coord[1], coord[2]))
                 else:
-                    chg_lines.append('    {:15.8f}  {:15.8f}  {:15.8f}  {:15.8f} \n'
-                    .format(coord[0], coord[1], coord[2], self._charges[n]))
-            
 
+                    chg = self._charges[n]
+
+                    #   additional ghost atoms are used for Janus Model
+                    if n in ghost_atoms:
+                        ghost_lines.append('    {:2s}  {:15.8f}  {:15.8f}  {:15.8f} \n'
+                            .format('@H', coord[0], coord[1], coord[2]))
+                        chg += 1
+
+                    chg_lines.append('    {:15.8f}  {:15.8f}  {:15.8f}  {:15.8f} \n'
+                        .format(coord[0], coord[1], coord[2], chg))
+
+            
             #   write molecule section
             file.write('$molecule \n')
-            file.write('    {:d}  {:d} \n'.format(int(total_chg), spin_mult))
+            use_total_charge = int(total_chg - len(ghost_lines))
+            file.write('    {:d}  {:d} \n'.format(use_total_charge, spin_mult))
             if self._use_qm_fragments:
                 mol_lines = self._qm_fragments.convert_molecule_lines(total_chg, spin_mult, mol_lines, qm_atoms)
             for line in mol_lines:
                 file.write(line)
+            for line in ghost_lines:
+                file.write(line)
             file.write('$end \n\n')
+
 
             #   write external charges
             file.write('$external_charges \n')
