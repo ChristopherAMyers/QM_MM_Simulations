@@ -997,6 +997,8 @@ def main(args):
             for atom in template.atoms:
                 if residue.name in ['EXT', 'OTH']:
                     atom.type = 'OTHER-' + atom.element.symbol
+                elif atom.element.symbol == 'N' and residue.name in ['ETH', 'MTH']:
+                    atom.type = 'LIG-N'
                 else:
                     atom.type = residue.name + "-" + atom.name.upper()
                 atom_names.append(atom.name)

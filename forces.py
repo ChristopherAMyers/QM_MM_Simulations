@@ -450,10 +450,6 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
             for n in range(force.getNumAngles()):
                 a, b, c, t, k = force.getAngleParameters(n)
 
-                if 51 in [a, b, c] and 55 in [a, b, c]:
-                    print(a, b, c, t, k)
-                    exit()
-
                 in_qm_atoms = [x in new_qm_atoms for x in [a, b, c]]
                 num_qm_atoms = np.sum(in_qm_atoms)
                 if num_qm_atoms > 0:
@@ -467,7 +463,7 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
         if new_atom not in qm_atoms:
             print(" Added atom id {:d} to qm_atoms list".format(int(atoms[new_atom].id)), file=outfile)
 
-
+    exit()
     return new_qm_atoms
 
 def add_pull_force(coords, system):
