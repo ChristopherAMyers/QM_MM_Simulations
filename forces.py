@@ -125,22 +125,23 @@ class HugsForce():
             self.force_obj = custom_force
             self.time_step = time_step
             self._total_time = 0 * femtoseconds
+            self.system = system
 
         else:
             raise FileNotFoundError("Hugs force file not found")
 
-    def update(self, context, outfile=sys.stdout):
-        self._total_time += self.time_step
+    def update(self, simulation, outfile=sys.stdout):
+        self._total_time += simulation.integrator.getStepSize()
         if self._total_time < self.switch_time:
 
             switch = np.sin(self._total_time/self.switch_time * np.pi/2)**2
 
-            print("Updating hugs force: surrent switch vale: {:8.5f}".format(switch), file=outfile)
+            print("Updating hugs force with switch value {:8.5f} at time {:6.2f} fs".format(switch, self._total_time/femtoseconds), file=outfile)
 
             for n in range(len(self._p1)):
                 params = [self._k[n], self._r0[n], switch]
                 self.force_obj.setBondParameters(n, self._p1[n], self._p2[n], params)
-            self.force_obj.updateParametersInContext(context)
+            self.force_obj.updateParametersInContext(simulation.context)
 
 class BoundryForce():
     def __init__(self, system, topology, positions, qm_atoms, max_dist=0.4*nanometers, scale=10000.0):
@@ -463,7 +464,7 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
         if new_atom not in qm_atoms:
             print(" Added atom id {:d} to qm_atoms list".format(int(atoms[new_atom].id)), file=outfile)
 
-    exit()
+
     return new_qm_atoms
 
 def add_pull_force(coords, system):

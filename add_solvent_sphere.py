@@ -229,6 +229,8 @@ def add_solvent_shell(solute_coords, topology, forcefield, radius=1.5*nanometers
         else:
             vdw_radii.append(0)
     vdw_radii = np.array(vdw_radii)
+    #   shrink vdw radii
+    #vdw_radii = np.array([min(x, 0.15) for x in vdw_radii])
     
     if(solventBox == "None"):
         solvent = Modeller(Topology(), [])
@@ -381,7 +383,7 @@ if __name__ == "__main__":
     if ids_file:
         qm_atoms = parse_idx(ids_file, mols.topology)[0]
         water_filler = WaterFiller(mols.topology, forcefield)
-        for n in range(40):
+        for n in range(20):
             print(n)
             mols.positions = water_filler.fill_void(np.array(mols.positions/nanometers)*nanometers, qm_atoms)
         PDBFile.writeModel(mols.topology, mols.positions, open('voids_filled.pdb', 'w'), keepIds=True)

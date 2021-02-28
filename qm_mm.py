@@ -272,13 +272,14 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, spin_mult=
         #   mm_atoms are represented as external charges
         mol_lines = []
         chg_lines = []
+        link_lines = []
         for n, coord in enumerate(coords):
             if n in qm_atoms:
                 mol_lines.append('    {:2s}  {:15.8f}  {:15.8f}  {:15.8f} \n'
                 .format(elements[n], coord[0], coord[1], coord[2]))
             elif n in ghost_atoms:
-                mol_lines.append('    {:2s}  {:15.8f}  {:15.8f}  {:15.8f} \n'
-                .format('@H', coord[0], coord[1], coord[2]))
+                link_lines.append('    {:2s}  {:15.8f}  {:15.8f}  {:15.8f} ! link atom\n'
+                .format('H', coord[0], coord[1], coord[2]))
             else:
                 chg_lines.append('    {:15.8f}  {:15.8f}  {:15.8f}  {:15.8f} \n'
                 .format(coord[0], coord[1], coord[2], charges[n]))
@@ -290,6 +291,8 @@ def create_qc_input(coords, charges, elements, qm_atoms, total_chg=0, spin_mult=
         if qm_fragments:
             mol_lines = qm_fragments.convert_molecule_lines(total_chg, spin_mult, mol_lines, qm_atoms)
         for line in mol_lines:
+            file.write(line)
+        for line in link_lines:
             file.write(line)
         file.write('$end \n\n')
 
@@ -322,13 +325,18 @@ def get_qm_force(coords, charges, elements, qm_atoms, output_file, topology, opt
                 #   change spin mult of system to the new multiplicity
                 opts.mult = new_mult
 
-        #   marcov chain spin flip
+        #   marcov chain spin flip, incriments in total spin 1 (multiplicity 2)
         elif opts.mc_spin:
-            up_or_down = np.random.randint(0, 2)
-            if up_or_down == 0:
+            up_or_down = np.random.randint(0, 2)    # 0 goes down, 1 goes up
+            if (up_or_down == 0) and (spin_mult - 2 >= opts.mc_spin_min_mult):
                 new_mult = spin_mult - 2
-            else:
+            elif (up_or_down == 1) and (spin_mult + 2 <= opts.mc_spin_max_mult):
                 new_mult = spin_mult + 2
+            else:
+                print(" Chosen new spin multiplicity at step {:d} out of bounds".format(step_number), file=outfile)
+                print(" No new spin claculation will be performed", file=outfile)
+                return qm_energy, qm_gradient
+
             new_mult = max(1, new_mult)
             
 
@@ -504,12 +512,21 @@ def update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, coords_in_nm,
     '''
     
     #   import electric field components if file is available
+    efield = []
     n_atoms = ext_force.getNumParticles()
     n_qm_atoms = len(qm_atoms)
     e_field_file_loc = 'efield.dat'
     if os.path.isfile(e_field_file_loc):
         print(' efield.dat found', file=outfile)
-        efield = np.loadtxt(e_field_file_loc) * 2625.5009 / bohrs.conversion_factor_to(nanometer)
+        with open('efield.dat', 'r') as file:
+            lines = file.readlines()
+            efield = np.zeros((len(lines), 3))
+            for n, line in enumerate(lines):
+                sp = line.split()
+                if len(sp) == 3:
+                    efield[n] = np.array([float(x) for x in sp])
+                    
+        #efield = np.loadtxt(e_field_file_loc) * 2625.5009 / bohrs.conversion_factor_to(nanometer)
         os.remove('efield.dat')
     else:
         print(' efield.dat NOT found', file=outfile)
@@ -629,6 +646,10 @@ def get_rem_lines(rem_file_loc, outfile):
                 opts.adapt_mult = bool(strtobool(sp[1]))
             elif option == 'mc_spin':
                 opts.mc_spin = bool(strtobool(sp[1]))
+            elif option == 'mc_spin_max_mult':
+                opts.mc_spin_max_mult = int(sp[1])
+            elif option == 'mc_spin_min_mult':
+                opts.mc_spin_min_mult = int(sp[1])
 
             #   oxygen repulsion force
             elif option == 'oxy_repel':
@@ -718,6 +739,8 @@ def get_rem_lines(rem_file_loc, outfile):
         outfile.write(' Adaptive Spin:             {:10d} \n'.format(int(opts.adapt_mult)))
     if opts.mc_spin:
         outfile.write(' MCMC Spin:                 {:10d} \n'.format(int(opts.mc_spin)))
+        outfile.write(' Max MC Spin Multiplicity:  {:10d} \n'.format(int(opts.mc_spin_max_mult)))
+        outfile.write(' Min MC Spin Multiplicity:  {:10d} \n'.format(int(opts.mc_spin_min_mult)))
 
     if opts.ratchet_pawl:
         outfile.write(' Ratchet-Pawl:              {:10d} \n'.format(int(opts.ratchet_pawl)))
@@ -1147,7 +1170,6 @@ def main(args):
                 qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pos/angstrom, pdb.topology)
                 qm_atoms = qm_fixed_atoms + qm_sphere_atoms
                 qm_atoms = update_mm_forces(qm_atoms, system, simulation.context, pos, pdb.topology, outfile=outfile)
-                exit()
 
 
             qm_atoms_reporter.report(simulation, qm_atoms)
@@ -1167,7 +1189,7 @@ def main(args):
             if options.oxy_bound:
                 oxygen_force.update(simulation.context, pos, outfile=outfile)
             if options.hugs:
-                hugs.update(simulation.context, outfile=outfile)
+                hugs.update(simulation, outfile=outfile)
             stats_reporter.report(simulation, qm_atoms)
 
 
@@ -1201,7 +1223,7 @@ if __name__ == "__main__":
     #tmp_args = parse_args(sys.argv[1:])
     arg_list = parse_cmd_line_args(scratch)
     prog_args = parse_args(arg_list)
-    (templates, residues) = main(prog_args)
+    simulation = main(prog_args)
 
     ''' DEBUGGING ONLY  '''
     '''

@@ -61,7 +61,7 @@ class SolventAdder(object):
             params = nonbonded.getParticleParameters(i)
             vdw_radii.append(params[1]/angstrom)
 
-        vdw_radii = [np.min([2.5, x]) for x in vdw_radii]
+        #vdw_radii = [np.min([2.5, x]) for x in vdw_radii]
 
         solute_coords = np.array(solute_coords/angstrom)
         all_coords = np.copy(solute_coords)
@@ -206,10 +206,12 @@ if __name__ == "__main__":
     center = np.mean(positions[[90, 91, 94, 95]], axis=0)
     center = positions[[98, 105]]   #   nitrogen atoms
     center = positions[[90]]        #   corner Se atom
-    center = positions[[94, 95]]    #   corner Zn atoms
+    center = positions[[94, 95, 96]]    #   corner Zn atoms
+    center = positions[[94, 95, 96, 90, 91, 93]]    #   corner Zn atoms and corner Se atoms
+    center = positions[[94, 95, 90, 91, 93]]    #   corner Zn atoms and corner Se atoms, exclude back Zn
     print(" Center : ", center)
     for n in range(n_configs):
-        new_top, new_pos = adder.add_solvent(positions, pdb.topology, forcefield, 2.5, center, n_waters=1, n_o2=0)
+        new_top, new_pos = adder.add_solvent(positions, pdb.topology, forcefield, 2.5, center, n_waters=0, n_o2=2)
         with open('init.{:d}.pdb'.format(n + 1), 'w') as file:
             pdb.writeFile(new_top, new_pos, file)
 

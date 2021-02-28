@@ -33,10 +33,10 @@ class QChemRunner():
         self._link_atom_idx = []
         self._atom_ids = []
 
-        if link_atoms_file:
+        if link_atoms_file and options.link_atoms:
             self._set_link_atom_idx(link_atoms_file, outfile)
 
-        if fragments_file:
+        if fragments_file and options.qm_fragments:
             self._use_qm_fragments = True
             self._qm_fragments = QM_Fragments(fragments_file, self._topology)
         else:
@@ -126,9 +126,9 @@ class QChemRunner():
 
                     #   additional ghost atoms are used for Janus Model
                     if n in ghost_atoms:
-                        ghost_lines.append('    {:2s}  {:15.8f}  {:15.8f}  {:15.8f} \n'
-                            .format('@H', coord[0], coord[1], coord[2]))
-                        chg += 1
+                        ghost_lines.append('    {:2s}  {:15.8f}  {:15.8f}  {:15.8f}  ! link atom\n'
+                            .format('H', coord[0], coord[1], coord[2]))
+                        #chg += 1
 
                     chg_lines.append('    {:15.8f}  {:15.8f}  {:15.8f}  {:15.8f} \n'
                         .format(coord[0], coord[1], coord[2], chg))
@@ -136,7 +136,7 @@ class QChemRunner():
             
             #   write molecule section
             file.write('$molecule \n')
-            use_total_charge = int(total_chg - len(ghost_lines))
+            use_total_charge = int(total_chg - len(ghost_lines)*0)
             file.write('    {:d}  {:d} \n'.format(use_total_charge, spin_mult))
             if self._use_qm_fragments:
                 mol_lines = self._qm_fragments.convert_molecule_lines(total_chg, spin_mult, mol_lines, qm_atoms)
