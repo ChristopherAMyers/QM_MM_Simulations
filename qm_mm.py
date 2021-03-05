@@ -60,7 +60,7 @@ def parse_args(args_in):
     parser.add_argument('-repf',  help='file to print forces to')
     parser.add_argument('-repv',  help='file to print velocities to')
     parser.add_argument('-pawl',  help='list of atom ID pairs to apply ratchet-pawl force between')
-    parser.add_argument('-hugs',  help='list of atom ID pairs to apply hugs force between')
+    parser.add_argument('-rest',  help='list of atom ID pairs to apply restraint force between')
     parser.add_argument('-nt',    help='number of threads to use in Q-Chem calculations', type=int)
     parser.add_argument('-freeze', help='file of atom indicies to freeze coordinates')
     parser.add_argument('-ipt',   help='condensed input file')
@@ -433,11 +433,11 @@ def get_rem_lines(rem_file_loc, outfile):
             elif option == 'ionization_num':
                 opts.ionization_num = int(sp[1])
 
-            #   hugs force
-            elif option == 'hugs':
-                opts.hugs = bool(strtobool(sp[1]))
-            elif option == 'hugs_switch_time':
-                opts.hugs_switch_time = float(sp[1]) * femtoseconds
+            #   restraint force
+            elif option == 'restraints':
+                opts.restraints = bool(strtobool(sp[1]))
+            elif option == 'restraints_switch_time':
+                opts.restraints_switch_time = float(sp[1]) * femtoseconds
 
             #   QM fragments
             elif option == 'qm_fragments':
@@ -543,9 +543,9 @@ def get_rem_lines(rem_file_loc, outfile):
         outfile.write(' Initial Ionization:        {:10d} \n'.format(int(opts.ionization)))
         outfile.write(' No. of ionized H2O pairs:  {:10d} \n'.format(opts.ionization_num))
 
-    if opts.hugs:
-        outfile.write(' Hugs Force:                {:10d} \n'.format(int(opts.hugs)))
-        outfile.write(' Hugs Switch Time:          {:>10f} fs \n'.format(opts.hugs_switch_time/femtoseconds))
+    if opts.restraints:
+        outfile.write(' Restraints:                {:10d} \n'.format(int(opts.restraints)))
+        outfile.write(' Restraints Switch Time:    {:>10f} fs \n'.format(opts.restraints_switch_time/femtoseconds))
 
     if opts.qm_fragments:
         outfile.write(' QM Fragments:              {:10d} \n'.format(int(opts.qm_fragments)))
@@ -705,9 +705,7 @@ def main(args):
         #return (templates, residues)
         for n, template in enumerate(templates):
             residue = residues[n]
-            atom_names = []
-            
-            
+            atom_names = []            
             for atom in template.atoms:
                 if residue.name in ['EXT', 'OTH']:
                     atom.type = 'OTHER-' + atom.element.symbol
@@ -760,8 +758,8 @@ def main(args):
         if options.oxy_repel:
             add_oxygen_repulsion(system, pdb.topology, options.oxy_repel_dist)
 
-        if options.hugs:
-            hugs = HugsForce(system, pdb.topology, args.hugs, options.time_step, options.hugs_switch_time)
+        if options.restraints:
+            restraints = RestraintsForce(system, pdb.topology, args.rest, options.restraints_switch_time)
 
         #   debug only: turns off forces except one
         if False:
@@ -879,8 +877,8 @@ def main(args):
             print(options.oxy_bound)
             if options.oxy_bound:
                 oxygen_force.update(simulation.context, pos, outfile=outfile)
-            if options.hugs:
-                hugs.update(simulation, outfile=outfile)
+            if options.restraints:
+                restraints.update(simulation, pos, outfile=outfile)
             stats_reporter.report(simulation, qm_atoms)
 
 

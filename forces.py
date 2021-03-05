@@ -83,19 +83,27 @@ class RandomKicksForce():
     def set_temperature(self, temperature):
         self.temperature = temperature
 
-class HugsForce():
-    def __init__(self, system, topology, hugs_file_loc, time_step, switch_time):
-        if os.path.isfile(hugs_file_loc):
-            force_string = 'scale*0.5*k*(r - r0)^2'
+class RestraintsForce():
+    '''
+        Adds a restraing quadratic cost potential between two atoms.
+        Switch_time is the time in femtoseconds for the potential to reach
+        full magnitude and increases from zero over a sine function.
+    '''
+
+    def __init__(self, system, topology, restraints_file_loc, switch_time):
+        if os.path.isfile(restraints_file_loc):
+            force_string = 'scale*step(equality*(r - r0))*0.5*k*(r - r0)^2'
             custom_force = CustomBondForce(force_string)
             custom_force.addPerBondParameter('k')
             custom_force.addPerBondParameter('r0')
             custom_force.addPerBondParameter('scale')
+            custom_force.addPerBondParameter('equality')
 
             self._p1 = []
             self._p2 = []
             self._k = []
             self._r0 = []
+            self._equality = []
             self.switch_time = switch_time
 
 
@@ -103,46 +111,71 @@ class HugsForce():
             for atom in topology.atoms():
                 idx[int(atom.id)] = atom.index
 
-            with open(hugs_file_loc, 'r') as file:
+            with open(restraints_file_loc, 'r') as file:
                 for n, line in enumerate(file.readlines()):
                     sp = line.split()
                     if len(sp) == 0: continue
-                    if len(sp) >= 4:
+                    if sp[0] == '!' or sp[0] == '#': continue # comment lines
+                    if len(sp) >= 5:
                         self._p1.append(idx[int(sp[0])])
                         self._p2.append(idx[int(sp[1])])
                         self._k.append(float(sp[2]))
                         self._r0.append(float(sp[3]))
+                        self._equality.append(-float(sp[4]))
 
+                        #   removes -0 as an option, not sure how if it would work with OpenMM
+                        if self._equality[n] == 0.0:
+                            self._equality[n] = 0.0
 
                     else:
-                        raise ValueError("Invalid number of elements in hugs file line %d" % n)
+                        raise ValueError("Invalid number of elements in restraints file line %d" % n)
 
             for n in range(len(self._p1)):
-                custom_force.addBond(self._p1[n], self._p2[n], [self._k[n], self._r0[n], 1])
+                custom_force.addBond(self._p1[n], self._p2[n], [self._k[n], self._r0[n], 1, self._equality[n]])
 
             system.addForce(custom_force)
 
             self.force_obj = custom_force
-            self.time_step = time_step
             self._total_time = 0 * femtoseconds
             self.system = system
 
         else:
-            raise FileNotFoundError("Hugs force file not found")
+            raise FileNotFoundError("Restraints file not found")
+        
+    def _step(self, x):
+        if x < 0:
+            return 0.0
+        else:
+            return 1.0
 
-    def update(self, simulation, outfile=sys.stdout):
+    def update(self, simulation, pos, outfile=sys.stdout):
         self._total_time += simulation.integrator.getStepSize()
         if self._total_time < self.switch_time:
 
             switch = np.sin(self._total_time/self.switch_time * np.pi/2)**2
 
-            print("Updating hugs force with switch value {:8.5f} at time {:6.2f} fs".format(switch, self._total_time/femtoseconds), file=outfile)
+            print(" Updating restraints force with switch value {:8.5f} at time {:6.2f} fs".format(switch, self._total_time/femtoseconds), file=outfile)
 
             for n in range(len(self._p1)):
-                params = [self._k[n], self._r0[n], switch]
+                params = [self._k[n], self._r0[n], switch, self._equality[n]]
                 self.force_obj.setBondParameters(n, self._p1[n], self._p2[n], params)
             self.force_obj.updateParametersInContext(simulation.context)
+        else:
+            switch = 1.0
 
+        total_energy = 0.0
+        for n in range(len(self._p1)):
+            p1 = pos[self._p1[n]]
+            p2 = pos[self._p2[n]]
+            r = np.linalg.norm(p1 - p2)
+            k, r0, eq = [self._k[n], self._r0[n], self._equality[n]]
+            total_energy += switch*self._step(eq*(r - r0))*0.5*k*(r - r0)**2
+
+        print(" Total restraint energy: {:15.5f} kJ/mol".format(total_energy), file=outfile)
+
+
+        
+        
 class BoundryForce():
     def __init__(self, system, topology, positions, qm_atoms, max_dist=0.4*nanometers, scale=10000.0):
         '''

@@ -211,7 +211,7 @@ if __name__ == "__main__":
     center = positions[[94, 95, 90, 91, 93]]    #   corner Zn atoms and corner Se atoms, exclude back Zn
     print(" Center : ", center)
     for n in range(n_configs):
-        new_top, new_pos = adder.add_solvent(positions, pdb.topology, forcefield, 2.5, center, n_waters=0, n_o2=2)
+        new_top, new_pos = adder.add_solvent(positions, pdb.topology, forcefield, 2.5, center, n_waters=0, n_o2=1)
         with open('init.{:d}.pdb'.format(n + 1), 'w') as file:
             pdb.writeFile(new_top, new_pos, file)
 

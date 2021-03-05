@@ -267,9 +267,9 @@ class JobOptions(object):
         self.ionization = False
         self.ionization_num = 1
 
-        #   hugs force
-        self.hugs = False
-        self.hugs_switch_time = 0*femtoseconds
+        #   restraint force
+        self.restraints = False
+        self.restraints_switch_time = 0*femtoseconds
 
         #   constraints
         self.constrain_qmmm_bonds = True
