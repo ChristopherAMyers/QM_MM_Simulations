@@ -164,24 +164,26 @@ class StatsReporter(object):
             max_force_id = int(list(simulation.topology.atoms())[max_force_idx].id)
             self._smallest_force = min(self._smallest_force, max_forces)
 
-            #stepsize = simulation.integrator.getStepSize()/picoseconds
-            #   increase stepsize for friction calculations
             max_disp = 0.0
             pos = state.getPositions(True)/angstroms
             if len(self._last_pos) > 0:
                 max_disp = np.max(np.linalg.norm(pos - self._last_pos, axis=1))
 
-            if max_forces > 2500:
-                stepsize = min(np.sqrt(0.005/max_forces), 0.003)*picoseconds
-                simulation.integrator.setStepSize(stepsize)
-            
-            else:
-                simulation.integrator.setStepSize(self._options.time_step)
-                self._increased_step_size = True
+            if self._jobtype == 'friction':
+                if max_forces > 2500:
+                    simulation.integrator.setGlobalVariable(0, 0.5)
+                    stepsize = min(np.sqrt(0.005/max_forces), 0.003)*picoseconds
+                    #stepsize = min(0.01/max_forces, 0.000003)*picoseconds
+                    simulation.integrator.setStepSize(stepsize)
+                else:
+                    simulation.integrator.setGlobalVariable(0, 0.9)
+                    simulation.integrator.setStepSize(self._options.time_step)
+                    #simulation.integrator.setStepSize(0.000004)
+                    self._increased_step_size = True
 
             self._last_pos = pos
             stepsize = simulation.integrator.getStepSize()
-            self._out.write(' {:4d}  {:10.1f}  {:10.1f}  {:10.1f}  {:10s} {:8.6f} {:10.6f}  {:10.3f}  {:10.3f}  {:4d}\n'
+            self._out.write(' {:4d}  {:10.1f}  {:10.1f}  {:10.1f}  {:10s} {:11.6g} {:10.6f}  {:10.3f}  {:10.3f}  {:4d}\n'
                 .format(step, pot_energy, qm_energy, elapsed_seconds, time_rem, stepsize/picoseconds, max_disp, rms_forces, max_forces, max_force_id))
 
         self._out.flush()

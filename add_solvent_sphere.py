@@ -342,13 +342,16 @@ if __name__ == "__main__":
     ids_file = None
     if '-ids' in sys.argv:
         ids_file = sys.argv[sys.argv.index('-ids') + 1]
-    pdb_to_qc.add_bonds(pdb, remove_orig=True)
-    forcefield = ForceField('/network/rit/lab/ChenRNALab/awesomeSauce/2d_materials/ZnSe/quant_espres/znse_2x2/qm_mm/forcefield/forcefields/forcefield2.xml', 'amber14/tip3pfb.xml')
+    pdb_to_qc.add_bonds(pdb, remove_orig=False)
+    forcefield = ForceField('/network/rit/lab/ChenRNALab/awesomeSauce/2d_materials/ZnSe/quant_espres/znse_2x2/qm_mm/forcefield/forcefields/forcefield2.xml', 'amber14/tip3pfb.xml', 'DNA-other.xml')
     unmatched_residues = forcefield.getUnmatchedResidues(pdb.topology)
     [templates, residues] = forcefield.generateTemplatesForUnmatchedResidues(pdb.topology)
     for n, template in enumerate(templates):
         residue = residues[n]
+        print("RES: ", residue)
         atom_names = []
+        for bond in template.bonds:
+            print(template.atoms[bond[0]].name, template.atoms[bond[1]].name)
         for atom in template.atoms:
             if residue.name in ['EXT', 'OTH']:
                 atom.type = 'OTHER-' + atom.element.symbol
@@ -361,7 +364,7 @@ if __name__ == "__main__":
         forcefield.registerResidueTemplate(template)
 
     ####   change the center of the water cluster here   ####
-    origin = np.mean(pdb.getPositions(True)[[90, 91, 94, 95]], axis=0)  #   for the corner
+    origin = np.mean(pdb.getPositions(True), axis=0)  #   for the corner
     #origin = pdb.getPositions(True)[41] # Zn on right side
     print(" Center : ", origin)
 

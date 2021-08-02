@@ -32,13 +32,13 @@ def parse_cmd_line_args(scratch_dir):
         FileSections('$hugs', '$end', 'hugs', '-hugs'),
         FileSections('$restraints', '$end', 'restraints', '-rest'),
         FileSections('$pawl', '$end', 'pawl', '-pawl'),
-        FileSections('$freeze', '$end', 'idx', '-idx'),
+        FileSections('$freeze', '$end', 'freeze', '-freeze'),
         FileSections('$fragments', '$end', 'frags', '-frags'),
         FileSections('$link', '$end', 'link', '-link'),
         FileSections('$other', '$end', 'other')
     ]
 
-    outfile = copyfile(file_loc, path.join(scratch_dir, 'qm_mm_input'))
+    copyfile(file_loc, path.join(scratch_dir, 'qm_mm_input'))
 
     current_read = None
     with open(file_loc) as file:
@@ -79,7 +79,7 @@ def parse_cmd_line_args(scratch_dir):
 
     #   split data into individual files
     for sec in sections:
-        if len(sec.lines) != 0:
+        if len(sec.lines) != 0 or sec.file_name == 'idx':
             file_loc = path.join(scratch_dir, sec.file_name)
             if sec.arg:
                 return_argv.append(sec.arg)

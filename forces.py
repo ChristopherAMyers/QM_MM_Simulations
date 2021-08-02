@@ -360,13 +360,8 @@ def add_nonbonded_force(qm_atoms, system, bonds, outfile=sys.stdout):
                 chg, sig, eps = force.getParticleParameters(n)
                 charges.append(chg / elementary_charge)
 
-                #if n not in [952, 1329]:
-                #    chg *= 0
-                #    eps *= 0
 
                 if n in qm_atoms:
-                    if n == 414:
-                        print("414: ", chg, sig, eps)
                     qm_charges.append(chg / elementary_charge)
                     customForce.addParticle([chg, sig, eps, 1])
                 else:
@@ -465,6 +460,16 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
                     params[-1] = 1
                 else:
                     params[-1] = 0
+                #   exception for hydrogens from waters, these are known to get
+                #   too close to link atoms, so we use a small vdW radii
+                if atoms[n].residue.name == 'HOH' and atoms[n].element.symbol == 'H':
+                    if n in new_qm_atoms:
+                        params[1] = 0.10    # sigma
+                        params[2] = 0.20    # epsilon
+                    else:
+                        #   original tip3p parameters
+                        params[1] = 1.0
+                        params[2] = 0.0
                 force.setParticleParameters(n, params)
             force.updateParametersInContext(context)
 

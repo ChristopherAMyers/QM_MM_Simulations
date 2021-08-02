@@ -11,7 +11,7 @@ from subprocess import run
 import time
 import shutil
 from scipy import optimize
-from optimize import GradientMethod
+from optimize import GradientMethod, BFGS
 from mdtraj.reporters import HDF5Reporter
 from distutils.util import strtobool
 from random import shuffle
@@ -190,7 +190,7 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
                 a, b, c, t, k = force.getAngleParameters(n)
                 in_qm_atoms = [x in qm_atoms for x in [a, b, c]]
                 num_qm_atoms = np.sum(in_qm_atoms)
-                if num_qm_atoms > 0:
+                if num_qm_atoms > 2:
                     force.setAngleParameters(n, a, b, c, t, k*0.000)
                     num_angles_removed += 1
                 if num_qm_atoms > 0 and num_qm_atoms < 3  :
@@ -569,12 +569,13 @@ def get_integrator(opts):
     elif opts.jobtype == 'friction':
         #   Langevin integrator without the random noise
         integrator = CustomIntegrator(opts.time_step)
-        integrator.addGlobalVariable("step_size", opts.time_step)
-        #integrator.addGlobalVariable("scale", 1.0)
+        integrator.addGlobalVariable("v_scale", 0.9)
         integrator.addComputePerDof("v", "v + dt*f/m")
         integrator.addComputePerDof("x", "x + 0.5*dt*v")
-        integrator.addComputePerDof("v", "0.9*v")
+        integrator.addComputePerDof("v", "v_scale*v")
         integrator.addComputePerDof("x", "x + 0.5*dt*v")
+
+        #integrator.addComputePerDof("x", "x + dt*f")
         return integrator
 
     else:
@@ -701,6 +702,7 @@ def main(args):
 
         ff_loc = os.path.join(os.path.dirname(__file__), 'forcefields/forcefield2.xml')
         forcefield = ForceField(ff_loc, 'tip3p.xml')
+        #return forcefield, pdb.topology
         [templates, residues] = forcefield.generateTemplatesForUnmatchedResidues(pdb.topology)
         #return (templates, residues)
         for n, template in enumerate(templates):
@@ -731,7 +733,7 @@ def main(args):
         if options.qm_fragments:
             qm_fragments = QM_Fragments(args.frags, pdb.topology)
 
-        #   re-map nonbonded forces so QM only interacts with MM through vdW
+        #   re-map nonbonded forces so QM (mostly) only interacts with MM through vdW
         charges = add_nonbonded_force(qm_atoms, system, pdb.topology.bonds(), outfile=outfile)
 
         #   setup Q-Chem Runner for submitting and running QM part of the simulation
@@ -768,6 +770,7 @@ def main(args):
                     if not isinstance(force, CustomNonbondedForce):
                         system.removeForce(i)
                         break
+
         #   turn on to freeze mm atoms in place
         if args.freeze:
             fix_idx = np.loadtxt(args.freeze, dtype=int)
@@ -782,6 +785,7 @@ def main(args):
 
         #   initialize simulation and set positions
         simulation = Simulation(pdb.topology, system, integrator)
+
         if args.state:
             print(" Setting initial positions and velocities from state file: ", file=outfile)
             print(" {:s}".format(os.path.abspath(args.state)), file=outfile)
@@ -820,6 +824,7 @@ def main(args):
 
         if options.jobtype == 'opt':
             opt = GradientMethod(options.time_step*0.001)
+            #opt = BFGS(options.time_step*0.001)
 
         if options.jobtype != 'opt' and not args.state and options.jobtype != 'friction':
             print(" Setting initial velocities to temperature of {:5f} K: ".format(options.aimd_temp/kelvin), file=outfile)
@@ -836,7 +841,6 @@ def main(args):
         water_filler = WaterFiller(pdb.topology, forcefield, simulation)
         #   run simulation
         for n in range(options.aimd_steps):
-
             if options.annealing:
                 #   add increase in temperature
                 #   new temperature is T_0 + A*sin(t*w)^2
@@ -850,6 +854,8 @@ def main(args):
 
             state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True, getForces=True)
             pos = state.getPositions(True)
+            forces = state.getForces(True)
+
 
             # update QM atom list and water positions
             if n % options.qm_mm_update_freq == 0 and options.qm_mm_update:
@@ -874,34 +880,28 @@ def main(args):
             #   additional force updates
             if options.ratchet_pawl:
                 update_rachet_pawl_force(ratchet_pawl_force, simulation.context, pos/nanometers, outfile=outfile)
-            print(options.oxy_bound)
             if options.oxy_bound:
                 oxygen_force.update(simulation.context, pos, outfile=outfile)
             if options.restraints:
-                restraints.update(simulation, pos, outfile=outfile)
-            stats_reporter.report(simulation, qm_atoms)
-
-
-            #   call reporter before taking a step. OpenMM calls reporters after taking a step, but this
-            #   will not report the correct force and energy as the current parameters are only valid 
-            #   for the current positions, not after
-            
+                restraints.update(simulation, pos, outfile=outfile)            
             
             if n % 10  == 0:
                 simulation.saveState('simulation.xml')
 
             if options.jobtype == 'opt':
-                opt.step(simulation, outfile=outfile)
+                opt.prepare_step(simulation, outfile=outfile)
 
             #   update current velocity with random kicks
             if options.random_kicks:
                 kicks.update(outfile=outfile)
 
-            state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True, getForces=True)
-            pos = state.getPositions(True)
-            forces = state.getForces(True)
-
+            #   call reporter before taking a step. OpenMM calls reporters after taking a step, but this
+            #   will not report the correct force and energy as the current parameters are only valid 
+            #   for the current positions, not after
+            stats_reporter.report(simulation, qm_atoms)
             simulation.step(1)
+            if options.jobtype == 'opt':
+                opt.step(simulation)
             
 
 
@@ -912,7 +912,7 @@ if __name__ == "__main__":
     #tmp_args = parse_args(sys.argv[1:])
     arg_list = parse_cmd_line_args(scratch)
     prog_args = parse_args(arg_list)
-    simulation = main(prog_args)
+    ff, top = main(prog_args)
 
     ''' DEBUGGING ONLY  '''
     '''

@@ -129,13 +129,13 @@ def get_bonds_from_coords(elm1, elm2, coords, elms, cutoff):
     if len(sub_coords1) == 0 or len(sub_coords2) == 0:
         return []
     distMat = np.linalg.norm(sub_coords1[:, None] - sub_coords2, axis=-1)
-    bonds = []
+    bonds = set()
     for n, row in enumerate(distMat):
         where_within = np.where(row <= cutoff)[0]
         idx_list = idx_list_2[where_within]
         for idx in idx_list:
             if idx_list_1[n] != idx:
-                bonds.append([idx_list_1[n], idx])
+                bonds.add(tuple(sorted([idx_list_1[n], idx])))
     return bonds
 
 def add_bonds(pdb, remove_orig=False):
@@ -143,11 +143,11 @@ def add_bonds(pdb, remove_orig=False):
     coords = pdb.getPositions(asNumpy=True).in_units_of(angstroms)
     elements = np.array([x.element.symbol.lower() for x in pdb.topology.atoms()])
     bond_list =  get_bonds_from_coords('n', 'h', coords, elements, 1.3)
-    bond_list += get_bonds_from_coords('c', 'h', coords, elements, 1.3)
-    bond_list += get_bonds_from_coords('c', 'n', coords, elements, 1.8)
-    bond_list += get_bonds_from_coords('c', 'c', coords, elements, 1.8)
-    bond_list += get_bonds_from_coords('se', 'zn', coords, elements, 2.7)
-    bond_list += get_bonds_from_coords('zn', 'n', coords, elements, 2.4)
+    bond_list.update(get_bonds_from_coords('c', 'h', coords, elements, 1.3))
+    bond_list.update(get_bonds_from_coords('c', 'n', coords, elements, 1.8))
+    bond_list.update(get_bonds_from_coords('c', 'c', coords, elements, 1.8))
+    bond_list.update(get_bonds_from_coords('se', 'zn', coords, elements, 2.7))
+    bond_list.update(get_bonds_from_coords('zn', 'n', coords, elements, 2.4))
 
 
     atoms = list(pdb.topology.atoms())

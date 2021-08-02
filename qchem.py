@@ -60,6 +60,9 @@ class QChemRunner():
             #   if not running a slurm job, use number of cores
             self._n_procs = cpu_count()
 
+    def get_link_atom_index(self):
+        return list(self._link_atom_idx)
+
     def _set_link_atom_idx(self, file_loc, outfile):
         
         self._link_atom_idx = []
@@ -256,7 +259,7 @@ class QChemRunner():
             exit()
 
         #   debug only: save all generated input files
-        #shutil.copyfile(os.path.join(scratch, 'input'), os.path.join(scratch, 'input_{:d}'.format(step_number)))
+        shutil.copyfile(os.path.join(self._scratch, 'input'), os.path.join(self._scratch, 'input_{:d}'.format(step_number)))
 
 
         return (energy, gradient)
