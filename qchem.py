@@ -29,7 +29,6 @@ class QChemRunner():
         self._elements = [x.element.symbol for x in topology.atoms()]
         self._scratch = scratch
         self._link_atoms_file = link_atoms_file
-
         self._link_atom_idx = []
         self._atom_ids = []
 
@@ -55,7 +54,7 @@ class QChemRunner():
 
         #   set available CPU resources
         if 'SLURM_NTASKS' in os.environ.keys():
-            self._n_procs = int(os.environ['SLURM_NTASKS'])
+            self._n_procs = int(int(os.environ['SLURM_NTASKS'])/2)
         else:
             #   if not running a slurm job, use number of cores
             self._n_procs = cpu_count()
@@ -99,11 +98,13 @@ class QChemRunner():
             if scf_read:
                 file.write('    scf_guess read \n')
             if not jobtype:
-                file.write('    jobtype     force \n')
-                file.write('    qm_mm       true \n')
+                file.write('    jobtype                     force \n')
+                file.write('    qm_mm                       true \n')
             else:
                 file.write('    jobtype     {:s} \n'.format(jobtype))
-            file.write('    sym_ignore  true \n')
+            file.write('    sym_ignore                  true \n')
+            file.write('    skip_charge_self_interact   true \n')
+            file.write('')
             file.write('$end \n\n')
 
             #   write additional q-chem options, if present

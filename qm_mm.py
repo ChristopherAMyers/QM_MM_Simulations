@@ -42,7 +42,7 @@ qm_fragments = None
 
 #   set available CPU resources
 if 'SLURM_NTASKS' in os.environ.keys():
-    n_procs = int(os.environ['SLURM_NTASKS'])
+    n_procs = int(os.environ['SLURM_NTASKS'])/2
 else:
     #   if not running a slurm job, use number of cores
     n_procs = cpu_count()
@@ -342,9 +342,8 @@ def get_rem_lines(rem_file_loc, outfile):
 
     opts = JobOptions()
 
-
-
     for line in rem_lines_in:
+        orig_line = line
         line = line.lower()
         sp_comment = line.split('!')
         if sp_comment[0] != '!':
@@ -366,6 +365,11 @@ def get_rem_lines(rem_file_loc, outfile):
                 opts.aimd_langevin_timescale = float(sp[1]) * femtoseconds
             elif option == 'constrain_qmmm_bonds':
                 opts.constrain_qmmm_bonds = strtobool(sp[1])
+            elif option == 'ff_file':
+                opts.force_field_files.append(orig_line.split()[1])
+            elif option == 'constrain_hbonds':
+                opts.constrain_hbonds = strtobool(sp[1])
+
 
             #   adaptive QM atoms
             elif option == 'qm_mm_radius':
@@ -551,9 +555,19 @@ def get_rem_lines(rem_file_loc, outfile):
         outfile.write(' QM Fragments:              {:10d} \n'.format(int(opts.qm_fragments)))
 
     if opts.link_atoms:
-        outfile.write(' QM/MM Link Atoms:          {:10d} \n'.format(int(opts.link_atoms)))    
+        outfile.write(' QM/MM Link Atoms:          {:10d} \n'.format(int(opts.link_atoms)))
+
+    if opts.constrain_hbonds:
+        outfile.write(' H-Bond Constraints:        {:10d} \n'.format(int(opts.constrain_hbonds)))
 
     outfile.write('--------------------------------------------\n')
+
+    if len(opts.force_field_files) > 0:
+        outfile.write(' Additional force fields:   \n')
+        for f in opts.force_field_files:
+            outfile.write('     %s\n' % f)
+        outfile.write('--------------------------------------------\n')
+
     outfile.flush()
     return rem_lines, opts
 
@@ -697,11 +711,11 @@ def main(args):
 
         rem_lines, options = get_rem_lines(args.rem, outfile)
         pdb = PDBFile(args.pdb)
-        pdb_to_qc.add_bonds(pdb, remove_orig=True)
+        pdb_to_qc.add_bonds(pdb, remove_orig=False)
         data, bondedToAtom = pdb_to_qc.determine_connectivity(pdb.topology)
 
         ff_loc = os.path.join(os.path.dirname(__file__), 'forcefields/forcefield2.xml')
-        forcefield = ForceField(ff_loc, 'tip3p.xml')
+        forcefield = ForceField(ff_loc, 'tip3p.xml', *tuple(options.force_field_files))
         #return forcefield, pdb.topology
         [templates, residues] = forcefield.generateTemplatesForUnmatchedResidues(pdb.topology)
         #return (templates, residues)
@@ -727,7 +741,10 @@ def main(args):
         #   set initial number of QM atoms
         qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pdb.getPositions()/angstrom, pdb.topology)
         qm_atoms = qm_fixed_atoms + qm_sphere_atoms
-        system = forcefield.createSystem(pdb.topology, rigidWater=False)
+        if options.constrain_hbonds:
+            system = forcefield.createSystem(pdb.topology, rigidWater=False, constraints=HBonds)
+        else:
+            system = forcefield.createSystem(pdb.topology, rigidWater=False)
 
         #   QM fragment molecules
         if options.qm_fragments:

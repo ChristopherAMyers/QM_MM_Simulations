@@ -365,13 +365,13 @@ if __name__ == "__main__":
 
     ####   change the center of the water cluster here   ####
     origin = np.mean(pdb.getPositions(True), axis=0)  #   for the corner
-    #origin = pdb.getPositions(True)[41] # Zn on right side
     print(" Center : ", origin)
 
     n_atoms_init = pdb.topology.getNumAtoms()
+    water_radius = radius=1.5*nanometers
     print(" Initial number of atoms: {:d}".format(n_atoms_init))
-    print(" Adding Solvent")
-    mols = add_solvent_shell(pdb.positions, pdb.topology, forcefield, origin=origin, radius=1.5*nanometers, solventBox=userSolvBox)
+    print(" Adding Solvent to a sphere of radius {:.2f} Ang.".format(water_radius/angstroms))
+    mols = add_solvent_shell(pdb.positions, pdb.topology, forcefield, origin=origin, radius=water_radius, solventBox=userSolvBox)
     system = forcefield.createSystem(mols.topology, nonbondedMethod=CutoffNonPeriodic,
             nonbondedCutoff=1*nanometer, constraints=HBonds)
     n_atoms_final = mols.topology.getNumAtoms()
@@ -395,8 +395,9 @@ if __name__ == "__main__":
     #   this is because outputed pdb file is out guarenteed to have same atom
     #   and residue id's as the modeller
     pdb = PDBFile(pdb_file_loc)
-    id_list = determine_id_list(pdb.getPositions(True), pdb.topology, origin, 5.8*angstroms)
-    print(" There are %d solvent atoms inside of the QM sphere" % len(id_list))
+    qm_mm_radius = 5.8*angstroms
+    id_list = determine_id_list(pdb.getPositions(True), pdb.topology, origin, qm_mm_radius)
+    print(" There are {:d} solvent atoms inside of a QM sphere of {:.2f} Ang.".format(len(id_list), qm_mm_radius/angstroms))
     out_file_loc = 'solvent_id.txt'
     print(" Writing %s" % out_file_loc)
     np.savetxt(out_file_loc, np.array(id_list, dtype=int), fmt='%5d')

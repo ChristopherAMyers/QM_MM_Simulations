@@ -43,7 +43,7 @@ def parse_cmd_line_args(scratch_dir):
     current_read = None
     with open(file_loc) as file:
         for line in file.readlines():
-
+            orig_line = line
             line = line.lower()
             sp = line.split()
             if len(sp) == 0:
@@ -62,7 +62,7 @@ def parse_cmd_line_args(scratch_dir):
             #   if we are reading a section, save the lines
             if current_read:
                 if not (current_read.trim and (sp[0] == current_read.start_str or sp[0] == current_read.end_str) ):
-                    current_read.lines.append(line)
+                    current_read.lines.append(orig_line)
             else:
                 sections[-1].lines.append(line)
             

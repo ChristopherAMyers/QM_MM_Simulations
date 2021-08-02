@@ -223,7 +223,8 @@ class JobOptions(object):
         self.aimd_thermostat = None
         self.aimd_langevin_timescale = 100 * femtoseconds
         self.integrator = 'Verlet'
-        
+        self.constrain_hbonds = False
+
         #   32-bit random number seed shifted to c++ min/max integer limits
         self.aimd_temp_seed = int(urandom(4).hex(), 16) - 2147483647
         self.aimd_langevin_seed = int(urandom(4).hex(), 16) - 2147483647
@@ -281,3 +282,6 @@ class JobOptions(object):
 
         #   link atoms
         self.link_atoms = False
+
+        #   force field files
+        self.force_field_files = []
