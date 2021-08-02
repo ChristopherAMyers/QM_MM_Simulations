@@ -195,7 +195,6 @@ class GradientMethod(object):
         self._pdb_file_loc = outfile_loc
         self._num_fails = 0
         self._max_foce_mag_old = 0
-
         self._next_pos = None
 
     #def __del__(self):
@@ -240,21 +239,21 @@ class GradientMethod(object):
             print(" Polak-Ribiere step factor: ", beta, file=outfile)
         
         #   last step was successfull, try increased stepsize
-        if energy < self._energy_old or (energy - self._energy_old) < 0.20*kilojoules_per_mole or self._num_fails >= 10:
-            if self._num_fails >= 10:
+        if energy < self._energy_old or (energy - self._energy_old) < 20*kilojoules_per_mole or self._num_fails >= 2:
+            if self._num_fails >= 2:
                 print(" Number of fails exceeded. Continuing anyway with fixed stepsize", file=outfile)
                 #   decrease stepsize to compensate for later increase
-                self._stepsize = 1.00E-07 
+                #self._stepsize = 1.00E-07 
                 self._num_fails = 0
             elif energy < self._energy_old:
                 print(" Energy condition passed ", file=outfile)
             else:
-                print(" Energy condition failed, but continuing b/c diff. is < 0.20 kJ/mol", file=outfile)
+                print(" Energy condition failed, but continuing b/c diff. is small kJ/mol", file=outfile)
 
             #   if we achieved a lower force, try a bigger stepsize
-            if (max_force_mag - self._max_foce_mag_old)/max_force_mag < 0.05:
-                print(" Increasing stepsize by 1.20", file=outfile)
-                self._stepsize = self._stepsize * 1.20
+            if (max_force_mag - self._max_foce_mag_old)/max_force_mag < 0.05 and (energy - self._energy_old) < 0*kilojoules_per_mole:
+                print(" Increasing stepsize by 1.50", file=outfile)
+                self._stepsize = self._stepsize * 1.50
             self._max_foce_mag_old = max_force_mag
 
             self._step_old = step
@@ -275,7 +274,7 @@ class GradientMethod(object):
         else:
             print(" Energy condition failed ", file=outfile)
             print(" Shrinking stepsize by 0.5", file=outfile)
-            self._stepsize = self._stepsize * 0.1
+            self._stepsize = self._stepsize * 0.5
             new_pos = self._pos_old + self._stepsize * self._step_old
             self._num_fails += 1
         print(" Using stepsize of {:15.5E}".format(self._stepsize), file=outfile)

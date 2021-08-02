@@ -149,7 +149,6 @@ def add_bonds(pdb, remove_orig=False):
     bond_list.update(get_bonds_from_coords('se', 'zn', coords, elements, 2.7))
     bond_list.update(get_bonds_from_coords('zn', 'n', coords, elements, 2.4))
 
-
     atoms = list(pdb.topology.atoms())
     if remove_orig:
         pdb.topology._bonds = []
