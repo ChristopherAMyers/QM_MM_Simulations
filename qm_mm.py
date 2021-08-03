@@ -42,7 +42,7 @@ qm_fragments = None
 
 #   set available CPU resources
 if 'SLURM_NTASKS' in os.environ.keys():
-    n_procs = int(os.environ['SLURM_NTASKS'])/2
+    n_procs = int(os.environ['SLURM_NTASKS'])
 else:
     #   if not running a slurm job, use number of cores
     n_procs = cpu_count()
@@ -150,6 +150,7 @@ def fix_qm_mm_bonds(system, qm_atoms, pos, outfile=sys.stdout):
 
     print(" Adding QM/MM Bond constraints ", file=outfile)
     print(" {:>10s}  {:>10s}  {:10s} ".format('Index 1', 'Index 2', 'R (Ang.)'), file=outfile)
+    num_constr = 0
     for force in system.getForces():
         if  isinstance(force, HarmonicBondForce):
             for n in range(force.getNumBonds()):
@@ -159,6 +160,9 @@ def fix_qm_mm_bonds(system, qm_atoms, pos, outfile=sys.stdout):
                    dist = np.linalg.norm(pos[a]/nanometers - pos[b]/nanometers)*nanometers
                    system.addConstraint(a, b, dist)
                    print(" {:10d}  {:10d}  {:>6.3f} ".format(a, b, dist/angstroms), file=outfile)
+                   num_constr += 1
+    if num_constr == 0:
+        print(" None", file=outfile)
     print("\n", file=outfile)
 
 def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
@@ -869,10 +873,8 @@ def main(args):
                 if options.random_kicks:
                     kicks.set_temperature(current_temp)
 
-            state = simulation.context.getState(getPositions=True, getVelocities=True, getEnergy=True, getForces=True)
+            state = simulation.context.getState(getPositions=True)
             pos = state.getPositions(True)
-            forces = state.getForces(True)
-
 
             # update QM atom list and water positions
             if n % options.qm_mm_update_freq == 0 and options.qm_mm_update:
@@ -886,13 +888,8 @@ def main(args):
 
             qm_atoms_reporter.report(simulation, qm_atoms)
             if len(qm_atoms) > 0:
-
-                #qm_energy, qm_gradient = get_qm_force(pos/angstrom, charges, elements, qm_atoms, outfile, pdb.topology, options, rem_lines=rem_lines, step_number=n, outfile=outfile, total_chg=options.charge, spin_mult=options.mult)
-
                 qm_energy, qm_gradient = qchem.get_qm_force(pos/angstroms, qm_atoms, n)
-
                 update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile)
-
 
             #   additional force updates
             if options.ratchet_pawl:

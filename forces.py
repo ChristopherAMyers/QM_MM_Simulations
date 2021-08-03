@@ -1,4 +1,4 @@
-from simtk.openmm.openmm import *  #pylint: disable=unused-wildcard-import
+from simtk.openmm.openmm import *   #pylint: disable=unused-wildcard-import
 from simtk.unit import * #pylint: disable=unused-wildcard-import
 import numpy as np
 import os

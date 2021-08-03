@@ -53,11 +53,17 @@ class QChemRunner():
             exit()
 
         #   set available CPU resources
+        self._n_procs = 1
         if 'SLURM_NTASKS' in os.environ.keys():
-            self._n_procs = int(int(os.environ['SLURM_NTASKS'])/2)
+            self._n_procs = max(int(os.environ['SLURM_NTASKS']), self._n_procs)
+            print(" SLURM_NTASKS: ", self._n_procs, file=outfile)
+        if 'SLURM_CPUS_PER_TASK' in os.environ.keys():
+            self._n_procs = max(int(os.environ['SLURM_CPUS_PER_TASK']), self._n_procs)
+            print(" SLURM_CPUS_PER_TASK: ", self._n_procs, file=outfile)
         else:
             #   if not running a slurm job, use number of cores
             self._n_procs = cpu_count()
+            print(" cpu_count: ", self._n_procs, file=outfile)
 
     def get_link_atom_index(self):
         return list(self._link_atom_idx)
