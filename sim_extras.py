@@ -274,6 +274,9 @@ class JobOptions(object):
         self.restraints = False
         self.restraints_switch_time = 0*femtoseconds
 
+        #   centroid restraint force
+        self.cent_restraints = False
+
         #   constraints
         self.constrain_qmmm_bonds = True
 

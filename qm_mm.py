@@ -11,7 +11,7 @@ from subprocess import run
 import time
 import shutil
 from scipy import optimize
-from optimize import GradientMethod, BFGS
+from optimize import GradientMethod, BFGS, MMOnlyBFGS
 from mdtraj.reporters import HDF5Reporter
 from distutils.util import strtobool
 from random import shuffle
@@ -66,6 +66,7 @@ def parse_args(args_in):
     parser.add_argument('-ipt',   help='condensed input file')
     parser.add_argument('-frags',   help='QM fragments file')
     parser.add_argument('-link',   help='QM/MM link atom ids file')
+    parser.add_argument('-centroid', help='centroid restraint force file')
     return parser.parse_args(args_in)
 
 
@@ -447,6 +448,9 @@ def get_rem_lines(rem_file_loc, outfile):
             elif option == 'restraints_switch_time':
                 opts.restraints_switch_time = float(sp[1]) * femtoseconds
 
+            elif option == 'cent_restraints':
+                opts.cent_restraints = strtobool(sp[1])
+
             #   QM fragments
             elif option == 'qm_fragments':
                 opts.qm_fragments = strtobool(sp[1])
@@ -554,6 +558,9 @@ def get_rem_lines(rem_file_loc, outfile):
     if opts.restraints:
         outfile.write(' Restraints:                {:10d} \n'.format(int(opts.restraints)))
         outfile.write(' Restraints Switch Time:    {:>10f} fs \n'.format(opts.restraints_switch_time/femtoseconds))
+
+    if opts.cent_restraints:
+        outfile.write(' Centroid Restraints:       {:10d} \n'.format(int(opts.cent_restraints)))
 
     if opts.qm_fragments:
         outfile.write(' QM Fragments:              {:10d} \n'.format(int(opts.qm_fragments)))
@@ -783,6 +790,9 @@ def main(args):
 
         if options.restraints:
             restraints = RestraintsForce(system, pdb.topology, args.rest, options.restraints_switch_time)
+        
+        if options.cent_restraints:
+            cent_restraints = CentroidRestraintForce(system, pdb.topology, args.centroid)
 
         #   debug only: turns off forces except one
         if False:
@@ -844,8 +854,8 @@ def main(args):
         print_initial_forces(simulation, qm_atoms, pdb.topology, outfile)
 
         if options.jobtype == 'opt':
-            opt = GradientMethod(options.time_step*0.001)
-            #opt = BFGS(options.time_step*0.001)
+            #opt = GradientMethod(options.time_step*0.001)
+            opt = BFGS(options.time_step*0.001)
 
         if options.jobtype != 'opt' and not args.state and options.jobtype != 'friction':
             print(" Setting initial velocities to temperature of {:5f} K: ".format(options.aimd_temp/kelvin), file=outfile)
@@ -860,6 +870,13 @@ def main(args):
 
         simulation.saveState('initial_state.xml')
         water_filler = WaterFiller(pdb.topology, forcefield, simulation)
+
+        if len(qm_atoms) == 0 and options.jobtype == 'opt':
+            reporter = (stats_reporter.report, (simulation, qm_atoms))
+            optimize = MMOnlyBFGS(simulation.context, topology=pdb.topology, progress_pdb='opt.pdb', reporter=reporter)
+            optimize.minimize()
+            return
+
         #   run simulation
         for n in range(options.aimd_steps):
             if options.annealing:
@@ -902,8 +919,8 @@ def main(args):
             if n % 10  == 0:
                 simulation.saveState('simulation.xml')
 
-            if options.jobtype == 'opt':
-                opt.prepare_step(simulation, outfile=outfile)
+            # if options.jobtype == 'opt':
+            #     opt.prepare_step(simulation, outfile=outfile)
 
             #   update current velocity with random kicks
             if options.random_kicks:
@@ -926,7 +943,7 @@ if __name__ == "__main__":
     #tmp_args = parse_args(sys.argv[1:])
     arg_list = parse_cmd_line_args(scratch)
     prog_args = parse_args(arg_list)
-    ff, top = main(prog_args)
+    main(prog_args)
 
     ''' DEBUGGING ONLY  '''
     '''

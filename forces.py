@@ -1,4 +1,4 @@
-from simtk.openmm.openmm import *   #pylint: disable=unused-wildcard-import
+from simtk.openmm.openmm import *    #pylint: disable=unused-wildcard-import
 from simtk.unit import * #pylint: disable=unused-wildcard-import
 import numpy as np
 import os
@@ -82,6 +82,49 @@ class RandomKicksForce():
 
     def set_temperature(self, temperature):
         self.temperature = temperature
+
+class CentroidRestraintForce():
+    def __init__(self, system, topology, restraints_file_loc) -> None:
+        print("CENTROID")
+        force_string = "0.5*k*(distance(g1,g2) - r0)^2"
+        from simtk.openmm.openmm import CustomCentroidBondForce
+        custom_force = CustomCentroidBondForce(2, force_string)
+        custom_force.addPerBondParameter('k')
+        custom_force.addPerBondParameter('r0')
+        groups = []
+        with open(restraints_file_loc, 'r') as file:
+            for line in file:
+                if line.split()[0].lower() == 'group':
+                    print("LINE: ", line.split(), line.split()[0].lower())
+                    line = next(file)
+                    while line.split()[0].lower() != 'endgroup':
+                        atom_ids = set()
+                        for elm in line.split():
+                            if ":" in elm:
+                                start, stop = elm.split(':')
+                                for i in range(int(start), int(stop) + 2):
+                                    atom_ids.add(i)
+                            elif elm.isdigit():
+                                atom_ids.add(int(elm))
+                            else:
+                                raise ValueError("Only integers and integer ranges using the ':' character are allowed")
+                        line = next(file)
+                    indicies = [atom.index for atom in topology.atoms() if int(atom.id) in atom_ids]
+                    custom_force.addGroup(list(indicies))
+                elif line.split()[0].lower() == 'forces':
+                    line = next(file)
+                    while line.split()[0].lower() != 'endforces':
+                        sp = line.split()
+                        g1 = int(sp[0]) - 1
+                        g2 = int(sp[1]) - 1
+                        k = float(sp[2])
+                        r0 = float(sp[3])
+                        custom_force.addBond([g1, g2], [k, r0])
+                        line = next(file)
+                else:
+                    raise ValueError('Invalid section identifier for CentroidRestraintForce')
+
+        system.addForce(custom_force)
 
 class RestraintsForce():
     '''

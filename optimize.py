@@ -111,7 +111,7 @@ class BFGS(object):
             self._gfk = gfkp1
             update_hess = False
 
-        if max_force_mag > 1000:
+        if max_force_mag > 10000:
             print(" Force is too large to use BFGS update", file=outfile)
             self._reset_hessian(dim, outfile)
             update_hess = False
@@ -234,13 +234,14 @@ class GradientMethod(object):
             denom = np.dot(self._force_old, self._force_old)
             numer = np.dot(forces, force_diff)
             beta = numer/denom
-            beta = np.max([0.0, beta])
+            beta = np.max([np.max([0.0, beta]), 4.0])
+            beta = 0.0
             step = forces +  beta * self._step_old
             print(" Polak-Ribiere step factor: ", beta, file=outfile)
         
         #   last step was successfull, try increased stepsize
-        if energy < self._energy_old or (energy - self._energy_old) < 20*kilojoules_per_mole or self._num_fails >= 2:
-            if self._num_fails >= 2:
+        if energy < self._energy_old or (energy - self._energy_old) < 10*kilojoules_per_mole or self._num_fails >= 50:
+            if self._num_fails >= 50:
                 print(" Number of fails exceeded. Continuing anyway with fixed stepsize", file=outfile)
                 #   decrease stepsize to compensate for later increase
                 #self._stepsize = 1.00E-07 
@@ -274,7 +275,10 @@ class GradientMethod(object):
         else:
             print(" Energy condition failed ", file=outfile)
             print(" Shrinking stepsize by 0.5", file=outfile)
-            self._stepsize = self._stepsize * 0.5
+            norm_forces = np.max(np.linalg.norm(self._force_old.reshape(dim, 3), axis=1))
+            self._stepsize = min([0.01/norm_forces,  self._stepsize * 0.5])
+            print("NEW: ", 0.01/norm_forces, self._stepsize * 0.5)
+            #self._stepsize = self._stepsize * 0.5
             new_pos = self._pos_old + self._stepsize * self._step_old
             self._num_fails += 1
         print(" Using stepsize of {:15.5E}".format(self._stepsize), file=outfile)
@@ -293,7 +297,73 @@ class GradientMethod(object):
         simulation.context.setPositions(self._next_pos)
 
 
+class MMOnlyBFGS(object):
+    def __init__(self, context, constraints=None, progress_pdb=None, topology=None, out_freq=1, reporter=(None, None)):
+        from scipy import optimize
+        self._optimize = optimize
+        self._progress_pdb = None
+        self._topology = topology
+        self._step_num = 0
+        self._constraints = constraints
+        self._context = context
+        if progress_pdb is not None and topology is not None:
+            self._progress_pdb = open(progress_pdb, 'w')
+        self._out_freq = out_freq
 
 
+        self._constr_2_idx = {
+                'X': [0], 'Y': [1], 'Z': [2],
+                'XY': [0, 1], 'XZ': [1,2], 'YZ': [1,2],
+                'YX': [0, 1], 'ZX': [1,2], 'ZY': [1,2],
+                'XYZ': [0, 1, 2]
+            }
+
+        self._reporter, self._reporter_args = reporter
+
+    def _callback(self, pos):
+        print("STEP: ", self._step_num)
+        if self._progress_pdb is not None and (self._step_num % self._out_freq == 0):
+            PDBFile.writeModel(self._topology, pos.reshape(-1,3)*nanometer, file=self._progress_pdb, modelIndex=self._step_num)
+        self._step_num += 1
+
+        if self._reporter is not None:
+            self._reporter(*self._reporter_args)
 
 
+    def minimize(self):
+        #constraints = dict(zip(np.arange(64), ['Z']*64))
+
+        init_state = self._context.getState(getForces=True, getEnergy=True, getPositions=True)
+        init_pos = init_state.getPositions(True).value_in_unit(nanometer)
+        init_energy, init_forces = self._target_func(init_pos, self._context, self._constraints)
+        force_norms = [np.linalg.norm(f) for f in init_forces]
+        print(" Initial max. force: {:15.3f} kJ/mol".format(np.max(force_norms)))
+        print(" Initial energy:     {:15.3f} kJ/mol/nm".format(init_energy))
+
+
+        self._step_num = 0
+        args = (self._context, self._constraints)
+        self._callback(init_pos)
+        res = self._optimize.minimize(self._target_func, init_pos, args=args, method='L-BFGS-B', jac=True, callback=self._callback,
+        options=dict(maxiter=200, disp=False, gtol=5))
+        final_pos = res.x.reshape(-1,3)
+
+        final_energy, final_forces = self._target_func(final_pos, self._context, self._constraints)
+        force_norms = [np.linalg.norm(f) for f in final_forces]
+        print(" Final max. force:   {:15.3f} kJ/mol".format(np.max(force_norms)))
+        print(" Final energy:       {:15.3f} kJ/mol/nm".format(final_energy))
+
+
+    def _target_func(self, pos, context, constraints=None):
+        context.setPositions(pos.reshape(-1,3))
+        state = context.getState(getEnergy=True, getForces=True)
+        forces = state.getForces(asNumpy=True)
+        energy = state.getPotentialEnergy().value_in_unit(kilojoule_per_mole)
+        forces = forces.value_in_unit(kilojoule_per_mole/nanometer)
+
+        if constraints is not None:
+            for n, constr in constraints.items():
+                for idx in self._constr_2_idx[constr.upper()]:
+                    forces[n][idx] *= 0
+
+        return energy, -forces.flatten()
