@@ -298,17 +298,20 @@ class GradientMethod(object):
 
 
 class MMOnlyBFGS(object):
-    def __init__(self, context, constraints=None, progress_pdb=None, topology=None, out_freq=1, reporter=(None, None)):
+    def __init__(self, simulation, constraints=None, progress_pdb=None, final_pdb=None, topology=None, out_freq=1, reporter=(None, None), outfile=stdout):
         from scipy import optimize
         self._optimize = optimize
         self._progress_pdb = None
         self._topology = topology
         self._step_num = 0
         self._constraints = constraints
-        self._context = context
+        self._simulation = simulation
+        self._context = simulation.context
         if progress_pdb is not None and topology is not None:
             self._progress_pdb = open(progress_pdb, 'w')
         self._out_freq = out_freq
+        self._final_pdb = final_pdb
+        self._outfile = outfile
 
 
         self._constr_2_idx = {
@@ -321,6 +324,7 @@ class MMOnlyBFGS(object):
         self._reporter, self._reporter_args = reporter
 
     def _callback(self, pos):
+        self._simulation.step(1)
         print("STEP: ", self._step_num)
         if self._progress_pdb is not None and (self._step_num % self._out_freq == 0):
             PDBFile.writeModel(self._topology, pos.reshape(-1,3)*nanometer, file=self._progress_pdb, modelIndex=self._step_num)
@@ -337,21 +341,24 @@ class MMOnlyBFGS(object):
         init_pos = init_state.getPositions(True).value_in_unit(nanometer)
         init_energy, init_forces = self._target_func(init_pos, self._context, self._constraints)
         force_norms = [np.linalg.norm(f) for f in init_forces]
-        print(" Initial max. force: {:15.3f} kJ/mol".format(np.max(force_norms)))
-        print(" Initial energy:     {:15.3f} kJ/mol/nm".format(init_energy))
+        print(" Initial max. force: {:15.3f} kJ/mol".format(np.max(force_norms)), file=self._outfile)
+        print(" Initial energy:     {:15.3f} kJ/mol/nm".format(init_energy), file=self._outfile)
 
 
         self._step_num = 0
         args = (self._context, self._constraints)
         self._callback(init_pos)
         res = self._optimize.minimize(self._target_func, init_pos, args=args, method='L-BFGS-B', jac=True, callback=self._callback,
-        options=dict(maxiter=200, disp=False, gtol=5))
+        options=dict(maxiter=200, disp=False, gtol=500))
         final_pos = res.x.reshape(-1,3)
 
         final_energy, final_forces = self._target_func(final_pos, self._context, self._constraints)
         force_norms = [np.linalg.norm(f) for f in final_forces]
-        print(" Final max. force:   {:15.3f} kJ/mol".format(np.max(force_norms)))
-        print(" Final energy:       {:15.3f} kJ/mol/nm".format(final_energy))
+        print(" Final max. force:   {:15.3f} kJ/mol".format(np.max(force_norms)), file=self._outfile)
+        print(" Final energy:       {:15.3f} kJ/mol/nm".format(final_energy), file=self._outfile)
+
+        if self._final_pdb is not None:
+            PDBFile.writeModel(self._topology, final_pos, open(self._final_pdb, 'w'))
 
 
     def _target_func(self, pos, context, constraints=None):

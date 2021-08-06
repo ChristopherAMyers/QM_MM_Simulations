@@ -1,3 +1,4 @@
+from numpy.lib.arraysetops import isin
 from simtk.openmm.openmm import *    #pylint: disable=unused-wildcard-import
 from simtk.unit import * #pylint: disable=unused-wildcard-import
 import numpy as np
@@ -84,7 +85,7 @@ class RandomKicksForce():
         self.temperature = temperature
 
 class CentroidRestraintForce():
-    def __init__(self, system, topology, restraints_file_loc) -> None:
+    def __init__(self, system, topology, restraints_file_loc):
         print("CENTROID")
         force_string = "0.5*k*(distance(g1,g2) - r0)^2"
         from simtk.openmm.openmm import CustomCentroidBondForce
@@ -125,6 +126,72 @@ class CentroidRestraintForce():
                     raise ValueError('Invalid section identifier for CentroidRestraintForce')
 
         system.addForce(custom_force)
+        self._force = custom_force
+
+    def getForce(self):
+        return self._force
+
+class CentroidRestraintForceReporter():
+    def __init__(self, force, file, report_interval, system) -> None:
+        self._force = force
+        self._report_interval = report_interval
+        self._system = system
+
+        if isinstance(file, str):
+            self._out = open(file, 'w')
+        else:
+            self._out = file
+
+        self._groups = []
+        self._weights = []
+        self._bonds = []
+        self._params = []
+        self._sum_weights = []
+        for g in range(self._force.getNumGroups()):
+            idx, weights = self._force.getGroupParameters(g)
+            if len(weights) == 0:
+                weights = [system.getParticleMass(n)/dalton for n in idx]
+            self._groups.append(np.array(idx))
+            self._weights.append(np.array(weights))
+            self._sum_weights.append(np.sum(weights))
+        for g in range(self._force.getNumBonds()):
+            groups, params = self._force.getBondParameters(g)
+            self._bonds.append(groups)
+            self._params.append(params)
+        self._n_bonds = len(self._bonds)
+
+    def __del__(self):
+        self._out.close()
+
+    def describeNextReport(self, simulation):
+        steps = self._report_interval - simulation.currentStep%self._report_interval
+        return (steps, True, False, False, False)
+
+    def report(self, simulation, state):
+        self._out.write('\n')
+        self._out.write(' -------------------------------------------------------\n')
+        self._out.write('             Centroid Restraint Forces \n')
+        self._out.write(' -------------------------------------------------------\n')
+        self._out.write(' {:5s}    {:>14s}  {:>10s}   {:>10s}  \n'.format('group', 'energy(kJ/mol)', 'dist(Ang.)', 'r0(Ang.)'))
+        pos = state.getPositions(True)
+        for n in range(self._n_bonds):
+            g1, g2 = self._bonds[n]
+
+            pos1 = pos[self._groups[g1]]
+            pos2 = pos[self._groups[g2]]
+            center1 = np.sum(pos1*self._weights[g1][:, None], axis=0)/self._sum_weights[g1]
+            center2 = np.sum(pos2*self._weights[g2][:, None], axis=0)/self._sum_weights[g2]
+
+            dist = np.linalg.norm(center1 - center2)
+            k, r0 = self._params[n]
+
+            energy = 0.5*k*(dist - r0)**2
+            self._out.write(' {:5d} {:14.3f}  {:10.3f}   {:10.3f}  \n'.format(n+1, energy, dist*10, r0*10))
+        self._out.write(' -------------------------------------------------------\n')
+        self._out.flush()
+
+
+
 
 class RestraintsForce():
     '''

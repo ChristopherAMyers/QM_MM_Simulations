@@ -843,6 +843,9 @@ def main(args):
         stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qm_atoms, vel_file_loc=args.repv, force_file_loc=args.repf)
         simulation.reporters.append(HDF5Reporter('output.h5', 1))
         qm_atoms_reporter = QMatomsReporter('qm_atoms.txt', pdb.topology)
+        if options.cent_restraints:
+            simulation.reporters.append(CentroidRestraintForceReporter(cent_restraints.getForce(), outfile, 1, system))
+        
 
         #   set up files
         os.makedirs(scratch, exist_ok=True)
@@ -871,9 +874,12 @@ def main(args):
         simulation.saveState('initial_state.xml')
         water_filler = WaterFiller(pdb.topology, forcefield, simulation)
 
+        #return system
+
+        #   minimization for MM only system
         if len(qm_atoms) == 0 and options.jobtype == 'opt':
             reporter = (stats_reporter.report, (simulation, qm_atoms))
-            optimize = MMOnlyBFGS(simulation.context, topology=pdb.topology, progress_pdb='opt.pdb', reporter=reporter)
+            optimize = MMOnlyBFGS(simulation, topology=pdb.topology, reporter=reporter, outfile=outfile)
             optimize.minimize()
             return
 
@@ -943,7 +949,7 @@ if __name__ == "__main__":
     #tmp_args = parse_args(sys.argv[1:])
     arg_list = parse_cmd_line_args(scratch)
     prog_args = parse_args(arg_list)
-    main(prog_args)
+    res = main(prog_args)
 
     ''' DEBUGGING ONLY  '''
     '''
