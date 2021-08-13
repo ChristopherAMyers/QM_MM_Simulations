@@ -10,6 +10,8 @@ from numpy.random import random
 import sys
 from mdtraj.reporters import HDF5Reporter
 
+from openmm_import import *
+
 from scipy.spatial.transform import Rotation as rot
 
 # pylint: disable=no-member

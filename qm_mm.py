@@ -34,6 +34,9 @@ from spin_mult import *
 from add_solvent_sphere import WaterFiller
 from rem_options import get_rem_lines
 
+#   explicit imports from openmm
+from openmm_import import *
+
 scratch = os.path.join(os.path.curdir, 'qm_mm_scratch/')
 qchem_path = ''
 qc_scratch = '/tmp'

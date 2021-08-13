@@ -3,6 +3,7 @@ from simtk.openmm.openmm import *    #pylint: disable=unused-wildcard-import
 from simtk.unit import * #pylint: disable=unused-wildcard-import
 import numpy as np
 import os
+from openmm_import import *
 
 # pylint: disable=no-member
 import simtk.unit as unit
