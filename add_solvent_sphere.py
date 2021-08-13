@@ -330,38 +330,47 @@ def determine_id_list(positions, topology, center, radius):
 
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-pdb', help='PDB file to add solvent too')
+    parser.add_argument('-ids', help=argparse.SUPPRESS)
+    parser.add_argument('-radius', help='radius (nm) of water sphere', default=1.5, type=float)
+    parser.add_argument('-ff', help='Additional XML Force Field file')
+    parser.add_argument('-add_bonds', help='Add extra bonds based on distance', action='store_true')
+    if os.path.splitext(sys.argv[1])[1] == '.pdb':
+        #   for legacy support
+        args = parser.parse_args(sys.argv[2:])
+    else:
+        args = parser.parse_args()
     
-
     print(" Importing Solute")
     pdb = PDBFile(sys.argv[1])
-    userSpecSolv = None
-    userSolvBox = "None"
-    if( (len(sys.argv) - 1) == 2):
-        userSpecSolv = True
-        userSolvBox = sys.argv[2]
-    ids_file = None
-    if '-ids' in sys.argv:
-        ids_file = sys.argv[sys.argv.index('-ids') + 1]
-    pdb_to_qc.add_bonds(pdb, remove_orig=False)
-    forcefield = ForceField('/network/rit/lab/ChenRNALab/awesomeSauce/2d_materials/ZnSe/quant_espres/znse_2x2/qm_mm/forcefield/forcefields/forcefield2.xml', 'amber14/tip3pfb.xml', 'DNA-other.xml')
+    pdb.topology.addBond
+    ids_file = args.ids
+    if args.add_bonds:
+        pdb_to_qc.add_bonds(pdb, remove_orig=False)
+    ff_files = ['/network/rit/lab/ChenRNALab/awesomeSauce/2d_materials/ZnSe/quant_espres/znse_2x2/qm_mm/forcefield/forcefields/forcefield2.xml', 'amber14/tip3pfb.xml']
+    if args.ff is not None:
+        ff_files.append(args.ff)
+    forcefield = ForceField(*tuple(ff_files))
     unmatched_residues = forcefield.getUnmatchedResidues(pdb.topology)
     [templates, residues] = forcefield.generateTemplatesForUnmatchedResidues(pdb.topology)
-    for n, template in enumerate(templates):
-        residue = residues[n]
-        print("RES: ", residue)
-        atom_names = []
-        for bond in template.bonds:
-            print(template.atoms[bond[0]].name, template.atoms[bond[1]].name)
-        for atom in template.atoms:
-            if residue.name in ['EXT', 'OTH']:
-                atom.type = 'OTHER-' + atom.element.symbol
-            else:
-                atom.type = residue.name + "-" + atom.name.upper()
-            atom_names.append(atom.name)
+    if False:
+        for n, template in enumerate(templates):
+            residue = residues[n]
+            print("RES: ", residue)
+            atom_names = []
+            for bond in template.bonds:
+                print(template.atoms[bond[0]].name, template.atoms[bond[1]].name)
+            for atom in template.atoms:
+                if residue.name in ['EXT', 'OTH']:
+                    atom.type = 'OTHER-' + atom.element.symbol
+                else:
+                    atom.type = residue.name + "-" + atom.name.upper()
+                atom_names.append(atom.name)
 
-        # Register the template with the forcefield.
-        template.name += str(n)
-        forcefield.registerResidueTemplate(template)
+            # Register the template with the forcefield.
+            template.name += str(n)
+            forcefield.registerResidueTemplate(template)
 
     ####   change the center of the water cluster here   ####
     origin = np.mean(pdb.getPositions(True), axis=0)  #   for the corner
@@ -371,7 +380,7 @@ if __name__ == "__main__":
     water_radius = radius=1.5*nanometers
     print(" Initial number of atoms: {:d}".format(n_atoms_init))
     print(" Adding Solvent to a sphere of radius {:.2f} Ang.".format(water_radius/angstroms))
-    mols = add_solvent_shell(pdb.positions, pdb.topology, forcefield, origin=origin, radius=water_radius, solventBox=userSolvBox)
+    mols = add_solvent_shell(pdb.positions, pdb.topology, forcefield, origin=origin, radius=water_radius, solventBox="None")
     system = forcefield.createSystem(mols.topology, nonbondedMethod=CutoffNonPeriodic,
             nonbondedCutoff=1*nanometer, constraints=HBonds)
     n_atoms_final = mols.topology.getNumAtoms()

@@ -325,7 +325,6 @@ class MMOnlyBFGS(object):
 
     def _callback(self, pos):
         self._simulation.step(1)
-        print("STEP: ", self._step_num)
         if self._progress_pdb is not None and (self._step_num % self._out_freq == 0):
             PDBFile.writeModel(self._topology, pos.reshape(-1,3)*nanometer, file=self._progress_pdb, modelIndex=self._step_num)
         self._step_num += 1
@@ -349,8 +348,14 @@ class MMOnlyBFGS(object):
         args = (self._context, self._constraints)
         self._callback(init_pos)
         res = self._optimize.minimize(self._target_func, init_pos, args=args, method='L-BFGS-B', jac=True, callback=self._callback,
-        options=dict(maxiter=200, disp=False, gtol=500))
+        options=dict(maxiter=200, disp=True, gtol=500))
         final_pos = res.x.reshape(-1,3)
+
+        if np.max(np.linalg.norm(res.jac.reshape(-1, 3), axis=1)) >= 500:
+            print(" WARNING: L-BFGS-B failed to optimize to given gradient.", file=self._outfile)
+            print(" Running OpenMM Optimize instead.", file=self._outfile)
+            self._simulation.minimizeEnergy()
+            final_pos = self._simulation.context.getState(getPositions=True).getPositions(True)/nanometers
 
         final_energy, final_forces = self._target_func(final_pos, self._context, self._constraints)
         force_norms = [np.linalg.norm(f) for f in final_forces]

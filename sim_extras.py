@@ -6,6 +6,8 @@ from os import urandom
 import numpy as np
 import time
 import copy
+import simtk.openmm as mm
+import simtk.unit as unit
 
 # pylint: disable=no-member
 import simtk
@@ -72,6 +74,10 @@ class StatsReporter(object):
             self._out.write(' Step Pot-Energy QM-Energy Time-Elapsed(s) Time-Remaining Time-Step Max-Disp RMS-Forces  Max-Forces  Max-ID\n')
 
 
+        self._masses = None
+        self._fixed_dof = 0
+        self._constraint_idx = np.empty((0, 2))
+
     def __del__(self):
         self._out.close()
 
@@ -123,12 +129,14 @@ class StatsReporter(object):
                     mm_atoms.append(x)
 
             #   calculate temperatures from kinetic energies
-            temp_mm = np.sum(v2[mm_atoms]*masses[mm_atoms])/(len(mm_atoms) * k * 3)
-            if len(qm_atoms) > 0:
-                temp_qm = np.sum(v2[qm_atoms]*masses[qm_atoms])/(len(qm_atoms) * k * 3)
-            else:
-                temp_qm = 0.0
-            temp_all = np.sum(v2*masses)/(len(v2) * k * 3)
+            # temp_mm = np.sum(v2[mm_atoms]*masses[mm_atoms])/(len(mm_atoms) * k * 3)
+            # if len(qm_atoms) > 0:
+            #     temp_qm = np.sum(v2[qm_atoms]*masses[qm_atoms])/(len(qm_atoms) * k * 3)
+            # else:
+            #     temp_qm = 0.0
+            # temp_all = np.sum(v2*masses)/(len(v2) * k * 3)
+
+            temp_mm, temp_qm, temp_all = self._calc_temperature(simulation, state, qm_atoms)
 
             #   rescale temperature if too high
             if temp_all > (100 + self._options.aimd_temp/kelvin) and False:
@@ -187,6 +195,62 @@ class StatsReporter(object):
                 .format(step, pot_energy, qm_energy, elapsed_seconds, time_rem, stepsize/picoseconds, max_disp, rms_forces, max_forces, max_force_id))
 
         self._out.flush()
+
+    def _calc_temperature(self, simulation, state, qm_atoms):
+        system = simulation.system
+        qm_atoms = np.array(qm_atoms, dtype=int)
+
+        # Compute the number of degrees of freedom.
+        if self._masses is None:
+            self._masses = np.array([system.getParticleMass(n)/dalton for n in range(system.getNumParticles())])
+            self._masses = self._masses * 1.67377E-27
+            for i in range(system.getNumParticles()):
+                if self._masses[i] > 0:
+                    self._fixed_dof += 3
+            if any(type(system.getForce(i)) == mm.CMMotionRemover for i in range(system.getNumForces())):
+                self._fixed_dof -= 3
+            for i in range(system.getNumConstraints()):
+                params = system.getConstraintParameters(i)
+                self._constraint_idx = np.append(self._constraint_idx, [params[:2]], axis=0)
+
+        dof = self._fixed_dof
+        dof -= system.getNumConstraints()
+        self._dof = dof
+
+        is_qm_1 = np.zeros(len(self._constraint_idx), dtype=int)
+        is_qm_2 = np.zeros(len(self._constraint_idx), dtype=int)
+        for atom in qm_atoms:
+            is_qm_1 += self._constraint_idx[:, 0] == atom
+            is_qm_2 += self._constraint_idx[:, 1] == atom
+        n_qm_constr = np.sum(is_qm_1 * is_qm_2)
+        dof_qm = np.sum(self._masses[qm_atoms] != 0)
+        dof_qm -= n_qm_constr
+        dof_mm = dof - dof_qm
+
+        #   total system temperature
+        #   Note that this might be a half timestep off based on the integrator,
+        #   so we use the real kinetic energy for total system only
+        vel = state.getVelocities(True).in_units_of(meters/second)
+        v2 = np.linalg.norm(vel, axis=1)**2
+        k = 1.380649E-23
+        kinetic_all = 0.5 * np.sum(v2*self._masses)
+        temp_all = 2 * kinetic_all/(dof * k)
+        temp_all = (2*state.getKineticEnergy()/(dof*unit.MOLAR_GAS_CONSTANT_R)).value_in_unit(unit.kelvin)
+
+        #   calculate QM temperatures
+        if len(qm_atoms) > 0:
+            kinetic_qm = 0.5 * np.sum(v2[qm_atoms]*self._masses[qm_atoms])
+            temp_qm = 2 * kinetic_qm / (dof_qm * k)
+        else:
+            kinetic_qm = 0.0
+            temp_qm = 0.0
+
+        #   remaining is MM temperature
+        kinetic_mm = kinetic_all - kinetic_qm
+        temp_mm = 2 * kinetic_mm / (dof_mm * k)
+    
+        return temp_mm, temp_qm, temp_all
+
 
 
     def _get_remaining_time(self, simulation):

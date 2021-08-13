@@ -190,9 +190,6 @@ class CentroidRestraintForceReporter():
         self._out.write(' -------------------------------------------------------\n')
         self._out.flush()
 
-
-
-
 class RestraintsForce():
     '''
         Adds a restraing quadratic cost potential between two atoms.
