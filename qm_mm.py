@@ -727,9 +727,7 @@ def main(args):
 
         ff_loc = os.path.join(os.path.dirname(__file__), 'forcefields/forcefield2.xml')
         forcefield = ForceField(ff_loc, 'tip3p.xml', *tuple(options.force_field_files))
-        #return forcefield, pdb.topology
         [templates, residues] = forcefield.generateTemplatesForUnmatchedResidues(pdb.topology)
-        #return (templates, residues)
         for n, template in enumerate(templates):
             residue = residues[n]
             atom_names = []            
@@ -846,6 +844,10 @@ def main(args):
         if options.cent_restraints:
             simulation.reporters.append(CentroidRestraintForceReporter(cent_restraints.getForce(), outfile, 1, system))
         
+        #DEBUG
+        #simulation.reporters.append(StateDataReporter(open('openmm_report.txt', 'w'), 1, step=True, potentialEnergy=True, temperature=True, separator=' '))
+        #return simulation
+
 
         #   set up files
         os.makedirs(scratch, exist_ok=True)
@@ -863,6 +865,7 @@ def main(args):
         if options.jobtype != 'opt' and not args.state and options.jobtype != 'friction':
             print(" Setting initial velocities to temperature of {:5f} K: ".format(options.aimd_temp/kelvin), file=outfile)
             simulation.context.setVelocitiesToTemperature(options.aimd_temp, options.aimd_temp_seed)
+            #simulation.context.setVelocities([Vec3(1, 1, 1)*nanometers/picosecond]*pdb.topology.getNumAtoms())
         else:
             print(" Setting initial velocities to Zero: ", file=outfile)
             simulation.context.setVelocities([Vec3(0, 0, 0)*nanometers/picosecond]*pdb.topology.getNumAtoms())
@@ -900,7 +903,7 @@ def main(args):
             pos = state.getPositions(True)
 
             # update QM atom list and water positions
-            if n % options.qm_mm_update_freq == 0 and options.qm_mm_update:
+            if n % options.qm_mm_update_freq == 0 and options.qm_mm_update and len(qm_atoms) > 0:
                 #if len(qm_atoms) > 0:
                 #    pos = water_filler.fill_void(pos, qm_atoms, outfile=outfile)
 
