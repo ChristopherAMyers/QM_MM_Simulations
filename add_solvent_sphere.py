@@ -241,7 +241,7 @@ def add_solvent_shell(solute_coords, topology, forcefield, radius=1.5*nanometers
         solvent = Modeller(solvCoords.getTopology(), solvCoords.getPositions())
 
     #   import pre-computed water box
-    pos = numpy.array(solvent.getPositions()/nanometers)*nanometers
+    pos = np.array(solvent.getPositions()/nanometers)*nanometers
 
         #   center the box
     center = np.mean(pos, axis=0)
