@@ -85,19 +85,130 @@ class RandomKicksForce():
     def set_temperature(self, temperature):
         self.temperature = temperature
 
+class PointRestraintForce():
+    def __init__(self, system, topology, param_file) -> None:
+        raise NotImplementedError("PointRestraintForce is not finished")
+        force_string = "0.5*k*((x - x0)^2 + (y - y0)^2 + (z - z0)^2);"
+        force = CustomExternalForce(force_string)
+        force.addPerParticleParameter('k')
+        force.addPerParticleParameter('x0')
+        force.addPerParticleParameter('y0')
+        force.addPerParticleParameter('z0')
+
+        with open(param_file, 'r') as file:
+            for line in file:
+                entry = line.split('!')
+                data = entry[0]
+                sp = data.split()
+                if len(sp) == 0: continue
+                if len(sp) != 5:
+                    raise SyntaxError('Invalid format for PointRestraintForce')
+                id = int(sp[0])
+                k = float(sp[0])
+                x, y, z = [float(x) for x in sp[2:5]]
+                index = [x.index for x in topology.atoms() if int(x.id) == id]
+                force.addParticle(index, (k, x, y, z))
+
+        system.addForce(force)
+        self._force = force
+
+    def getForce(self):
+        return self._force
+                
+class PointRestraintForceReporter():
+    def __init__(self, force, out_file, report_interval, system):
+        raise NotImplementedError("PointRestraintForceReporter is not finished")
+        self._force = force
+        self._report_interval = report_interval
+        self._system = system
+        if isinstance(out_file, str):
+            self._out = open(out_file, 'w')
+        else:
+            self._out = out_file
+
+        self._index = []
+        self._points = []
+        self._springs = []
+        for n in self._force.getNumParticles():
+            idx, params = self._force.getParticleParameters(n)
+            k, x, y, z = params
+            self._index.append(idx)
+            self._springs.append(k)
+            self._points.append(np.array([x, y, z]))
+
+    def __del__(self):
+        self._out.close()
+
+    def describeNextReport(self, simulation):
+        steps = self._report_interval - simulation.currentStep%self._report_interval
+        return (steps, True, False, False, False)
+
+    def report(self, simulation, state):
+        self._out.write('\n')
+        self._out.write(' -------------------------------------------------------\n')
+        self._out.write('               Point Restraint Forces \n')
+        self._out.write(' -------------------------------------------------------\n')
+        self._out.write(' {:5s}    {:>14s}  {:>10s}   {:>10s}  \n'.format('group', 'energy(kJ/mol)', 'dist(Ang.)', 'r0(Ang.)'))
+        pos = state.getPositions(True)
+
 class CentroidRestraintForce():
+    '''
+        Adds a restraining force between the centroid of two groups of atoms.
+
+        The input is specified by the $centroids section.
+    '''
     def __init__(self, system, topology, restraints_file_loc):
-        print("CENTROID")
-        force_string = "0.5*k*(distance(g1,g2) - r0)^2"
+        ''' Add a restraining force between the centroid of two groups of atoms.
+
+            Parameters
+            ----------
+            system: openmm.app.System
+                OpenMM system to add force to
+            topology: openmm.app.Topology
+                A Topology describing the the system to simulate
+            restraints_file_loc: str
+                Restraint file with input options 
+
+            Notes
+            -----
+            Example of $centroids input section:\n
+            $centroids
+                GROUP
+                    15
+                ENDGROUP \n
+                GROUP
+                    16:26 25 27 28 29 30 30
+                ENDGROUP \n
+                FORCES
+                    1 2 9000 0.55
+                ENDFORCES
+            $end
+        '''
+
         from simtk.openmm.openmm import CustomCentroidBondForce
+        force_string = "0.5*k*(distance(g1,g2) - r0)^2"
+        #force_string = "0.5*k*(r - r0)^2; "
+        #force_string += "r = sqrt(x_on*(x1^2) + y_on*(y1^2) + z_on*(z1^2));"
         custom_force = CustomCentroidBondForce(2, force_string)
         custom_force.addPerBondParameter('k')
         custom_force.addPerBondParameter('r0')
+
+        #   for bonds with the origin
+        force_string2 = "0.5*k*on_off*(r - r0)^2;"
+        force_string2 += "on_off = step(r - r0);"
+        force_string2 += "r = sqrt(x_on*(x1^2) + y_on*(y1^2) + z_on*(z1^2));"
+        custom_force2 = CustomCentroidBondForce(1, force_string2)
+        custom_force2.addPerBondParameter('k')
+        custom_force2.addPerBondParameter('r0')
+        custom_force2.addPerBondParameter('x_on')
+        custom_force2.addPerBondParameter('y_on')
+        custom_force2.addPerBondParameter('z_on')
+
         groups = []
         with open(restraints_file_loc, 'r') as file:
             for line in file:
+                #   create a group of atoms to use
                 if line.split()[0].lower() == 'group':
-                    print("LINE: ", line.split(), line.split()[0].lower())
                     line = next(file)
                     while line.split()[0].lower() != 'endgroup':
                         atom_ids = set()
@@ -109,10 +220,12 @@ class CentroidRestraintForce():
                             elif elm.isdigit():
                                 atom_ids.add(int(elm))
                             else:
-                                raise ValueError("Only integers and integer ranges using the ':' character are allowed")
+                                raise ValueError("Only integers or integer ranges using the ':' character are allowed")
                         line = next(file)
                     indicies = [atom.index for atom in topology.atoms() if int(atom.id) in atom_ids]
                     custom_force.addGroup(list(indicies))
+                    custom_force2.addGroup(list(indicies))
+                #   add the forces between groups
                 elif line.split()[0].lower() == 'forces':
                     line = next(file)
                     while line.split()[0].lower() != 'endforces':
@@ -123,18 +236,42 @@ class CentroidRestraintForce():
                         r0 = float(sp[3])
                         custom_force.addBond([g1, g2], [k, r0])
                         line = next(file)
+                #   add forces from the origin a.k.a. "boundary" forces
+                elif line.split()[0].lower() == 'boundary':
+                    line = next(file)
+                    while line.split()[0].lower() != 'endboundary':
+                        sp = line.split()
+                        g1 = int(sp[0]) - 1
+                        bdry_type = sp[1].lower()
+                        k = float(sp[2])
+                        r0 = float(sp[3])
+
+                        x_on = y_on = z_on = 0
+                        if 'x' in bdry_type: x_on = 1
+                        if 'y' in bdry_type: y_on = 1
+                        if 'z' in bdry_type: z_on = 1
+
+                        custom_force2.addBond([g1], [k, r0, x_on, y_on, z_on])
+                        line = next(file)
                 else:
                     raise ValueError('Invalid section identifier for CentroidRestraintForce')
 
-        system.addForce(custom_force)
+        #   only add force to system if bonds were created
         self._force = custom_force
+        self._force2 = custom_force2
+        if custom_force.getNumBonds() > 0:
+            system.addForce(custom_force)
+            
+        if custom_force2.getNumBonds() > 0:
+            system.addForce(custom_force2)
+            
 
-    def getForce(self):
-        return self._force
+    def getForces(self):
+        return (self._force, self._force2)
 
 class CentroidRestraintForceReporter():
-    def __init__(self, force, file, report_interval, system) -> None:
-        self._force = force
+    def __init__(self, forces, file, report_interval, system) -> None:
+        self._force1, self._force2 = forces
         self._report_interval = report_interval
         self._system = system
 
@@ -148,17 +285,26 @@ class CentroidRestraintForceReporter():
         self._bonds = []
         self._params = []
         self._sum_weights = []
-        for g in range(self._force.getNumGroups()):
-            idx, weights = self._force.getGroupParameters(g)
+        #   it is assumed that each force contains the same groups info, regardless
+        #   if it uses the group in the force object itself
+        for g in range(self._force1.getNumGroups()):
+            idx, weights = self._force1.getGroupParameters(g)
             if len(weights) == 0:
                 weights = [system.getParticleMass(n)/dalton for n in idx]
             self._groups.append(np.array(idx))
             self._weights.append(np.array(weights))
             self._sum_weights.append(np.sum(weights))
-        for g in range(self._force.getNumBonds()):
-            groups, params = self._force.getBondParameters(g)
+
+        for g in range(self._force1.getNumBonds()):
+            groups, params = self._force1.getBondParameters(g)
             self._bonds.append(groups)
             self._params.append(params)
+
+        for g in range(self._force2.getNumBonds()):
+            groups, params = self._force2.getBondParameters(g)
+            self._bonds.append(groups)
+            self._params.append(params)
+
         self._n_bonds = len(self._bonds)
 
     def __del__(self):
@@ -173,23 +319,39 @@ class CentroidRestraintForceReporter():
         self._out.write(' -------------------------------------------------------\n')
         self._out.write('             Centroid Restraint Forces \n')
         self._out.write(' -------------------------------------------------------\n')
-        self._out.write(' {:5s}    {:>14s}  {:>10s}   {:>10s}  \n'.format('group', 'energy(kJ/mol)', 'dist(Ang.)', 'r0(Ang.)'))
+        self._out.write(' {:6s}  {:6s}  {:>14s}  {:>10s}   {:>10s}  \n'.format('group1', 'group2', 'energy(kJ/mol)', 'dist(Ang.)', 'r0(Ang.)'))
         pos = state.getPositions(True)
         for n in range(self._n_bonds):
-            g1, g2 = self._bonds[n]
+            if len(self._bonds[n]) == 2:
+                g1, g2 = self._bonds[n]
 
-            pos1 = pos[self._groups[g1]]
-            pos2 = pos[self._groups[g2]]
-            center1 = np.sum(pos1*self._weights[g1][:, None], axis=0)/self._sum_weights[g1]
-            center2 = np.sum(pos2*self._weights[g2][:, None], axis=0)/self._sum_weights[g2]
+                pos1 = pos[self._groups[g1]]
+                pos2 = pos[self._groups[g2]]
+                center1 = np.sum(pos1*self._weights[g1][:, None], axis=0)/self._sum_weights[g1]
+                center2 = np.sum(pos2*self._weights[g2][:, None], axis=0)/self._sum_weights[g2]
 
-            dist = np.linalg.norm(center1 - center2)
-            k, r0 = self._params[n]
+                dist = np.linalg.norm(center1 - center2)
+                k, r0 = self._params[n]
 
-            energy = 0.5*k*(dist - r0)**2
-            self._out.write(' {:5d} {:14.3f}  {:10.3f}   {:10.3f}  \n'.format(n+1, energy, dist*10, r0*10))
+                energy = 0.5*k*(dist - r0)**2
+                self._out.write(' {:6d} {:6d} {:14.3f}  {:10.3f}   {:10.3f}  \n'.format(g1+1, g2+1, energy, dist*10, r0*10))
+            else:
+                g1 = self._bonds[n][0]
+
+                pos1 = pos[self._groups[g1]]/nanometers
+                x, y, z = np.sum(pos1*self._weights[g1][:, None], axis=0)/self._sum_weights[g1]                
+                k, r0, x_on, y_on, z_on = self._params[n]
+                dist = sqrt(x_on*(x*x) + y_on*(y*y) + z_on*(z*z))
+                bound_type = int(x_on)*'x' + int(y_on)*'y' + int(z_on)*'z'
+
+                if (dist - r0) < 0:
+                    energy = 0.0
+                else:
+                    energy = 0.5*k*(dist - r0)**2
+                self._out.write(' {:6d} {:>6s} {:14.3f}  {:10.3f}   {:10.3f}  \n'.format(g1+1, bound_type, energy, dist*10, r0*10))
         self._out.write(' -------------------------------------------------------\n')
         self._out.flush()
+
 
 class RestraintsForce():
     '''
@@ -281,9 +443,6 @@ class RestraintsForce():
 
         print(" Total restraint energy: {:15.5f} kJ/mol".format(total_energy), file=outfile)
 
-
-        
-        
 class BoundryForce():
     def __init__(self, system, topology, positions, qm_atoms, max_dist=0.4*nanometers, scale=10000.0):
         '''

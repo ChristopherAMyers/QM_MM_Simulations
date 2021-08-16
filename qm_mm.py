@@ -338,8 +338,6 @@ def update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, coords_in_nm,
     ext_force.updateParametersInContext(simulation.context)
     outfile.flush()
 
-
-
 def get_integrator(opts):
     if opts.jobtype == 'aimd':
         if opts.integrator.lower() == 'langevin':
@@ -382,7 +380,6 @@ def get_integrator(opts):
 
         return integrator
    
-
 def print_initial_forces(simulation, qm_atoms, topology, outfile):
     #   test to make sure that all qm_forces are fine
     state = simulation.context.getState(getPositions=True, getForces=True, getEnergy=True)
@@ -600,7 +597,7 @@ def main(args):
         simulation.reporters.append(HDF5Reporter('output.h5', 1))
         qm_atoms_reporter = QMatomsReporter('qm_atoms.txt', pdb.topology)
         if options.cent_restraints:
-            simulation.reporters.append(CentroidRestraintForceReporter(cent_restraints.getForce(), outfile, 1, system))
+            simulation.reporters.append(CentroidRestraintForceReporter(cent_restraints.getForces(), outfile, 1, system))
         
         #DEBUG
         #simulation.reporters.append(StateDataReporter(open('openmm_report.txt', 'w'), 1, step=True, potentialEnergy=True, temperature=True, separator=' '))
@@ -643,6 +640,7 @@ def main(args):
             optimize = MMOnlyBFGS(simulation, topology=pdb.topology, reporter=reporter, outfile=outfile)
             optimize.minimize()
             return
+
 
         #   run simulation
         for n in range(options.aimd_steps):
@@ -710,7 +708,7 @@ if __name__ == "__main__":
     #tmp_args = parse_args(sys.argv[1:])
     arg_list = parse_cmd_line_args(scratch)
     prog_args = parse_args(arg_list)
-    res = main(prog_args)
+    sim = main(prog_args)
 
     ''' DEBUGGING ONLY  '''
     '''

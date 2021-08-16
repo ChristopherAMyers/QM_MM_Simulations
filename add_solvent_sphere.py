@@ -336,6 +336,7 @@ if __name__ == "__main__":
     parser.add_argument('-pdb', help='PDB file to add solvent too')
     parser.add_argument('-ids', help=argparse.SUPPRESS)
     parser.add_argument('-radius', help='radius (nm) of water sphere', default=1.5, type=float)
+    parser.add_argument('-box', help='use a box instead of a sphere', action='store_true')
     parser.add_argument('-ff', help='Additional XML Force Field file')
     parser.add_argument('-add_bonds', help='Add extra bonds based on distance', action='store_true')
     if os.path.splitext(sys.argv[1])[1] == '.pdb':
@@ -346,7 +347,6 @@ if __name__ == "__main__":
     
     print(" Importing Solute")
     pdb = PDBFile(sys.argv[1])
-    pdb.topology.addBond
     ids_file = args.ids
     if args.add_bonds:
         pdb_to_qc.add_bonds(pdb, remove_orig=False)
@@ -379,10 +379,15 @@ if __name__ == "__main__":
     print(" Center : ", origin)
 
     n_atoms_init = pdb.topology.getNumAtoms()
-    water_radius = radius=1.5*nanometers
+    water_radius = radius=args.radius*nanometers
     print(" Initial number of atoms: {:d}".format(n_atoms_init))
-    print(" Adding Solvent to a sphere of radius {:.2f} Ang.".format(water_radius/angstroms))
-    mols = add_solvent_shell(pdb.positions, pdb.topology, forcefield, origin=origin, radius=water_radius, solventBox="None")
+    if not args.box:
+        print(" Adding Solvent to a sphere of radius {:.2f} Ang.".format(water_radius/angstroms))
+        mols = add_solvent_shell(pdb.positions, pdb.topology, forcefield, origin=origin, radius=water_radius, solventBox="None")
+    else:
+        print(" Adding solvent to a box with minimm padding of {:.2f} Ang.".format(water_radius/angstroms))
+        modeller = Modeller(pdb.topology, pdb.getPositions())
+        modeller.addSolvent()
     system = forcefield.createSystem(mols.topology, nonbondedMethod=CutoffNonPeriodic,
             nonbondedCutoff=1*nanometer, constraints=HBonds)
     n_atoms_final = mols.topology.getNumAtoms()
