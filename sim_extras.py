@@ -338,6 +338,9 @@ class JobOptions(object):
         self.restraints = False
         self.restraints_switch_time = 0*femtoseconds
 
+        #   point restraint force
+        self.point_restraints = False
+
         #   centroid restraint force
         self.cent_restraints = False
 

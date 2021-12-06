@@ -1,5 +1,6 @@
 from numpy.lib.arraysetops import isin
-from simtk.openmm.openmm import *    #pylint: disable=unused-wildcard-import
+from simtk.openmm.app.topology import Topology
+from simtk.openmm.openmm import *
 from simtk.unit import * #pylint: disable=unused-wildcard-import
 import numpy as np
 import os
@@ -87,27 +88,47 @@ class RandomKicksForce():
 
 class PointRestraintForce():
     def __init__(self, system, topology, param_file) -> None:
-        raise NotImplementedError("PointRestraintForce is not finished")
-        force_string = "0.5*k*((x - x0)^2 + (y - y0)^2 + (z - z0)^2);"
+        #raise NotImplementedError("PointRestraintForce is not finished")
+        force_string = "0.5*k*(x_on*(x - x0)^2 + y_on*(y - y0)^2 + z_on*(z - z0)^2);"
         force = CustomExternalForce(force_string)
         force.addPerParticleParameter('k')
         force.addPerParticleParameter('x0')
         force.addPerParticleParameter('y0')
         force.addPerParticleParameter('z0')
+        force.addPerParticleParameter('x_on')
+        force.addPerParticleParameter('y_on')
+        force.addPerParticleParameter('z_on')
 
+        used_ids = set()
         with open(param_file, 'r') as file:
             for line in file:
                 entry = line.split('!')
                 data = entry[0]
                 sp = data.split()
                 if len(sp) == 0: continue
-                if len(sp) != 5:
+                if len(sp) != 6:
                     raise SyntaxError('Invalid format for PointRestraintForce')
-                id = int(sp[0])
-                k = float(sp[0])
-                x, y, z = [float(x) for x in sp[2:5]]
-                index = [x.index for x in topology.atoms() if int(x.id) == id]
-                force.addParticle(index, (k, x, y, z))
+                id_str = sp[0]
+                if ":" in id_str:
+                    start, stop = id_str.split(':')
+                    id_list = range(int(start), int(stop)+1)
+                elif id_str.isdigit():
+                    id_list = [int(id_str)]
+                else:
+                    raise ValueError("Only integers or integer ranges using the ':' character are allowed")
+                #id = int(sp[0])
+                k = float(sp[1])
+
+                bdry_type = sp[2].lower()
+                x_on = y_on = z_on = 0
+                if 'x' in bdry_type: x_on = 1
+                if 'y' in bdry_type: y_on = 1
+                if 'z' in bdry_type: z_on = 1
+                x, y, z = [float(x) for x in sp[3:6]]
+
+                index_list = [x.index for x in topology.atoms() if int(x.id) in id_list]
+                for index in index_list:
+                    force.addParticle(index, (k, x, y, z, x_on, y_on, z_on))
 
         system.addForce(force)
         self._force = force
@@ -117,7 +138,7 @@ class PointRestraintForce():
                 
 class PointRestraintForceReporter():
     def __init__(self, force, out_file, report_interval, system):
-        raise NotImplementedError("PointRestraintForceReporter is not finished")
+        #raise NotImplementedError("PointRestraintForceReporter is not finished")
         self._force = force
         self._report_interval = report_interval
         self._system = system
@@ -129,12 +150,17 @@ class PointRestraintForceReporter():
         self._index = []
         self._points = []
         self._springs = []
-        for n in self._force.getNumParticles():
+        self._bound_types = []
+        self._coords_on = []
+        for n in range(self._force.getNumParticles()):
             idx, params = self._force.getParticleParameters(n)
-            k, x, y, z = params
+            k, x, y, z, x_on, y_on, z_on = params
+            bound_type = int(x_on)*'x' + int(y_on)*'y' + int(z_on)*'z'
             self._index.append(idx)
             self._springs.append(k)
             self._points.append(np.array([x, y, z]))
+            self._coords_on.append([x_on, y_on, z_on])
+            self._bound_types.append(bound_type)
 
     def __del__(self):
         self._out.close()
@@ -148,8 +174,55 @@ class PointRestraintForceReporter():
         self._out.write(' -------------------------------------------------------\n')
         self._out.write('               Point Restraint Forces \n')
         self._out.write(' -------------------------------------------------------\n')
-        self._out.write(' {:5s}    {:>14s}  {:>10s}   {:>10s}  \n'.format('group', 'energy(kJ/mol)', 'dist(Ang.)', 'r0(Ang.)'))
-        pos = state.getPositions(True)
+        self._out.write(' {:5s}  {:4s}  {:>14s}  {:>14s}\n'.format('Index', 'type', 'energy(kJ/mol)', 'dist(Ang.)'))
+        pos = state.getPositions(True)/nanometers
+
+        for n, point in enumerate(self._points):
+            x_on, y_on, z_on = self._coords_on[n]
+            x, y, z = pos[n] - point
+            dist = sqrt(x_on*(x*x) + y_on*(y*y) + z_on*(z*z))
+            eng = 0.5*self._springs[n]*dist**2
+            self._out.write(' {:5d}  {:4s}  {:>14.5f}  {:>14.5f}\n'.format(self._index[n], self._bound_types[n], eng, dist*10))
+        self._out.write(' -------------------------------------------------------\n')
+
+class RingAngleForce():
+
+    def __init__(self, system, topology, ring_file_loc):
+
+        #   extra particles will be added to the sytem, so we need to add
+        #   nonbonded parameters for these particles
+        nb_force = None
+        for force in system.getForces():
+            if isinstance(force, CustomNonbondedForce):
+                nb_force = force
+                break
+        num_nb_params = force.getNumPerParticleParameters()
+
+        with open(ring_file_loc) as file:
+            for line in file:
+                #   import data from parameter file
+                data = line.split("!")[0]
+                elms = data.split()
+                if len(data) == 0: continue
+                ids = [int(x) for x in elms[0:3]]
+                spring_k = float(elms[3])
+                theta_0 = float(elms[4])
+                atom1, atom2, atom3 = [atom.index for atom in topology.atoms() if int(atom.id) in ids]
+
+                #   add another particle to the system for the virtual site
+                new_idx = system.addParticle(0)
+                nb_force.addParticle(tuple([0]*num_nb_params))
+
+                #   create virtual site above the ring
+                origin_wt = Vec3(1/3, 1/3, 1/3)
+                x_wt = Vec3(2/3, -1/3, -1/3)
+                y_wt = Vec3(-1/3, 2/3, -1/3)
+                local_pos = Vec3(0, 0, 1)
+                virtual = LocalCoordinatesSite(atom1, atom2, atom3, origin_wt, x_wt, y_wt, local_pos)
+                system.setVirtualSite(new_idx, virtual)
+
+
+                
 
 class CentroidRestraintForce():
     '''
@@ -157,7 +230,7 @@ class CentroidRestraintForce():
 
         The input is specified by the $centroids section.
     '''
-    def __init__(self, system, topology, restraints_file_loc):
+    def __init__(self, system, topology, restraints_file_loc, pdb=None):
         ''' Add a restraining force between the centroid of two groups of atoms.
 
             Parameters
@@ -185,46 +258,89 @@ class CentroidRestraintForce():
             $end
         '''
 
+        #   extra particles may be added to the system, so we need to add
+        #   nonbonded parameters for these particles
+        nb_force = None
+        for force in system.getForces():
+            if isinstance(force, CustomNonbondedForce):
+                nb_force = force
+                break
+        num_nb_params = force.getNumPerParticleParameters()
+
         from simtk.openmm.openmm import CustomCentroidBondForce
-        force_string = "0.5*k*(distance(g1,g2) - r0)^2"
-        #force_string = "0.5*k*(r - r0)^2; "
-        #force_string += "r = sqrt(x_on*(x1^2) + y_on*(y1^2) + z_on*(z1^2));"
+        #force_string = "0.5*k*(distance(g1,g2) - r0)^2"
+        force_string = "0.5*k*(r - r0)^2; "
+        force_string += "r = sqrt(x_on*((x1 - x2)^2) + y_on*((y1 - y2)^2) + z_on*((z1 - z2)^2));"
         custom_force = CustomCentroidBondForce(2, force_string)
         custom_force.addPerBondParameter('k')
         custom_force.addPerBondParameter('r0')
+        custom_force.addPerBondParameter('x_on')
+        custom_force.addPerBondParameter('y_on')
+        custom_force.addPerBondParameter('z_on')
 
         #   for bonds with the origin
         force_string2 = "0.5*k*on_off*(r - r0)^2;"
         force_string2 += "on_off = step(r - r0);"
         force_string2 += "r = sqrt(x_on*(x1^2) + y_on*(y1^2) + z_on*(z1^2));"
-        custom_force2 = CustomCentroidBondForce(1, force_string2)
-        custom_force2.addPerBondParameter('k')
-        custom_force2.addPerBondParameter('r0')
-        custom_force2.addPerBondParameter('x_on')
-        custom_force2.addPerBondParameter('y_on')
-        custom_force2.addPerBondParameter('z_on')
+        boundary_force = CustomCentroidBondForce(1, force_string2)
+        boundary_force.addPerBondParameter('k')
+        boundary_force.addPerBondParameter('r0')
+        boundary_force.addPerBondParameter('x_on')
+        boundary_force.addPerBondParameter('y_on')
+        boundary_force.addPerBondParameter('z_on')
+
+        #   ring forces
+        force_string3 = "0.5*k*(theta - theta0)^2; "
+        force_string3 += "theta = acos((z2-z1)/distance(g1, g2));"
+        ring_force = CustomCentroidBondForce(2, force_string3)
+        ring_force.addPerBondParameter('k')
+        ring_force.addPerBondParameter('theta0')
 
         groups = []
+        self.virtual_pos = []
+        if pdb is not None:
+            v_chain = pdb.topology.addChain()
+            v_res = pdb.topology.addResidue('RingV', v_chain)
+        top_atoms = list(topology.atoms())
         with open(restraints_file_loc, 'r') as file:
             for line in file:
                 #   create a group of atoms to use
                 if line.split()[0].lower() == 'group':
                     line = next(file)
+                    atom_ids = list()
                     while line.split()[0].lower() != 'endgroup':
-                        atom_ids = set()
-                        for elm in line.split():
-                            if ":" in elm:
+                        weights = None
+                        for i, elm in enumerate(line.split()):
+                            if i == 0 and elm.lower() == 'weights':
+                                weights = []
+                            elif weights is not None and i > 0:
+                                weights.append(int(elm))
+                            elif ":" in elm:
                                 start, stop = elm.split(':')
                                 for i in range(int(start), int(stop) + 2):
-                                    atom_ids.add(i)
+                                    atom_ids.append(i)
                             elif elm.isdigit():
-                                atom_ids.add(int(elm))
+                                atom_ids.append(int(elm))
                             else:
                                 raise ValueError("Only integers or integer ranges using the ':' character are allowed")
+
                         line = next(file)
-                    indicies = [atom.index for atom in topology.atoms() if int(atom.id) in atom_ids]
-                    custom_force.addGroup(list(indicies))
-                    custom_force2.addGroup(list(indicies))
+                    indicies = []
+                    for id in atom_ids:
+                        for atom in top_atoms:
+                            if int(atom.id) == id:
+                                indicies.append(atom.index)
+                                break
+                    #indicies = [atom.index for atom in topology.atoms() if int(atom.id) in atom_ids]
+                    groups.append(indicies)
+                    if weights is not None:
+                        custom_force.addGroup(list(set(indicies)), weights)
+                        boundary_force.addGroup(list(set(indicies)), weights)
+                        ring_force.addGroup(list(indicies), weights)
+                    else:
+                        custom_force.addGroup(list(set(indicies)))
+                        boundary_force.addGroup(list(set(indicies)))
+                        ring_force.addGroup(list(indicies))
                 #   add the forces between groups
                 elif line.split()[0].lower() == 'forces':
                     line = next(file)
@@ -234,7 +350,17 @@ class CentroidRestraintForce():
                         g2 = int(sp[1]) - 1
                         k = float(sp[2])
                         r0 = float(sp[3])
-                        custom_force.addBond([g1, g2], [k, r0])
+
+                        x_on = y_on = z_on = 0
+                        if len(sp) == 4:
+                            x_on = y_on = z_on = 1
+                        else:
+                            bdry_type = sp[4].lower()
+                            if 'x' in bdry_type: x_on = 1
+                            if 'y' in bdry_type: y_on = 1
+                            if 'z' in bdry_type: z_on = 1
+
+                        custom_force.addBond([g1, g2], [k, r0, x_on, y_on, z_on])
                         line = next(file)
                 #   add forces from the origin a.k.a. "boundary" forces
                 elif line.split()[0].lower() == 'boundary':
@@ -251,27 +377,83 @@ class CentroidRestraintForce():
                         if 'y' in bdry_type: y_on = 1
                         if 'z' in bdry_type: z_on = 1
 
-                        custom_force2.addBond([g1], [k, r0, x_on, y_on, z_on])
+                        boundary_force.addBond([g1], [k, r0, x_on, y_on, z_on])
+                        line = next(file)
+                #   add forces that keep rings planar
+                elif line.split()[0].lower() == 'ring':
+                    line = next(file)
+                    while line.split()[0].lower() != 'endring':
+                        sp = line.split()
+                        g1 = int(sp[0]) - 1
+                        spring_k = float(sp[1])
+                        theta_0 = float(sp[2])*np.pi/180.0
+
+                        #   check group properties
+                        orig_atoms, orig_weights = ring_force.getGroupParameters(g1)
+                        if len(orig_atoms) != 3:
+                            raise ValueError("Ring groups must only use 3 atoms")
+                        if len(orig_weights) == 0:
+                            ring_force.setGroupParameters(g1, orig_atoms, (1/3, 1/3, 1/3))
+                        elif orig_weights != (1/3, 1/3, 1/3):
+                            raise ValueError("Ring groups must use 1/3 for each weight")
+                        
+
+                        #   add another particle to the system for the virtual site above the ring
+                        new_idx = system.addParticle(0)
+                        nb_force.addParticle(tuple([0]*num_nb_params))
+
+                        #   create virtual site above the ring
+                        origin_wt = Vec3(1/3, 1/3, 1/3)
+                        x_wt = Vec3(2/3, -1/3, -1/3)
+                        y_wt = Vec3(-1/3, 2/3, -1/3)
+                        local_pos = Vec3(0, 0, 0.2)
+                        print("RING GROUP: ", groups[g1])
+                        #   the vector normal to the ring follows a clock-wise ordering
+                        atom2, atom1, atom3 = groups[g1]
+                        virtual = LocalCoordinatesSite(atom1, atom2, atom3, origin_wt, x_wt, y_wt, local_pos)
+                        system.setVirtualSite(new_idx, virtual)
+
+                        #   add virtual site to provided PDB
+                        if pdb is not None:
+                            p1, p2, p3 = Vec3(*tuple(pdb.getPositions()[n]/nanometers for n in [atom1, atom2, atom3]))
+                            orig = (p1 + p2 + p3)/3
+                            dx = x_wt[0]*p1 + x_wt[1]*p2 + x_wt[2]*p3
+                            dy = y_wt[0]*p1 + y_wt[1]*p2 + y_wt[2]*p3
+                            dz = np.cross(dx, dy)
+                            z_vec = dz/sqrt(np.dot(dz, dz))
+                            new_pos = orig + 0.2*z_vec
+                            pdb.positions.append(new_pos*nanometers)
+                            pdb.topology.addAtom('RV{:d}'.format(ring_force.getNumBonds()), None, v_res)
+
+                        #   create another group that is only the virtual site
+                        groups.append([new_idx])
+                        ring_force.addGroup([new_idx], [1])
+
+                        ring_force.addBond([g1, len(groups)-1], [spring_k, theta_0])
                         line = next(file)
                 else:
                     raise ValueError('Invalid section identifier for CentroidRestraintForce')
 
+
         #   only add force to system if bonds were created
         self._force = custom_force
-        self._force2 = custom_force2
+        self._bound_force = boundary_force
+        self._ring_force = ring_force
         if custom_force.getNumBonds() > 0:
             system.addForce(custom_force)
             
-        if custom_force2.getNumBonds() > 0:
-            system.addForce(custom_force2)
-            
+        if boundary_force.getNumBonds() > 0:
+            system.addForce(boundary_force)
+
+        if ring_force.getNumBonds() > 0:
+            system.addForce(ring_force)
 
     def getForces(self):
-        return (self._force, self._force2)
+        return (self._force, self._bound_force, self._ring_force)
 
 class CentroidRestraintForceReporter():
     def __init__(self, forces, file, report_interval, system) -> None:
-        self._force1, self._force2 = forces
+        self._force1, self._bound_force, self._ring_force = forces
         self._report_interval = report_interval
         self._system = system
 
@@ -285,10 +467,10 @@ class CentroidRestraintForceReporter():
         self._bonds = []
         self._params = []
         self._sum_weights = []
-        #   it is assumed that each force contains the same groups info, regardless
-        #   if it uses the group in the force object itself
-        for g in range(self._force1.getNumGroups()):
-            idx, weights = self._force1.getGroupParameters(g)
+        self._force_types = []
+
+        for g in range(self._ring_force.getNumGroups()):
+            idx, weights = self._ring_force.getGroupParameters(g)
             if len(weights) == 0:
                 weights = [system.getParticleMass(n)/dalton for n in idx]
             self._groups.append(np.array(idx))
@@ -299,11 +481,19 @@ class CentroidRestraintForceReporter():
             groups, params = self._force1.getBondParameters(g)
             self._bonds.append(groups)
             self._params.append(params)
+            self._force_types.append('normal')
 
-        for g in range(self._force2.getNumBonds()):
-            groups, params = self._force2.getBondParameters(g)
+        for g in range(self._bound_force.getNumBonds()):
+            groups, params = self._bound_force.getBondParameters(g)
             self._bonds.append(groups)
             self._params.append(params)
+            self._force_types.append('boundary')
+
+        for g in range(self._ring_force.getNumBonds()):
+            groups, params = self._ring_force.getBondParameters(g)
+            self._bonds.append(groups)
+            self._params.append(params)
+            self._force_types.append('ring')
 
         self._n_bonds = len(self._bonds)
 
@@ -319,26 +509,26 @@ class CentroidRestraintForceReporter():
         self._out.write(' -------------------------------------------------------\n')
         self._out.write('             Centroid Restraint Forces \n')
         self._out.write(' -------------------------------------------------------\n')
-        self._out.write(' {:6s}  {:6s}  {:>14s}  {:>10s}   {:>10s}  \n'.format('group1', 'group2', 'energy(kJ/mol)', 'dist(Ang.)', 'r0(Ang.)'))
-        pos = state.getPositions(True)
+        self._out.write(' {:8s}  {:6s}  {:6s}  {:>14s}  {:>10s}   {:>10s}  \n'.format('type', 'group1', 'group2', 'energy(kJ/mol)', 'X', 'X0'))
+        pos = state.getPositions(True)/nanometers
         for n in range(self._n_bonds):
-            if len(self._bonds[n]) == 2:
+            if self._force_types[n] == 'normal':
                 g1, g2 = self._bonds[n]
 
                 pos1 = pos[self._groups[g1]]
                 pos2 = pos[self._groups[g2]]
-                center1 = np.sum(pos1*self._weights[g1][:, None], axis=0)/self._sum_weights[g1]
-                center2 = np.sum(pos2*self._weights[g2][:, None], axis=0)/self._sum_weights[g2]
+                x1, y1, z1 = np.sum(pos1*self._weights[g1][:, None], axis=0)/self._sum_weights[g1]
+                x2, y2, z2 = np.sum(pos2*self._weights[g2][:, None], axis=0)/self._sum_weights[g2]
 
-                dist = np.linalg.norm(center1 - center2)
-                k, r0 = self._params[n]
+                k, r0, x_on, y_on, z_on = self._params[n]
+                dist = sqrt(x_on*((x1 - x2)**2) + y_on*((y1 - y2)**2) + z_on*((z1 - z2)**2))
 
                 energy = 0.5*k*(dist - r0)**2
-                self._out.write(' {:6d} {:6d} {:14.3f}  {:10.3f}   {:10.3f}  \n'.format(g1+1, g2+1, energy, dist*10, r0*10))
-            else:
+                self._out.write(' {:8s}  {:6d} {:6d} {:14.3f}  {:10.3f} Ang. {:10.3f} Ang. \n'.format('normal', g1+1, g2+1, energy, dist*10, r0*10))
+            elif self._force_types[n] == 'boundary':
                 g1 = self._bonds[n][0]
 
-                pos1 = pos[self._groups[g1]]/nanometers
+                pos1 = pos[self._groups[g1]]
                 x, y, z = np.sum(pos1*self._weights[g1][:, None], axis=0)/self._sum_weights[g1]                
                 k, r0, x_on, y_on, z_on = self._params[n]
                 dist = sqrt(x_on*(x*x) + y_on*(y*y) + z_on*(z*z))
@@ -348,7 +538,22 @@ class CentroidRestraintForceReporter():
                     energy = 0.0
                 else:
                     energy = 0.5*k*(dist - r0)**2
-                self._out.write(' {:6d} {:>6s} {:14.3f}  {:10.3f}   {:10.3f}  \n'.format(g1+1, bound_type, energy, dist*10, r0*10))
+                self._out.write(' {:8s}  {:6d} {:>6s} {:14.3f}  {:10.3f} Ang. {:10.3f} Ang. \n'.format('boundary', g1+1, bound_type, energy, dist*10, r0*10))
+            else:
+                g1, g2 = self._bonds[n]
+
+                pos1 = pos[self._groups[g1]]
+                pos2 = pos[self._groups[g2]]
+                x1, y1, z1 = np.sum(pos1*self._weights[g1][:, None], axis=0)/self._sum_weights[g1]
+                x2, y2, z2 = np.sum(pos2*self._weights[g2][:, None], axis=0)/self._sum_weights[g2]
+
+                k, theta_0 = self._params[n]
+                dist = np.linalg.norm(np.array([x2, y2, z2]) - np.array([x1, y1, z1]))
+                theta = np.arccos((z2 - z1)/dist)
+
+                energy = 0.5*k*(theta - theta_0)**2
+                self._out.write(' {:8s}  {:6d} {:6d} {:14.3f}  {:10.3f} Deg. {:10.3f} Deg. \n'.format('ring', g1+1, g2+1, energy, theta*180/np.pi, theta_0*180/np.pi))
+
         self._out.write(' -------------------------------------------------------\n')
         self._out.flush()
 

@@ -114,8 +114,13 @@ def get_rem_lines(rem_file_loc, outfile):
             elif option == 'restraints_switch_time':
                 opts.restraints_switch_time = float(sp[1]) * femtoseconds
 
+            #   centroid restraints
             elif option == 'cent_restraints':
                 opts.cent_restraints = strtobool(sp[1])
+
+            #   point restraints
+            elif option == 'point_restraints':
+                opts.point_restraints = strtobool(sp[1])
 
             #   QM fragments
             elif option == 'qm_fragments':
@@ -227,6 +232,9 @@ def get_rem_lines(rem_file_loc, outfile):
 
     if opts.cent_restraints:
         outfile.write(' Centroid Restraints:       {:10d} \n'.format(int(opts.cent_restraints)))
+
+    if opts.point_restraints:
+        outfile.write(' Point Restraints:          {:10d} \n'.format(int(opts.point_restraints)))
 
     if opts.qm_fragments:
         outfile.write(' QM Fragments:              {:10d} \n'.format(int(opts.qm_fragments)))

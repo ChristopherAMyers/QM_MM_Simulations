@@ -69,6 +69,7 @@ def parse_args(args_in):
     parser.add_argument('-frags',   help='QM fragments file')
     parser.add_argument('-link',   help='QM/MM link atom ids file')
     parser.add_argument('-centroid', help='centroid restraint force file')
+    parser.add_argument('-points', help='Point restraint force file')
     return parser.parse_args(args_in)
 
 
@@ -545,7 +546,10 @@ def main(args):
             restraints = RestraintsForce(system, pdb.topology, args.rest, options.restraints_switch_time)
         
         if options.cent_restraints:
-            cent_restraints = CentroidRestraintForce(system, pdb.topology, args.centroid)
+            cent_restraints = CentroidRestraintForce(system, pdb.topology, args.centroid, pdb=pdb)
+
+        if options.point_restraints:
+            point_restraints = PointRestraintForce(system, pdb.topology, args.points)
 
         #   debug only: turns off forces except one
         if False:
@@ -566,6 +570,8 @@ def main(args):
         #   add constraints
         if options.constrain_qmmm_bonds:
             fix_qm_mm_bonds(system, qm_atoms, pdb.positions, outfile)
+
+        #return (pdb, system, integrator)
 
         #   initialize simulation and set positions
         simulation = Simulation(pdb.topology, system, integrator)
@@ -598,17 +604,17 @@ def main(args):
         qm_atoms_reporter = QMatomsReporter('qm_atoms.txt', pdb.topology)
         if options.cent_restraints:
             simulation.reporters.append(CentroidRestraintForceReporter(cent_restraints.getForces(), outfile, 1, system))
-        
+        if options.point_restraints:
+            simulation.reporters.append(PointRestraintForceReporter(point_restraints.getForce(), outfile, 1, system))
+
         #DEBUG
         #simulation.reporters.append(StateDataReporter(open('openmm_report.txt', 'w'), 1, step=True, potentialEnergy=True, temperature=True, separator=' '))
         #return simulation
-
 
         #   set up files
         os.makedirs(scratch, exist_ok=True)
         os.makedirs(qc_scratch, exist_ok=True)
         atoms = list(pdb.topology.atoms())
-        elements = [x.element.symbol for x in atoms]
 
         #   test to make sure that all qm_forces are fine
         print_initial_forces(simulation, qm_atoms, pdb.topology, outfile)
@@ -630,9 +636,7 @@ def main(args):
         sys.stdout.flush()
 
         simulation.saveState('initial_state.xml')
-        water_filler = WaterFiller(pdb.topology, forcefield, simulation)
-
-        #return system
+        #water_filler = WaterFiller(pdb.topology, forcefield, simulation)
 
         #   minimization for MM only system
         if len(qm_atoms) == 0 and options.jobtype == 'opt':
@@ -708,7 +712,7 @@ if __name__ == "__main__":
     #tmp_args = parse_args(sys.argv[1:])
     arg_list = parse_cmd_line_args(scratch)
     prog_args = parse_args(arg_list)
-    sim = main(prog_args)
+    (pdb, system, integrator) = main(prog_args)
 
     ''' DEBUGGING ONLY  '''
     '''

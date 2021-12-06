@@ -348,10 +348,11 @@ class MMOnlyBFGS(object):
         args = (self._context, self._constraints)
         self._callback(init_pos)
         res = self._optimize.minimize(self._target_func, init_pos, args=args, method='L-BFGS-B', jac=True, callback=self._callback,
-        options=dict(maxiter=200, disp=True, gtol=500))
+        options=dict(maxiter=200, disp=True, gtol=400))
         final_pos = res.x.reshape(-1,3)
 
-        if np.max(np.linalg.norm(res.jac.reshape(-1, 3), axis=1)) >= 500:
+        print(np.max(np.linalg.norm(res.jac.reshape(-1, 3), axis=1)))
+        if np.max(np.linalg.norm(res.jac.reshape(-1, 3), axis=1)) >= 1000:
             print(" WARNING: L-BFGS-B failed to optimize to given gradient.", file=self._outfile)
             print(" Running OpenMM Optimize instead.", file=self._outfile)
             self._simulation.minimizeEnergy()
