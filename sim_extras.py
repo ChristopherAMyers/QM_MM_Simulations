@@ -30,7 +30,8 @@ class QMatomsReporter(object):
 
     def report(self, simulation, qm_atoms):
         ids = []
-        for atom in self._atoms:
+        for atom in simulation.topology.atoms():
+        #for atom in self._atoms:
             if atom.index in qm_atoms:
                 ids.append(int(atom.id))
         ids = sorted(ids)

@@ -124,6 +124,8 @@ def get_qm_spheres(originAtoms, qm_atoms, radius_in_ang, xyz_in_ang, topology):
 
     qmSpheres = []
     resList = []
+    xyz_in_ang = np.array(xyz_in_ang)
+    dists = [np.linalg.norm(xyz_in_ang[i] - xyz_in_ang, axis=1) for i in originAtoms]
     for i in originAtoms:
         for residue in list(topology.residues()):
                 if residue.name != 'HOH': continue 
@@ -132,13 +134,15 @@ def get_qm_spheres(originAtoms, qm_atoms, radius_in_ang, xyz_in_ang, topology):
                 for atom in list(residue.atoms()):
                     if atom.index in qm_atoms: continue
                     if atom.index in originAtoms: continue
-                    dist = np.linalg.norm(xyz_in_ang[int(i)] - xyz_in_ang[atom.index])
+                    dist = dists[i][atom.index]
+                    #dist = np.linalg.norm(xyz_in_ang[int(i)] - xyz_in_ang[atom.index])
                     if dist < radius_in_ang:
                         isQuantum = True
    
                         break
                 if isQuantum:
                     for atom in list(residue.atoms()):
+                        print("QM_WATER: ", atom, xyz_in_ang[atom.index])
                         qmSpheres.append(atom.index)
                     resList.append(residue.id)
     return list(sorted(set(qmSpheres)))
@@ -624,7 +628,7 @@ def main(args):
 
         #DEBUG
         #simulation.reporters.append(StateDataReporter(open('openmm_report.txt', 'w'), 1, step=True, potentialEnergy=True, temperature=True, separator=' '))
-        #return simulation
+        #return simulation, qm_atoms, pdb
 
         #   set up files
         os.makedirs(scratch, exist_ok=True)
@@ -668,7 +672,7 @@ def main(args):
         #   run simulation
         for n in range(options.aimd_steps):
             if options.annealing:
-                #   add increase in temperature
+                #   add increase in temperaturemain(prog_args)
                 #   new temperature is T_0 + A*sin(t*w)^2
                 omega = np.pi / options.annealing_period
                 temp_diff = options.annealing_peak - options.aimd_temp
@@ -731,7 +735,8 @@ if __name__ == "__main__":
     #tmp_args = parse_args(sys.argv[1:])
     arg_list = parse_cmd_line_args(scratch)
     prog_args = parse_args(arg_list)
-    (pdb, system, integrator) = main(prog_args)
+    simulation, qm_atoms = main(prog_args)
+    #(pdb, system, integrator) = main(prog_args)
 
     ''' DEBUGGING ONLY  '''
     '''
