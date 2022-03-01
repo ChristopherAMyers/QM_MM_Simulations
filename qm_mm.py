@@ -1,7 +1,9 @@
-from simtk.openmm.app import * #pylint: disable=unused-wildcard-import
-from simtk.openmm import * #pylint: disable=unused-wildcard-import
-from simtk.openmm.openmm import * 
-from simtk.unit import * #pylint: disable=unused-wildcard-import
+from openmm.app import * #pylint: disable=unused-wildcard-import
+from openmm import * #pylint: disable=unused-wildcard-import
+from openmm.openmm import * 
+from openmm.unit import * #pylint: disable=unused-wildcard-import
+from openmm.app import forcefield as ff
+
 import argparse
 import numpy as np
 from numpy.linalg import norm
@@ -137,7 +139,7 @@ def get_qm_spheres(originAtoms, qm_atoms, radius_in_ang, xyz_in_ang, topology):
                         break
                 if isQuantum:
                     for atom in list(residue.atoms()):
-                    	qmSpheres.append(atom.index)
+                        qmSpheres.append(atom.index)
                     resList.append(residue.id)
     return list(sorted(set(qmSpheres)))
     
@@ -478,12 +480,14 @@ def main(args):
 
         rem_lines, options = get_rem_lines(args.rem, outfile)
         pdb = PDBFile(args.pdb)
-        pdb_to_qc.add_bonds(pdb, remove_orig=False)
-        data, bondedToAtom = pdb_to_qc.determine_connectivity(pdb.topology)
+        #pdb_to_qc.add_bonds(pdb, remove_orig=False)
+        #data, bondedToAtom = pdb_to_qc.determine_connectivity(pdb.topology)
 
         ff_loc = os.path.join(os.path.dirname(__file__), 'forcefields/forcefield2.xml')
-        forcefield = ForceField(ff_loc, 'tip3p.xml', *tuple(options.force_field_files))
+        #forcefield = ForceField(ff_loc, 'tip3p.xml', *tuple(options.force_field_files))
+        forcefield = ForceField('tip3p.xml', *tuple(options.force_field_files))
         [templates, residues] = forcefield.generateTemplatesForUnmatchedResidues(pdb.topology)
+  
         for n, template in enumerate(templates):
             residue = residues[n]
             atom_names = []            
@@ -506,10 +510,16 @@ def main(args):
         #   set initial number of QM atoms
         qm_sphere_atoms = get_qm_spheres(qm_origin_atoms, qm_fixed_atoms, options.qm_mm_radius/angstroms, pdb.getPositions()/angstrom, pdb.topology)
         qm_atoms = qm_fixed_atoms + qm_sphere_atoms
+        
+        #   create system objects
+        nbd_method = ff.NoCutoff
+        cutoff = 2.0*nanometers
+        if pdb.topology.getUnitCellDimensions() is not None:
+            nbd_method = ff.CutoffPeriodic
         if options.constrain_hbonds:
-            system = forcefield.createSystem(pdb.topology, rigidWater=False, constraints=HBonds)
+            system = forcefield.createSystem(pdb.topology, rigidWater=False, constraints=HBonds, nonbondedMethod=nbd_method, nonbondedCutoff=cutoff)
         else:
-            system = forcefield.createSystem(pdb.topology, rigidWater=False)
+            system = forcefield.createSystem(pdb.topology, rigidWater=False, nonbondedMethod=nbd_method, nonbondedCutoff=cutoff)
 
         #   QM fragment molecules
         if options.qm_fragments:
@@ -572,9 +582,14 @@ def main(args):
             fix_qm_mm_bonds(system, qm_atoms, pdb.positions, outfile)
 
         #return (pdb, system, integrator)
+        #   run external scripts
+        if isinstance(options.script_file, str):
+            print(options.script_file)
+            exec(open(options.script_file, 'r').read(), locals())
 
         #   initialize simulation and set positions
-        simulation = Simulation(pdb.topology, system, integrator)
+        simulation = Simulation(pdb.topology, system, integrator, Platform_getPlatformByName('CPU'))
+        exit()
 
         if args.state:
             print(" Setting initial positions and velocities from state file: ", file=outfile)

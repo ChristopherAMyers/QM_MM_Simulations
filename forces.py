@@ -1,13 +1,13 @@
 from numpy.lib.arraysetops import isin
-from simtk.openmm.app.topology import Topology
-from simtk.openmm.openmm import *
-from simtk.unit import * #pylint: disable=unused-wildcard-import
+from openmm.app.topology import Topology
+from openmm.openmm import *
+from openmm.unit import * #pylint: disable=unused-wildcard-import
 import numpy as np
 import os
 from openmm_import import *
 
 # pylint: disable=no-member
-import simtk.unit as unit
+import openmm.unit as unit
 picosecond = picoseconds = unit.picosecond
 nanometer = nanometers = unit.nanometer
 femtoseconds = unit.femtoseconds
@@ -267,7 +267,7 @@ class CentroidRestraintForce():
                 break
         num_nb_params = force.getNumPerParticleParameters()
 
-        from simtk.openmm.openmm import CustomCentroidBondForce
+        from openmm.openmm import CustomCentroidBondForce
         #force_string = "0.5*k*(distance(g1,g2) - r0)^2"
         force_string = "0.5*k*(r - r0)^2; "
         force_string += "r = sqrt(x_on*((x1 - x2)^2) + y_on*((y1 - y2)^2) + z_on*((z1 - z2)^2));"

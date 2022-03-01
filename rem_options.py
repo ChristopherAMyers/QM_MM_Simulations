@@ -141,6 +141,8 @@ def get_rem_lines(rem_file_loc, outfile):
                 if seed > 2147483647 or seed < -2147483648:
                     raise ValueError('rem AIMD_LANGEVIN_SEED must be between -2147483648 and 2147483647')
                 opts.aimd_langevin_seed = seed
+            elif option == 'script':
+                opts.script_file = sp[1]
             else:
                 rem_lines.append(line)
             #else:

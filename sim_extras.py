@@ -1,20 +1,19 @@
-from simtk.openmm.app import * #pylint: disable=unused-wildcard-import
-from simtk.openmm import * #pylint: disable=unused-wildcard-import
-from simtk.openmm.openmm import * #pylint: disable=unused-wildcard-import
-from simtk.unit import * #pylint: disable=unused-wildcard-import
+from openmm.app import * #pylint: disable=unused-wildcard-import
+from openmm import * #pylint: disable=unused-wildcard-import
+from openmm.openmm import * #pylint: disable=unused-wildcard-import
+from openmm.unit import * #pylint: disable=unused-wildcard-import
 from os import urandom
 import numpy as np
 import time
 import copy
-import simtk.openmm as mm
-import simtk.unit as unit
+import openmm.openmm as mm
+import openmm.unit as unit
 
 # pylint: disable=no-member
-import simtk
-picoseconds = simtk.unit.picoseconds
+picoseconds = unit.picoseconds
 picosecond = picoseconds
-nanometer = nanometers = simtk.unit.nanometer
-femtoseconds = simtk.unit.femtoseconds
+nanometer = nanometers = unit.nanometer
+femtoseconds = unit.femtoseconds
 # pylint: enable=no-member
 
 class QMatomsReporter(object):
@@ -355,3 +354,6 @@ class JobOptions(object):
 
         #   force field files
         self.force_field_files = []
+
+        #   external scripts to run before system is created
+        self.script_file = None

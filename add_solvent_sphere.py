@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-from simtk.openmm.app import * #pylint: disable=unused-wildcard-import
-from simtk.openmm import *
+from openmm.app import * #pylint: disable=unused-wildcard-import
+from openmm import *
 from openmmtools.integrators import VelocityVerletIntegrator
-from simtk.openmm.openmm import *
-from simtk.unit import *
+from openmm.openmm import *
+from openmm.unit import *
 import argparse
 import numpy as np
 from numpy.random import random
@@ -15,11 +15,10 @@ from openmm_import import *
 from scipy.spatial.transform import Rotation as rot
 
 # pylint: disable=no-member
-import simtk
-picoseconds = simtk.unit.picoseconds
+picoseconds = picoseconds
 picosecond = picoseconds
-nanometer = nanometers = simtk.unit.nanometer
-femtoseconds = simtk.unit.femtoseconds
+nanometer = nanometers = nanometer
+femtoseconds = femtoseconds
 # pylint: enable=no-member
 
 from sim_extras import *

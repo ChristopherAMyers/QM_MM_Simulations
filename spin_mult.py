@@ -1,10 +1,10 @@
-from simtk.openmm.app import * #pylint: disable=unused-wildcard-import
-from simtk.openmm import * #pylint: disable=unused-wildcard-import
-from simtk.openmm.openmm import * #pylint: disable=unused-wildcard-import
-from simtk.unit import * #pylint: disable=unused-wildcard-import
+from openmm.app import * #pylint: disable=unused-wildcard-import
+from openmm import * #pylint: disable=unused-wildcard-import
+from openmm.openmm import * #pylint: disable=unused-wildcard-import
+from openmm.unit import * #pylint: disable=unused-wildcard-import
 
 # pylint: disable=no-member
-import simtk.unit as unit
+import openmm.unit as unit
 picosecond = picoseconds = unit.picosecond
 nanometer = nanometers = unit.nanometer
 femtoseconds = unit.femtoseconds
