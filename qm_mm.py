@@ -462,6 +462,7 @@ def main(args):
     global scratch, n_procs, qc_scratch, qchem_path, qm_fragments
     oxygen_force = None
     ratchet_pawl_force = None
+    simulation = None
 
     #   make sure Q-Chem is available, exit otherwise
     if 'QC' in os.environ:
@@ -589,7 +590,6 @@ def main(args):
 
         #   initialize simulation and set positions
         simulation = Simulation(pdb.topology, system, integrator, Platform_getPlatformByName('CPU'))
-        exit()
 
         if args.state:
             print(" Setting initial positions and velocities from state file: ", file=outfile)
@@ -660,6 +660,10 @@ def main(args):
             optimize.minimize()
             return
 
+        #   run external scripts before simulation begins
+        if isinstance(options.script_file, str):
+            print(options.script_file)
+            exec(open(options.script_file, 'r').read(), locals())
 
         #   run simulation
         for n in range(options.aimd_steps):

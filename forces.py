@@ -966,7 +966,7 @@ def update_mm_forces(qm_atoms, system, context, coords, topology, outfile=sys.st
                 if num_qm_atoms > 0:
                     force.setAngleParameters(n, a, b, c, t, k*0.000)
                 else:
-                    force.setAngleParameters(n, a, b, c, t, 836.8*kilojoules_per_mole)
+                    force.setAngleParameters(n, a, b, c, t, 836.8*kilojoules_per_mole/radians**2)
             force.updateParametersInContext(context)
 
     #   print out the newly added QM atoms:
