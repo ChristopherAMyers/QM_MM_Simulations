@@ -142,7 +142,6 @@ def get_qm_spheres(originAtoms, qm_atoms, radius_in_ang, xyz_in_ang, topology):
                         break
                 if isQuantum:
                     for atom in list(residue.atoms()):
-                        print("QM_WATER: ", atom, xyz_in_ang[atom.index])
                         qmSpheres.append(atom.index)
                     resList.append(residue.id)
     return list(sorted(set(qmSpheres)))
