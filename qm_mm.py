@@ -582,8 +582,7 @@ def main(args):
         #   add constraints
         if options.constrain_qmmm_bonds:
             fix_qm_mm_bonds(system, qm_atoms, pdb.positions, outfile)
-
-        #return (pdb, system, integrator)
+            
         #   run external scripts
         if isinstance(options.script_file, str):
             print(options.script_file)
