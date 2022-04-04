@@ -266,7 +266,7 @@ class QChemRunner():
             exit()
 
         #   debug only: save all generated input files
-        shutil.copyfile(os.path.join(self._scratch, 'input'), os.path.join(self._scratch, 'input_{:d}'.format(step_number)))
+        #shutil.copyfile(os.path.join(self._scratch, 'input'), os.path.join(self._scratch, 'input_{:d}'.format(step_number)))
 
 
         return (energy, gradient)
