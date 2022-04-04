@@ -77,6 +77,7 @@ class StatsReporter(object):
         self._masses = None
         self._fixed_dof = 0
         self._constraint_idx = np.empty((0, 2))
+        self._num_qm_constraints = 0
 
     def __del__(self):
         self._out.close()
@@ -213,7 +214,18 @@ class StatsReporter(object):
                 params = system.getConstraintParameters(i)
                 self._constraint_idx = np.append(self._constraint_idx, [params[:2]], axis=0)
 
+            #   get number of constraints associated with QM atoms only
+            num_total_constraints = system.getNumConstraints()
+            self._num_qm_constraints = 0
+            for n in range(num_total_constraints):
+                p1, p2, dist = system.getConstraintParameters(n)
+                if p1 in qm_atoms or p2 in qm_atoms:
+                    self._num_qm_constraints += 1
+
+
         dof = self._fixed_dof
+        #   TODO: get the constraints associated with the qm_atoms, not the entire system
+        #dof -= self._num_qm_constraints
         dof -= system.getNumConstraints()
         self._dof = dof
 
@@ -223,7 +235,7 @@ class StatsReporter(object):
             is_qm_1 += self._constraint_idx[:, 0] == atom
             is_qm_2 += self._constraint_idx[:, 1] == atom
         n_qm_constr = np.sum(is_qm_1 * is_qm_2)
-        dof_qm = np.sum(self._masses[qm_atoms] != 0)
+        dof_qm = np.sum(self._masses[qm_atoms] != 0)*3
         dof_qm -= n_qm_constr
         dof_mm = dof - dof_qm
 

@@ -39,6 +39,7 @@ from rem_options import get_rem_lines
 #   explicit imports from openmm
 from openmm_import import *
 
+base_dir = None
 scratch = os.path.join(os.path.curdir, 'qm_mm_scratch/')
 qchem_path = ''
 qc_scratch = '/tmp'
@@ -72,7 +73,11 @@ def parse_args(args_in):
     parser.add_argument('-link',   help='QM/MM link atom ids file')
     parser.add_argument('-centroid', help='centroid restraint force file')
     parser.add_argument('-points', help='Point restraint force file')
-    return parser.parse_args(args_in)
+    args_out = parser.parse_args(args_in)
+
+    if args_out.pdb is not None:
+        args_out.pdb = os.path.abspath(args_out.pdb)
+    return args_out
 
 
 def parse_idx(idx_file_loc, topology):
@@ -467,22 +472,15 @@ def main(args):
     ratchet_pawl_force = None
     simulation = None
 
-    #   make sure Q-Chem is available, exit otherwise
-    if 'QC' in os.environ:
-        qchem_path = os.environ.get('QC')
-        qc_scratch = os.environ.get('QCSCRATCH')
-        print(" QC set as ", qchem_path)
-        print(" QCSCRATCH set as ", qc_scratch)
-    else:
-        print(" Error: environment variable QC not defined. Cannot find Q-Chem directory")
-        exit()
-
     if args.nt:
         n_procs = args.nt
 
     with open(args.out, 'w') as outfile:
 
         rem_lines, options = get_rem_lines(args.rem, outfile)
+        print("CHANGING DIRECTORY TO: ", scratch, file=outfile)
+        os.chdir(scratch)
+        
         pdb = PDBFile(args.pdb)
         #pdb_to_qc.add_bonds(pdb, remove_orig=False)
         #data, bondedToAtom = pdb_to_qc.determine_connectivity(pdb.topology)
@@ -521,9 +519,9 @@ def main(args):
         if pdb.topology.getUnitCellDimensions() is not None:
             nbd_method = ff.CutoffPeriodic
         if options.constrain_hbonds:
-            system = forcefield.createSystem(pdb.topology, rigidWater=False, constraints=HBonds, nonbondedMethod=nbd_method, nonbondedCutoff=cutoff)
+            system = forcefield.createSystem(pdb.topology, rigidWater=True, constraints=HBonds, nonbondedMethod=nbd_method, nonbondedCutoff=cutoff)
         else:
-            system = forcefield.createSystem(pdb.topology, rigidWater=False, nonbondedMethod=nbd_method, nonbondedCutoff=cutoff)
+            system = forcefield.createSystem(pdb.topology, rigidWater=True, nonbondedMethod=nbd_method, nonbondedCutoff=cutoff)
 
         #   QM fragment molecules
         if options.qm_fragments:
@@ -617,7 +615,7 @@ def main(args):
             kicks = RandomKicksForce(simulation, pdb.topology, options.aimd_temp, scale=options.random_kicks_scale)
 
         #   output files and reporters
-        stats_reporter = StatsReporter('stats.txt', 1, options, qm_atoms=qm_atoms, vel_file_loc=args.repv, force_file_loc=args.repf)
+        stats_reporter = StatsReporter(os.path.join(base_dir, 'stats.txt'), 1, options, qm_atoms=qm_atoms, vel_file_loc=args.repv, force_file_loc=args.repf)
         simulation.reporters.append(HDF5Reporter('output.h5', 1))
         qm_atoms_reporter = QMatomsReporter('qm_atoms.txt', pdb.topology)
         if options.cent_restraints:
@@ -642,8 +640,8 @@ def main(args):
             opt = BFGS(options.time_step*0.001)
 
         if options.jobtype != 'opt' and not args.state and options.jobtype != 'friction':
-            print(" Setting initial velocities to temperature of {:5f} K: ".format(options.aimd_temp/kelvin), file=outfile)
-            simulation.context.setVelocitiesToTemperature(options.aimd_temp, options.aimd_temp_seed)
+            print(" Setting initial velocities to temperature of {:5f} K: ".format(1.3*options.aimd_temp/kelvin), file=outfile)
+            simulation.context.setVelocitiesToTemperature(1.3*options.aimd_temp, options.aimd_temp_seed)
             #simulation.context.setVelocities([Vec3(1, 1, 1)*nanometers/picosecond]*pdb.topology.getNumAtoms())
         else:
             print(" Setting initial velocities to Zero: ", file=outfile)
@@ -670,6 +668,11 @@ def main(args):
 
         #   run simulation
         for n in range(options.aimd_steps):
+
+
+            if (n % 10) == 0:
+                copy_scratch(outfile)
+
             if options.annealing:
                 #   add increase in temperaturemain(prog_args)
                 #   new temperature is T_0 + A*sin(t*w)^2
@@ -707,7 +710,7 @@ def main(args):
             if options.restraints:
                 restraints.update(simulation, pos, outfile=outfile)            
             
-            if n % 10  == 0:
+            if n % 30  == 0:
                 simulation.saveState('simulation.xml')
 
             # if options.jobtype == 'opt':
@@ -729,9 +732,36 @@ def main(args):
 
     return simulation
               
-if __name__ == "__main__":
+def copy_scratch(outfile):
+    start_time = time.time()
 
-    #tmp_args = parse_args(sys.argv[1:])
+    print('\n\n --------------------------------------------\n', file=outfile)
+    print(" Creating scratch archive...", file=outfile)
+    archive_file = shutil.make_archive('output_archive', 'gztar', scratch)
+    shutil.copy2(archive_file, base_dir)
+    end_time = time.time()
+    print(" Done with archive. Time took {:.2f}s".format(end_time - start_time), file=outfile)
+    print(" Coppied archive file {:s} to {:s} ".format(archive_file, base_dir))
+    print(' --------------------------------------------\n\n\n', file=outfile)
+
+def set_scratch():
+    global scratch, n_procs, qc_scratch, qchem_path, qm_fragments
+    #   make sure Q-Chem is available, exit otherwise
+    if 'QC' in os.environ:
+        qchem_path = os.environ.get('QC')
+        qc_scratch = os.environ.get('QCSCRATCH')
+        print(" QC set as ", qchem_path)
+        print(" QCSCRATCH set as ", qc_scratch)
+        scratch = os.path.join(qc_scratch, 'qm_mm_scratch')
+        print("Program scratch: ", scratch)
+    else:
+        print(" Error: environment variable QC not defined. Cannot find Q-Chem directory")
+        exit()
+
+
+if __name__ == "__main__":
+    base_dir = os.path.abspath(os.path.curdir)
+    set_scratch()
     arg_list = parse_cmd_line_args(scratch)
     prog_args = parse_args(arg_list)
     simulation, qm_atoms = main(prog_args)

@@ -21,6 +21,7 @@ def parse_cmd_line_args(scratch_dir):
         return sys.argv[1:]
     else:
         file_loc = sys.argv[sys.argv.index('-ipt') + 1]
+    file_loc = path.abspath(file_loc)
 
     return_argv = []
     for argv in sys.argv[1:]:
@@ -40,6 +41,7 @@ def parse_cmd_line_args(scratch_dir):
         FileSections('$other', '$end', 'other')
     ]
 
+    
     copyfile(file_loc, path.join(scratch_dir, 'qm_mm_input'))
 
     current_read = None
@@ -82,7 +84,7 @@ def parse_cmd_line_args(scratch_dir):
     #   split data into individual files
     for sec in sections:
         if len(sec.lines) != 0 or sec.file_name == 'idx':
-            file_loc = path.join(scratch_dir, sec.file_name)
+            file_loc = path.abspath(path.join(scratch_dir, sec.file_name))
             if sec.arg:
                 return_argv.append(sec.arg)
                 return_argv.append(file_loc)

@@ -197,13 +197,14 @@ class QChemRunner():
             else:
                 run(cmd.split())
             end = time.time()
+
             #   forward Q-Chem output to output file and search for completion
             found_thank_you = False
             with open(output_file_loc, 'r', errors='ignore') as file:
                 for line in file.readlines():
                     if "Thank you" in line:
                         found_thank_you = True
-                    outfile.write(line)
+                    #outfile.write(line)
 
             if not found_thank_you:
                 failures += 1
