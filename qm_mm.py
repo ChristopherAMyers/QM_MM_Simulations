@@ -645,7 +645,8 @@ def main(args):
 
         if options.jobtype != 'opt' and not args.state and options.jobtype != 'friction':
             if args.velocity:
-                simulation.context.setVelocities(np.loadtxt(args.velocity) * 2187.69126364) # atomic units to nm/ps
+                print(" Setting initial velocities from input file: ", file=outfile)
+                simulation.context.setVelocities(np.loadtxt(args.velocity, comments=['$', '!']) * 2187.69126364) # atomic units to nm/ps
             else:
                 print(" Setting initial velocities to temperature of {:5f} K: ".format(1.3*options.aimd_temp/kelvin), file=outfile)
                 simulation.context.setVelocitiesToTemperature(options.aimd_temp, options.aimd_temp_seed)
