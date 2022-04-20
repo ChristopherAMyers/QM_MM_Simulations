@@ -131,6 +131,12 @@ def get_rem_lines(rem_file_loc, outfile):
             elif option == 'link_atoms':
                 opts.link_atoms = strtobool(sp[1])
 
+            #   type of qm_mm embedding model
+            elif option == "qm_mm_model":
+                opts.qm_mm_model = sp[1].lower()
+                if opts.qm_mm_model not in ['janus', 'oniom']:
+                    raise ValueError("QM_MM_MODEL must be either JANUS (default) or ONIOM")
+
             #   random number seeds
             elif option == 'aimd_temp_seed':
                 seed = int(sp[1])
@@ -180,9 +186,11 @@ def get_rem_lines(rem_file_loc, outfile):
     outfile.write(' number of steps:           {:>10d} \n'.format(opts.aimd_steps) )
     outfile.write(' Total QM charge:           {:10d} \n'.format(opts.charge))
     outfile.write(' QM Multiplicity:           {:10d} \n'.format(opts.mult))
+    outfile.write(' QM/MM embeding model:      {:10s} \n'.format(opts.qm_mm_model))
     outfile.write(' QM/MM radius:              {:>10.2f} Ang. \n'.format(opts.qm_mm_radius/angstroms) )
     outfile.write(' QM/MM update:              {:10d}. \n'.format(opts.qm_mm_update) )
     outfile.write(' QM/MM update frequency:    {:10d} steps. \n'.format(opts.qm_mm_update_freq) )
+    outfile.write(' Constrain QM/MM bonds:     {:10d} \n'.format(opts.constrain_qmmm_bonds))
     outfile.write(' Constrain QM/MM bonds:     {:10d} \n'.format(opts.constrain_qmmm_bonds))
 
     if opts.adapt_mult:

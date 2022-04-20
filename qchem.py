@@ -158,10 +158,11 @@ class QChemRunner():
 
 
             #   write external charges
-            file.write('$external_charges \n')
-            for line in chg_lines:
-                file.write(line)
-            file.write('$end \n\n')
+            if self._options.qm_mm_model.lower() == 'janus':
+                file.write('$external_charges \n')
+                for line in chg_lines:
+                    file.write(line)
+                file.write('$end \n\n')
 
             return input_file_loc
 

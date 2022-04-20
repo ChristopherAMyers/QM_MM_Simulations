@@ -12,6 +12,7 @@ from multiprocessing import cpu_count
 from subprocess import run
 import time
 import shutil
+import atexit
 from scipy import optimize
 from optimize import GradientMethod, BFGS, MMOnlyBFGS
 from mdtraj.reporters import HDF5Reporter
@@ -55,6 +56,7 @@ print("SLURM: ", 'SLURM_NTASKS' in os.environ.keys(), n_procs)
 
 
 def parse_args(args_in):
+    
     parser = argparse.ArgumentParser('')
     parser.add_argument('-pdb',   required=True, help='pdb molecule file to use')
     parser.add_argument('-rem',   required=False, help='rem arguments to use with Q-Chem')
@@ -73,6 +75,7 @@ def parse_args(args_in):
     parser.add_argument('-link',   help='QM/MM link atom ids file')
     parser.add_argument('-centroid', help='centroid restraint force file')
     parser.add_argument('-points', help='Point restraint force file')
+    parser.add_argument('-velocity', help="initial velocities to assign to each atom")
     args_out = parser.parse_args(args_in)
 
     if args_out.pdb is not None:
@@ -285,7 +288,7 @@ def update_mm_force(context, ext_force, coords_in_nm, outfile=sys.stdout):
     else:
         print(' efield.dat NOT found', file=outfile)
 
-def update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, coords_in_nm, charges, qm_energy=0.0, outfile=sys.stdout):
+def update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, coords_in_nm, charges, qm_mm_model='janus', qm_energy=0.0, outfile=sys.stdout):
     ''' Updates external force for ALL atoms, this includes
         QM and MM atoms. QM forces are updated via the qm_gradient,
         while the MM forces are updated from efield.dat file (this
@@ -314,8 +317,11 @@ def update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, coords_in_nm,
         print(' efield.dat NOT found', file=outfile)
         efield = np.zeros((n_atoms - n_qm_atoms, 3))
 
+    update_mm_force = True
+    if qm_mm_model.lower() == 'oniom':
+        update_mm_force = False
     #   QM and MM atoms use separate counters as their order 
-    #   is (most likely) not contiguous
+    #   is not guaranteed to be contiguous
     qm_idx = 0
     mm_idx = 0
     for n in range(n_atoms):
@@ -327,8 +333,10 @@ def update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, coords_in_nm,
             qm_idx += 1
             params[3] = 1.0
         else:
-            #gradient = -efield[n]
-            gradient = -efield[mm_idx]
+            if update_mm_force:
+                gradient = -efield[mm_idx]
+            else:
+                gradient = np.array([0.0, 0.0, 0.0])
             mm_idx += 1
             params[3] = charges[n]
 
@@ -465,7 +473,6 @@ def ionize(topology, coords, qm_atoms, num):
             if atom.name == 'H1':
                 coords[atom.index] = new_xyz*nanometers
 
-
 def main(args):
     global scratch, n_procs, qc_scratch, qchem_path, qm_fragments
     oxygen_force = None
@@ -519,7 +526,7 @@ def main(args):
         if pdb.topology.getUnitCellDimensions() is not None:
             nbd_method = ff.CutoffPeriodic
         if options.constrain_hbonds:
-            system = forcefield.createSystem(pdb.topology, rigidWater=True, constraints=HBonds, nonbondedMethod=nbd_method, nonbondedCutoff=cutoff)
+            system = forcefield.createSystem(pdb.topology, rigidWater=True, nonbondedMethod=nbd_method, nonbondedCutoff=cutoff, constraints=HBonds)
         else:
             system = forcefield.createSystem(pdb.topology, rigidWater=True, nonbondedMethod=nbd_method, nonbondedCutoff=cutoff)
 
@@ -639,12 +646,15 @@ def main(args):
             opt = BFGS(options.time_step*0.001)
 
         if options.jobtype != 'opt' and not args.state and options.jobtype != 'friction':
-            print(" Setting initial velocities to temperature of {:5f} K: ".format(1.3*options.aimd_temp/kelvin), file=outfile)
-            simulation.context.setVelocitiesToTemperature(1.3*options.aimd_temp, options.aimd_temp_seed)
-            #simulation.context.setVelocities([Vec3(1, 1, 1)*nanometers/picosecond]*pdb.topology.getNumAtoms())
+            if args.velocity:
+                simulation.context.setVelocities(np.loadtxt(args.velocity) * 2187.69126364) # atomic units to nm/ps
+            else:
+                print(" Setting initial velocities to temperature of {:5f} K: ".format(1.3*options.aimd_temp/kelvin), file=outfile)
+                simulation.context.setVelocitiesToTemperature(options.aimd_temp, options.aimd_temp_seed)
         else:
             print(" Setting initial velocities to Zero: ", file=outfile)
             simulation.context.setVelocities([Vec3(0, 0, 0)*nanometers/picosecond]*pdb.topology.getNumAtoms())
+        np.savetxt('init_veloc.txt', simulation.context.getState(getVelocities=True).getVelocities(True)/nanometers/picoseconds / 2187.69126364, header="Units in a.u.")
 
         #   for sanity checking
         print(' Integrator: ', type(integrator))
@@ -699,7 +709,7 @@ def main(args):
             qm_atoms_reporter.report(simulation, qm_atoms)
             if len(qm_atoms) > 0:
                 qm_energy, qm_gradient = qchem.get_qm_force(pos/angstroms, qm_atoms, n)
-                update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile)
+                update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile, qm_mm_model=options.qm_mm_model)
 
             #   additional force updates
             if options.ratchet_pawl:
@@ -730,14 +740,21 @@ def main(args):
 
 
     return simulation
-              
+
+@atexit.register
+def exit_and_copy():
+    copy_scratch(sys.stdout)
+
+
 def copy_scratch(outfile):
     start_time = time.time()
 
     print('\n\n --------------------------------------------\n', file=outfile)
     print(" Creating scratch archive...", file=outfile)
     archive_file = shutil.make_archive('output_archive', 'gztar', scratch)
-    shutil.copy2(archive_file, base_dir)
+    dir = os.path.dirname(os.path.abspath(archive_file))
+    if dir != base_dir:
+        shutil.copy2(archive_file, base_dir)
     end_time = time.time()
     print(" Done with archive. Time took {:.2f}s".format(end_time - start_time), file=outfile)
     print(" Coppied archive file {:s} to {:s} ".format(archive_file, base_dir))

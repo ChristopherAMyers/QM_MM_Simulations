@@ -306,6 +306,7 @@ class JobOptions(object):
         self.aimd_langevin_seed = int(urandom(4).hex(), 16) - 2147483647
 
         #   adaptive QM atoms
+        self.qm_mm_model = 'janus'
         self.qm_mm_radius = 3.0 * angstroms
         self.qm_mm_update = True
         self.qm_mm_update_freq = 10

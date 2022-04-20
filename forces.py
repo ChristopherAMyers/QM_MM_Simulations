@@ -801,14 +801,18 @@ def add_ext_force_all(system, charges):
     system.addForce(ext_force)
     return ext_force
 
-def add_nonbonded_force(qm_atoms, system, bonds, outfile=sys.stdout):
+def add_nonbonded_force(qm_atoms, system, bonds, qm_mm_model='janus', outfile=sys.stdout):
+    if qm_mm_model.lower() == 'janus':
+        coulomb_switch_func = 'max'
+    else:
+        coulomb_switch_func = 'min'
     forces = system.getForces()
     forceString = "lj_on*4*epsilon*((sigma/r)^12 - (sigma/r)^6) + coul_on*138.935458 * q/r; "
     forceString += "sigma=0.5*(sigma1+sigma2); "
     forceString += "epsilon=sqrt(epsilon1*epsilon2); "
     forceString += "q=q1*q2; "
     forceString += "lj_on=1 - min(is_qm1, is_qm2); "
-    forceString += "coul_on=1 - max(is_qm1, is_qm2); "
+    forceString += "coul_on=1 - {:s}(is_qm1, is_qm2); ".format(coulomb_switch_func)
     customForce = CustomNonbondedForce(forceString)
     customForce.addPerParticleParameter("q")
     customForce.addPerParticleParameter("sigma")

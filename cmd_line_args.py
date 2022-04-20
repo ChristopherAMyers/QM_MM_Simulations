@@ -29,6 +29,7 @@ def parse_cmd_line_args(scratch_dir):
 
     sections = [
         FileSections('$rem', '$end', 'rem', '-rem', trim=False),
+        FileSections('$velocity', '$end', 'init_velocity', '-velocity', trim=False),
         FileSections('$idx', '$end', 'idx', '-idx'),
         FileSections('$hugs', '$end', 'hugs', '-hugs'),
         FileSections('$restraints', '$end', 'restraints', '-rest'),
