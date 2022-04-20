@@ -779,7 +779,7 @@ if __name__ == "__main__":
     set_scratch()
     arg_list = parse_cmd_line_args(scratch)
     prog_args = parse_args(arg_list)
-    simulation, qm_atoms = main(prog_args)
+    simulation = main(prog_args)
     #(pdb, system, integrator) = main(prog_args)
 
     ''' DEBUGGING ONLY  '''

@@ -829,8 +829,10 @@ def add_nonbonded_force(qm_atoms, system, bonds, qm_mm_model='janus', outfile=sy
     charges = []
     qm_charges = []
     mm_atoms = []
+    nbd_method = None
     for i, force in enumerate(forces):
         if isinstance(force, NonbondedForce):
+            nbd_method = force.getNonbondedMethod()
             print(" Adding custom non-bonded force")
             for n in range(force.getNumParticles()):
                 chg, sig, eps = force.getParticleParameters(n)
@@ -849,6 +851,7 @@ def add_nonbonded_force(qm_atoms, system, bonds, qm_mm_model='janus', outfile=sy
             #customForce.addInteractionGroup(qm_atoms, mm_atoms)
             #customForce.addInteractionGroup(mm_atoms, mm_atoms)
             customForce.createExclusionsFromBonds(bond_idx_list, 2)
+            customForce.setNonbondedMethod(nbd_method)
             system.addForce(customForce)
 
     total_chg = np.sum(charges)
