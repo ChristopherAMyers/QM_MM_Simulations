@@ -37,10 +37,12 @@ def get_rem_lines(rem_file_loc, outfile):
                 opts.aimd_langevin_timescale = float(sp[1]) * femtoseconds
             elif option == 'constrain_qmmm_bonds':
                 opts.constrain_qmmm_bonds = strtobool(sp[1])
-            elif option == 'ff_file':
-                opts.force_field_files.append(os.path.abspath(orig_line.split()[1]))
             elif option == 'constrain_hbonds':
                 opts.constrain_hbonds = strtobool(sp[1])
+
+            #   force field files
+            elif option == 'ff_file':
+                opts.force_field_files.append(orig_line.split()[1])
 
 
             #   adaptive QM atoms
@@ -149,7 +151,7 @@ def get_rem_lines(rem_file_loc, outfile):
                     raise ValueError('rem AIMD_LANGEVIN_SEED must be between -2147483648 and 2147483647')
                 opts.aimd_langevin_seed = seed
             elif option == 'script':
-                opts.script_file = os.path.abspath(sp[1])
+                opts.script_file = os.path.abspath(orig_line.split()[1])
             else:
                 rem_lines.append(line)
             #else:

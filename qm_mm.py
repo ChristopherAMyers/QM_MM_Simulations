@@ -493,13 +493,11 @@ def main(args):
         #data, bondedToAtom = pdb_to_qc.determine_connectivity(pdb.topology)
 
         ff_loc = os.path.join(os.path.dirname(__file__), 'forcefields/forcefield2.xml')
-        #forcefield = ForceField(ff_loc, 'tip3p.xml', *tuple(options.force_field_files))
-        forcefield = ForceField('tip3p.xml', *tuple(options.force_field_files))
+        forcefield = ForceField(*tuple(options.force_field_files))
         [templates, residues] = forcefield.generateTemplatesForUnmatchedResidues(pdb.topology)
-  
         for n, template in enumerate(templates):
             residue = residues[n]
-            atom_names = []            
+            atom_names = []          
             for atom in template.atoms:
                 if residue.name in ['EXT', 'OTH']:
                     atom.type = 'OTHER-' + atom.element.symbol

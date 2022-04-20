@@ -26,11 +26,17 @@ class QChemRunner():
         self._options = copy.copy(options)
         self._outfile = outfile
         self._charges = copy.copy(charges)
-        self._elements = [x.element.symbol for x in topology.atoms()]
         self._scratch = scratch
         self._link_atoms_file = link_atoms_file
         self._link_atom_idx = []
         self._atom_ids = []
+
+        self._elements = []
+        for x in topology.atoms():
+            if x.element is not None:
+                self._elements.append(x.element.symbol)
+            else:
+                self._elements.append('XX')
 
         if link_atoms_file and options.link_atoms:
             self._set_link_atom_idx(link_atoms_file, outfile)
