@@ -609,8 +609,6 @@ def main(args):
             print(" {:s}".format(os.path.abspath(args.pdb)), file=outfile)
             simulation.context.setPositions(pdb.positions)
 
-
-
         #   remove bonded forces between QM and MM system
         adjust_forces(system, simulation.context, pdb.topology, qm_atoms, outfile=outfile)
 
@@ -620,8 +618,9 @@ def main(args):
 
         #   output files and reporters
         stats_reporter = StatsReporter(os.path.join(base_dir, 'stats.txt'), 1, options, qm_atoms=qm_atoms, vel_file_loc=args.repv, force_file_loc=args.repf)
-        simulation.reporters.append(HDF5Reporter('output.h5', 1))
-        qm_atoms_reporter = QMatomsReporter('qm_atoms.txt', pdb.topology)
+        simulation.reporters.append(HDF5Reporter('output.h5', options.traj_out_freq))
+        if options.qm_mm_update:
+            qm_atoms_reporter = QMatomsReporter('qm_atoms.txt', pdb.topology)
         if options.cent_restraints:
             simulation.reporters.append(CentroidRestraintForceReporter(cent_restraints.getForces(), outfile, 1, system))
         if options.point_restraints:
@@ -704,8 +703,8 @@ def main(args):
                 qm_atoms = qm_fixed_atoms + qm_sphere_atoms
                 qm_atoms = update_mm_forces(qm_atoms, system, simulation.context, pos, pdb.topology, outfile=outfile)
 
-
-            qm_atoms_reporter.report(simulation, qm_atoms)
+            if options.qm_mm_update:
+                qm_atoms_reporter.report(simulation, qm_atoms)
             if len(qm_atoms) > 0:
                 qm_energy, qm_gradient = qchem.get_qm_force(pos/angstroms, qm_atoms, n)
                 update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile, qm_mm_model=options.qm_mm_model)

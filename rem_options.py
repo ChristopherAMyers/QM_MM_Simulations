@@ -39,6 +39,8 @@ def get_rem_lines(rem_file_loc, outfile):
                 opts.constrain_qmmm_bonds = strtobool(sp[1])
             elif option == 'constrain_hbonds':
                 opts.constrain_hbonds = strtobool(sp[1])
+            elif option == 'traj_out_freq':
+                opts.traj_out_freq = int(sp[1])
 
             #   force field files
             elif option == 'ff_file':

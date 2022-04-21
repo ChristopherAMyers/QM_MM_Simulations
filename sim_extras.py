@@ -79,6 +79,9 @@ class StatsReporter(object):
         self._constraint_idx = np.empty((0, 2))
         self._num_qm_constraints = 0
 
+        #   TODO: recycle already generated states
+        self._previous_state = None
+
     def __del__(self):
         self._out.close()
 
@@ -371,3 +374,6 @@ class JobOptions(object):
 
         #   external scripts to run before system is created
         self.script_file = None
+
+        #   print options
+        self.traj_out_freq = 1
