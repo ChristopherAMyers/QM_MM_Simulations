@@ -202,6 +202,8 @@ class QChemRunner():
             if step_number == 0 and False:
                 shutil.copyfile(os.path.join(self._qc_scratch, 'save_files/output'), output_file_loc)
             else:
+                outfile.write(' Running command:\n' + cmd)
+                outfile.flush()
                 run(cmd.split())
             end = time.time()
 

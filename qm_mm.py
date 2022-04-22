@@ -80,6 +80,8 @@ def parse_args(args_in):
 
     if args_out.pdb is not None:
         args_out.pdb = os.path.abspath(args_out.pdb)
+    if args_out.state is not None:
+        args_out.state = os.path.abspath(args_out.state)
     return args_out
 
 
@@ -642,16 +644,17 @@ def main(args):
             #opt = GradientMethod(options.time_step*0.001)
             opt = BFGS(options.time_step*0.001)
 
-        if options.jobtype != 'opt' and not args.state and options.jobtype != 'friction':
-            if args.velocity:
-                print(" Setting initial velocities from input file: ", file=outfile)
-                simulation.context.setVelocities(np.loadtxt(args.velocity, comments=['$', '!']) * 2187.69126364) # atomic units to nm/ps
+        if not args.state:
+            if options.jobtype != 'opt' and options.jobtype != 'friction':
+                if args.velocity:
+                    print(" Setting initial velocities from input file: ", file=outfile)
+                    simulation.context.setVelocities(np.loadtxt(args.velocity, comments=['$', '!']) * 2187.69126364) # atomic units to nm/ps
+                else:
+                    print(" Setting initial velocities to temperature of {:5f} K: ".format(1.3*options.aimd_temp/kelvin), file=outfile)
+                    simulation.context.setVelocitiesToTemperature(options.aimd_temp, options.aimd_temp_seed)
             else:
-                print(" Setting initial velocities to temperature of {:5f} K: ".format(1.3*options.aimd_temp/kelvin), file=outfile)
-                simulation.context.setVelocitiesToTemperature(options.aimd_temp, options.aimd_temp_seed)
-        else:
-            print(" Setting initial velocities to Zero: ", file=outfile)
-            simulation.context.setVelocities([Vec3(0, 0, 0)*nanometers/picosecond]*pdb.topology.getNumAtoms())
+                print(" Setting initial velocities to Zero: ", file=outfile)
+                simulation.context.setVelocities([Vec3(0, 0, 0)*nanometers/picosecond]*pdb.topology.getNumAtoms())
         np.savetxt('init_veloc.txt', simulation.context.getState(getVelocities=True).getVelocities(True)/nanometers/picoseconds / 2187.69126364, header="Units in a.u.")
 
         #   for sanity checking
@@ -677,7 +680,7 @@ def main(args):
         for n in range(options.aimd_steps):
 
 
-            if (n % 10) == 0:
+            if (n % 50) == 0:
                 copy_scratch(outfile)
 
             if options.annealing:
