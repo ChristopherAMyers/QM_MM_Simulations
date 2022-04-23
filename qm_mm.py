@@ -680,7 +680,7 @@ def main(args):
         for n in range(options.aimd_steps):
 
 
-            if (n % 50) == 0:
+            if (n % 100) == 0:
                 copy_scratch(outfile)
 
             if options.annealing:
@@ -720,7 +720,7 @@ def main(args):
             if options.restraints:
                 restraints.update(simulation, pos, outfile=outfile)            
             
-            if n % 30  == 0:
+            if n % 100  == 0:
                 simulation.saveState('simulation.xml')
 
             # if options.jobtype == 'opt':
