@@ -801,7 +801,7 @@ def add_ext_force_all(system, charges):
     system.addForce(ext_force)
     return ext_force
 
-def add_nonbonded_force(qm_atoms, system, bonds, qm_mm_model='janus', outfile=sys.stdout):
+def add_nonbonded_force(qm_atoms, system, bonds, qm_mm_model='oniom', outfile=sys.stdout):
     if qm_mm_model.lower() == 'janus':
         coulomb_switch_func = 'max'
     else:
@@ -833,11 +833,12 @@ def add_nonbonded_force(qm_atoms, system, bonds, qm_mm_model='janus', outfile=sy
     for i, force in enumerate(forces):
         if isinstance(force, NonbondedForce):
             nbd_method = force.getNonbondedMethod()
-            print(" Adding custom non-bonded force")
+            nbd_cutoff = force.getCutoffDistance()
             for n in range(force.getNumParticles()):
                 chg, sig, eps = force.getParticleParameters(n)
                 charges.append(chg / elementary_charge)
 
+                # if n not in range(4060, 4064) and n > 27: chg *= 0
 
                 if n in qm_atoms:
                     qm_charges.append(chg / elementary_charge)
@@ -850,8 +851,9 @@ def add_nonbonded_force(qm_atoms, system, bonds, qm_mm_model='janus', outfile=sy
             system.removeForce(i)
             #customForce.addInteractionGroup(qm_atoms, mm_atoms)
             #customForce.addInteractionGroup(mm_atoms, mm_atoms)
-            customForce.createExclusionsFromBonds(bond_idx_list, 2)
+            customForce.createExclusionsFromBonds(bond_idx_list, 3)
             customForce.setNonbondedMethod(nbd_method)
+            customForce.setCutoffDistance(nbd_cutoff)
             system.addForce(customForce)
 
     total_chg = np.sum(charges)

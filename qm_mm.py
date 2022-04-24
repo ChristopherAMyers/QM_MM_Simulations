@@ -40,6 +40,13 @@ from rem_options import get_rem_lines
 #   explicit imports from openmm
 from openmm_import import *
 
+#   debug only
+try:
+    from fake_qchem import *
+except:
+    pass
+
+DEBUG=False
 base_dir = None
 scratch = os.path.join(os.path.curdir, 'qm_mm_scratch/')
 qchem_path = ''
@@ -184,7 +191,7 @@ def fix_qm_mm_bonds(system, qm_atoms, pos, outfile=sys.stdout):
         print(" None", file=outfile)
     print("\n", file=outfile)
 
-def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
+def adjust_forces(system, topology, qm_atoms, outfile=sys.stdout):
     #   set the force constants for atoms included
     #   in QM portion to zero
     num_bonds_removed = 0
@@ -206,7 +213,7 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
                 if (a in qm_atoms and b not in qm_atoms) or \
                    (b in qm_atoms and a not in qm_atoms):
                    qm_bonds.append([a, b, r, k])
-            force.updateParametersInContext(context)
+            #force.updateParametersInContext(context)
 
         elif isinstance(force, HarmonicAngleForce):
             for n in range(force.getNumAngles()):
@@ -218,7 +225,7 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
                     num_angles_removed += 1
                 if num_qm_atoms > 0 and num_qm_atoms < 3  :
                     qm_angles.append([a, b, c, t, k])
-            force.updateParametersInContext(context)
+            #force.updateParametersInContext(context)
 
         elif isinstance(force, PeriodicTorsionForce):
             for n in range(force.getNumTorsions()):
@@ -231,7 +238,7 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
                     num_tors_removed  += 1
                 if num_qm_atoms >= 0 and num_qm_atoms < 3:
                     qm_tors.append([a, b, c, d, mult, phi, k])
-            force.updateParametersInContext(context)
+            #force.updateParametersInContext(context)
 
         elif isinstance(force, NonbondedForce):
 
@@ -241,7 +248,7 @@ def adjust_forces(system, context, topology, qm_atoms, outfile=sys.stdout):
                 force.setParticleParameters(n, chg*0, sig, eps*0)
                 #if n in qm_atoms or True:
                 #    force.setParticleParameters(n, chg*0.0, sig, eps*0)
-            force.updateParametersInContext(context)
+            #force.updateParametersInContext(context)
                 
 
     print(" Number of bonds removed:    ", num_bonds_removed, file=outfile)
@@ -332,6 +339,7 @@ def update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, coords_in_nm,
 
         if n in qm_atoms:
             gradient = qm_gradient[qm_idx]
+            #gradient = np.array([0.0, 0.0, 0.0])
             qm_idx += 1
             params[3] = 1.0
         else:
@@ -522,7 +530,7 @@ def main(args):
         
         #   create system objects
         nbd_method = ff.NoCutoff
-        cutoff = 2.0*nanometers
+        cutoff = 2*nanometers
         if pdb.topology.getUnitCellDimensions() is not None:
             nbd_method = ff.CutoffPeriodic
         if options.constrain_hbonds:
@@ -535,7 +543,7 @@ def main(args):
             qm_fragments = QM_Fragments(args.frags, pdb.topology)
 
         #   re-map nonbonded forces so QM (mostly) only interacts with MM through vdW
-        charges = add_nonbonded_force(qm_atoms, system, pdb.topology.bonds(), outfile=outfile)
+        charges = add_nonbonded_force(qm_atoms, system, pdb.topology.bonds(), outfile=outfile, qm_mm_model=options.qm_mm_model)
 
         #   setup Q-Chem Runner for submitting and running QM part of the simulation
         qchem = QChemRunner(rem_lines, pdb.topology, charges, options, outfile, scratch, args.frags, args.link)
@@ -589,6 +597,9 @@ def main(args):
         #   add constraints
         if options.constrain_qmmm_bonds:
             fix_qm_mm_bonds(system, qm_atoms, pdb.positions, outfile)
+
+        #   remove bonded forces between QM and MM system
+        adjust_forces(system, pdb.topology, qm_atoms, outfile=outfile)
             
         #   run external scripts
         if isinstance(options.script_file, str):
@@ -610,9 +621,7 @@ def main(args):
             print(" Setting initial positions from PDB file: ", file=outfile)
             print(" {:s}".format(os.path.abspath(args.pdb)), file=outfile)
             simulation.context.setPositions(pdb.positions)
-
-        #   remove bonded forces between QM and MM system
-        adjust_forces(system, simulation.context, pdb.topology, qm_atoms, outfile=outfile)
+        simulation.context.computeVirtualSites()
 
         #   random kicks force
         if options.random_kicks:
@@ -635,7 +644,6 @@ def main(args):
         #   set up files
         os.makedirs(scratch, exist_ok=True)
         os.makedirs(qc_scratch, exist_ok=True)
-        atoms = list(pdb.topology.atoms())
 
         #   test to make sure that all qm_forces are fine
         print_initial_forces(simulation, qm_atoms, pdb.topology, outfile)
@@ -709,7 +717,10 @@ def main(args):
             if options.qm_mm_update:
                 qm_atoms_reporter.report(simulation, qm_atoms)
             if len(qm_atoms) > 0:
-                qm_energy, qm_gradient = qchem.get_qm_force(pos/angstroms, qm_atoms, n)
+                if DEBUG:
+                    qm_energy, qm_gradient = fake_qchem(pos, qm_atoms)
+                else:
+                    qm_energy, qm_gradient = qchem.get_qm_force(pos/angstroms, qm_atoms, n)
                 update_ext_force(simulation, qm_atoms, qm_gradient, ext_force, pos/nanometers, charges, qm_energy=qm_energy, outfile=outfile, qm_mm_model=options.qm_mm_model)
 
             #   additional force updates
