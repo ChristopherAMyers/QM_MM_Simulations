@@ -5,3 +5,4 @@ tests/aimd/force.txt
 tests/aimd/vel.txt
 tests/aimd/stats.txt
 *.pdb
+fake_qchem.py

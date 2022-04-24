@@ -63,7 +63,7 @@ print("SLURM: ", 'SLURM_NTASKS' in os.environ.keys(), n_procs)
 
 
 def parse_args(args_in):
-    
+    global DEBUG
     parser = argparse.ArgumentParser('')
     parser.add_argument('-pdb',   required=True, help='pdb molecule file to use')
     parser.add_argument('-rem',   required=False, help='rem arguments to use with Q-Chem')
@@ -83,12 +83,18 @@ def parse_args(args_in):
     parser.add_argument('-centroid', help='centroid restraint force file')
     parser.add_argument('-points', help='Point restraint force file')
     parser.add_argument('-velocity', help="initial velocities to assign to each atom")
+    parser.add_argument('-DEBUG', help='enable debug features', action='store_true')
     args_out = parser.parse_args(args_in)
 
     if args_out.pdb is not None:
         args_out.pdb = os.path.abspath(args_out.pdb)
     if args_out.state is not None:
         args_out.state = os.path.abspath(args_out.state)
+
+    if args_out.DEBUG:
+        DEBUG = True
+        print("\n  ######### ENTERING DEBUG MODE ##########  \n")
+
     return args_out
 
 
@@ -191,7 +197,7 @@ def fix_qm_mm_bonds(system, qm_atoms, pos, outfile=sys.stdout):
         print(" None", file=outfile)
     print("\n", file=outfile)
 
-def adjust_forces(system, topology, qm_atoms, outfile=sys.stdout):
+def adjust_forces(system, topology, qm_atoms, opts, outfile=sys.stdout):
     #   set the force constants for atoms included
     #   in QM portion to zero
     num_bonds_removed = 0
@@ -240,7 +246,7 @@ def adjust_forces(system, topology, qm_atoms, outfile=sys.stdout):
                     qm_tors.append([a, b, c, d, mult, phi, k])
             #force.updateParametersInContext(context)
 
-        elif isinstance(force, NonbondedForce):
+        elif isinstance(force, NonbondedForce) and opts.qm_mm_model == 'janus':
 
             for n in range(force.getNumParticles()):
                 chg, sig, eps = force.getParticleParameters(n)
@@ -599,7 +605,7 @@ def main(args):
             fix_qm_mm_bonds(system, qm_atoms, pdb.positions, outfile)
 
         #   remove bonded forces between QM and MM system
-        adjust_forces(system, pdb.topology, qm_atoms, outfile=outfile)
+        adjust_forces(system, pdb.topology, qm_atoms, options, outfile=outfile)
             
         #   run external scripts
         if isinstance(options.script_file, str):
@@ -793,25 +799,3 @@ if __name__ == "__main__":
     arg_list = parse_cmd_line_args(scratch)
     prog_args = parse_args(arg_list)
     simulation = main(prog_args)
-    #(pdb, system, integrator) = main(prog_args)
-
-    ''' DEBUGGING ONLY  '''
-    '''
-    system = local['system']
-    atoms = list(local['pdb'].topology.atoms())
-    for force in system.getForces():
-        if  isinstance(force, HarmonicBondForce):
-            for n in range(force.getNumBonds()):
-                a, b, r, k = force.getBondParameters(n)
-                ids = [int(atoms[x].id) for x in [a, b]]
-                for id in ids:
-                    if id in [68]:
-                        print(a, b, k, r, ids)
-    '''
-        #if  isinstance(force, CustomNonbondedForce):
-        #    for n in range(force.getNumParticles()):
-        #        params = list(force.getParticleParameters(n))
-        #        print(atoms[n].id, params)
-        
-
-

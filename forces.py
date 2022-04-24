@@ -803,6 +803,53 @@ def add_ext_force_all(system, charges):
 
 def add_nonbonded_force(qm_atoms, system, bonds, qm_mm_model='oniom', outfile=sys.stdout):
     if qm_mm_model.lower() == 'janus':
+        return adjustable_nonbonded_force(qm_atoms, system, bonds, qm_mm_model='oniom', outfile=sys.stdout)
+    else:
+        return fixed_nonbonded_force(qm_atoms, system, bonds, qm_mm_model='oniom', outfile=sys.stdout)
+
+def fixed_nonbonded_force(qm_atoms, system, bonds, qm_mm_model='oniom', outfile=sys.stdout):
+    #   report the sum of charges for QM and MM system and exclude
+    #   QM-QM interactions
+
+    print("USING NEW FORCE")
+    charges = []
+    qm_charges = []
+    mm_atoms = []
+    for i, force in enumerate(system.getForces()):
+        if isinstance(force, NonbondedForce):
+            print("N_PARTICLES: ", force.getNumParticles())
+
+            #   sum up teh charges
+            for n in range(force.getNumParticles()):
+                chg, sig, eps = force.getParticleParameters(n)
+                charges.append(chg / elementary_charge)
+                if n in qm_atoms:
+                    qm_charges.append(chg / elementary_charge)
+                else:
+                    mm_atoms.append(n)
+
+            #   exclude QM-QM interactions
+            for i in qm_atoms:
+                for j in qm_atoms:
+                    force.addException(i, j, 0.0, 1.0, 0.0, replace=True)
+
+
+    total_chg = np.sum(charges)
+    total_qm_chg = np.sum(qm_charges)
+    total_mm_chg = total_chg - total_qm_chg
+    print("", file=outfile)
+    print(" Force field charge distributions:", file=outfile)
+    print(" Total charge:    %.4f e" % round(total_chg, 4), file=outfile)
+    print(" Total MM charge: %.4f e" % round(total_mm_chg, 4), file=outfile)
+    print(" Total QM charge: %.4f e" % round(total_qm_chg, 4), file=outfile)
+    print("", file=outfile)
+    print(" Number of atoms: {:d}".format(len(charges)), file=outfile)
+    print("", file=outfile)
+    return charges
+
+def adjustable_nonbonded_force(qm_atoms, system, bonds, qm_mm_model='oniom', outfile=sys.stdout):
+    print("USING ADJUSTABLE FORCE")
+    if qm_mm_model.lower() == 'janus':
         coulomb_switch_func = 'max'
     else:
         coulomb_switch_func = 'min'
